@@ -5,6 +5,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case duplicates
     case largeFiles
     case unusedApps
+    case caches
     case cleanupPlan
 
     var id: String { rawValue }
@@ -15,6 +16,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .duplicates: "Duplicates"
         case .largeFiles: "Large Files"
         case .unusedApps: "Unused Apps"
+        case .caches: "Caches"
         case .cleanupPlan: "Cleanup Plan"
         }
     }
@@ -25,6 +27,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .duplicates: "doc.on.doc"
         case .largeFiles: "internaldrive"
         case .unusedApps: "app.dashed"
+        case .caches: "shippingbox"
         case .cleanupPlan: "trash"
         }
     }

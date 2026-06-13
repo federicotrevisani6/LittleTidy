@@ -10,6 +10,7 @@ public enum CleanupCategory: String, Codable, Sendable {
     case duplicate
     case largeFile
     case unusedApp
+    case cache
 }
 
 public struct FileRecord: Hashable, Codable, Sendable {

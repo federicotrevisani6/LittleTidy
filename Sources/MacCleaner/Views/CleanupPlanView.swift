@@ -167,7 +167,7 @@ private struct CleanupCategoryGroupsView: View {
 }
 
 private struct CleanupCategoryGroup {
-    static let orderedCategories: [CleanupCategory] = [.duplicate, .largeFile, .unusedApp]
+    static let orderedCategories: [CleanupCategory] = [.duplicate, .largeFile, .unusedApp, .cache]
 
     let category: CleanupCategory
     let items: [ReviewItem]
@@ -180,6 +180,8 @@ private struct CleanupCategoryGroup {
             return "Large Files"
         case .unusedApp:
             return "Unused Apps"
+        case .cache:
+            return "Caches"
         }
     }
 

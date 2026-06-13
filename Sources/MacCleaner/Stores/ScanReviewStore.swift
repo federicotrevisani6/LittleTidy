@@ -35,6 +35,9 @@ final class ScanReviewStore: ObservableObject {
             refreshPermissionReadiness()
         }
     }
+    @Published var includeCaches = true {
+        didSet { persistScanPreferences() }
+    }
     @Published var minimumDuplicateSize: Int64 = 1_000_000 {
         didSet { persistScanPreferences() }
     }
@@ -75,6 +78,7 @@ final class ScanReviewStore: ObservableObject {
         let preferences = scanPreferencesStore.load()
         self.includeHiddenFiles = preferences.includeHiddenFiles
         self.includeSystemFolders = preferences.includeSystemFolders
+        self.includeCaches = preferences.includeCaches
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
         refreshPermissionReadiness()
@@ -227,6 +231,7 @@ final class ScanReviewStore: ObservableObject {
         largeFileThreshold = 500_000_000
         includeHiddenFiles = false
         includeSystemFolders = false
+        includeCaches = true
         statusMessage = "Default scan settings restored"
     }
 
@@ -321,9 +326,17 @@ final class ScanReviewStore: ObservableObject {
     }
 
     private func approvedCleanupRoots() -> [URL] {
-        Array(
+        // Cache candidates live in well-known locations outside the user-selected
+        // scan roots (e.g. ~/Library/Caches), so approve their parent directories
+        // to satisfy the trash plan's containment check.
+        let cacheRoots = items
+            .filter { $0.category == .cache }
+            .flatMap { $0.plannedURLs }
+            .map { $0.deletingLastPathComponent() }
+
+        return Array(
             Dictionary(
-                grouping: scanRoots + appRoots,
+                grouping: scanRoots + appRoots + cacheRoots,
                 by: { $0.standardizedFileURL.path }
             )
             .compactMap { $0.value.first }
@@ -476,6 +489,7 @@ final class ScanReviewStore: ObservableObject {
         let options = ScanOptions(
             includeHiddenFiles: includeHiddenFiles,
             includeSystemFolders: includeSystemFolders,
+            includeCaches: includeCaches,
             minimumDuplicateSize: minimumDuplicateSize,
             largeFileThreshold: largeFileThreshold
         )
@@ -720,6 +734,7 @@ final class ScanReviewStore: ObservableObject {
         scanPreferencesStore.save(ScanPreferences(
             includeHiddenFiles: includeHiddenFiles,
             includeSystemFolders: includeSystemFolders,
+            includeCaches: includeCaches,
             minimumDuplicateSize: minimumDuplicateSize,
             largeFileThreshold: largeFileThreshold
         ))
@@ -869,7 +884,29 @@ final class ScanReviewStore: ObservableObject {
             )
         }
 
-        return duplicateItems + largeFileItems + appItems
+        let cacheItems = result.caches.map { candidate in
+            ReviewItem(
+                category: .cache,
+                title: candidate.displayName,
+                detail: cacheDetail(for: candidate),
+                location: candidate.url.deletingLastPathComponent().path(percentEncoded: false),
+                bytes: candidate.sizeBytes,
+                confidence: candidate.confidence,
+                reason: candidate.reason,
+                plannedURLs: [candidate.url],
+                duplicateCopies: [],
+                isSelected: false
+            )
+        }
+
+        return duplicateItems + largeFileItems + appItems + cacheItems
+    }
+
+    private static func cacheDetail(for candidate: CacheCandidate) -> String {
+        guard let lastModified = candidate.lastModified else {
+            return "Regenerable cache"
+        }
+        return "Last updated \(lastModified.formatted(date: .abbreviated, time: .omitted))"
     }
 
     private static func dateDetail(for file: FileRecord) -> String {

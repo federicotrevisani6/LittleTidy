@@ -66,6 +66,7 @@ struct OverviewView: View {
                     SummaryTile(title: "Duplicates", image: "doc.on.doc", bytes: store.reclaimableBytes(for: .duplicate), section: .duplicates, store: store)
                     SummaryTile(title: "Large Files", image: "internaldrive", bytes: store.reclaimableBytes(for: .largeFile), section: .largeFiles, store: store)
                     SummaryTile(title: "Unused Apps", image: "app.dashed", bytes: store.reclaimableBytes(for: .unusedApp), section: .unusedApps, store: store)
+                    SummaryTile(title: "Caches", image: "shippingbox", bytes: store.reclaimableBytes(for: .cache), section: .caches, store: store)
                 }
             }
 
@@ -402,6 +403,13 @@ private struct ScanSettingsView: View {
                     Text("System folders")
                         .foregroundStyle(.secondary)
                     Toggle("Allow", isOn: $store.includeSystemFolders)
+                        .toggleStyle(.checkbox)
+                }
+
+                GridRow {
+                    Text("App & dev caches")
+                        .foregroundStyle(.secondary)
+                    Toggle("Scan", isOn: $store.includeCaches)
                         .toggleStyle(.checkbox)
                 }
             }

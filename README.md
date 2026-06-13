@@ -26,6 +26,10 @@ to the **Trash**, so nothing is irreversible.
 - **Unused app detection** in `/Applications` and `~/Applications`, classified by
   last-used date (Spotlight metadata with filesystem fallback). System and Apple
   apps are never recommended for removal.
+- **App & developer cache cleanup** for regenerable caches: per-app
+  `~/Library/Caches`, Xcode DerivedData, and dev-tool caches (npm, Yarn, pip,
+  Gradle). Everything here is rebuilt automatically by its owning tool, and
+  removal stays Trash-only.
 - **Cleanup plan** with validation, warnings (cloud-synced folders, missing files,
   duplicate-keep rules), and a post-cleanup report of trashed / skipped / failed items.
 - **Security-scoped bookmarks** so approved folders persist across launches.
@@ -91,7 +95,7 @@ outputs/             # logic & UI design specs
 Active development. The current version covers the v1 safety model: Trash-only
 removal, no system areas, and no related-app-data cleanup. See
 [outputs/mac-cleaner-logic-spec.md](outputs/mac-cleaner-logic-spec.md) for the
-full design and roadmap (developer/app caches, deep uninstall, storage treemap).
+full design and roadmap (orphaned app-data cleanup, cleanup history, storage treemap).
 
 ## License
 

@@ -37,7 +37,8 @@ struct CleanupAnalysisTests {
         ]
 
         let result = try CleanupAnalysis(
-            appUsageAnalyzer: AppUsageAnalyzer(now: { Date().addingTimeInterval(220 * 86_400) })
+            appUsageAnalyzer: AppUsageAnalyzer(now: { Date().addingTimeInterval(220 * 86_400) }),
+            cacheAnalyzer: CacheAnalyzer(homeDirectory: directory.url)
         ).analyze(
             files: records,
             options: ScanOptions(minimumDuplicateSize: 1_000_000, largeFileThreshold: 1_000_000),

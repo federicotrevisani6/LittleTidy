@@ -3,12 +3,14 @@ import Foundation
 struct ScanPreferences: Equatable {
     var includeHiddenFiles: Bool
     var includeSystemFolders: Bool
+    var includeCaches: Bool
     var minimumDuplicateSize: Int64
     var largeFileThreshold: Int64
 
     static let `default` = ScanPreferences(
         includeHiddenFiles: false,
         includeSystemFolders: false,
+        includeCaches: true,
         minimumDuplicateSize: 1_000_000,
         largeFileThreshold: 500_000_000
     )
@@ -28,6 +30,7 @@ struct ScanPreferencesStore {
         ScanPreferences(
             includeHiddenFiles: userDefaults.object(forKey: Keys.includeHiddenFiles) as? Bool ?? ScanPreferences.default.includeHiddenFiles,
             includeSystemFolders: userDefaults.object(forKey: Keys.includeSystemFolders) as? Bool ?? ScanPreferences.default.includeSystemFolders,
+            includeCaches: userDefaults.object(forKey: Keys.includeCaches) as? Bool ?? ScanPreferences.default.includeCaches,
             minimumDuplicateSize: int64(forKey: Keys.minimumDuplicateSize, fallback: ScanPreferences.default.minimumDuplicateSize),
             largeFileThreshold: int64(forKey: Keys.largeFileThreshold, fallback: ScanPreferences.default.largeFileThreshold)
         )
@@ -36,6 +39,7 @@ struct ScanPreferencesStore {
     func save(_ preferences: ScanPreferences) {
         userDefaults.set(preferences.includeHiddenFiles, forKey: Keys.includeHiddenFiles)
         userDefaults.set(preferences.includeSystemFolders, forKey: Keys.includeSystemFolders)
+        userDefaults.set(preferences.includeCaches, forKey: Keys.includeCaches)
         userDefaults.set(preferences.minimumDuplicateSize, forKey: Keys.minimumDuplicateSize)
         userDefaults.set(preferences.largeFileThreshold, forKey: Keys.largeFileThreshold)
     }
@@ -54,6 +58,7 @@ struct ScanPreferencesStore {
     private enum Keys {
         static let includeHiddenFiles = "MacCleaner.includeHiddenFiles"
         static let includeSystemFolders = "MacCleaner.includeSystemFolders"
+        static let includeCaches = "MacCleaner.includeCaches"
         static let minimumDuplicateSize = "MacCleaner.minimumDuplicateSize"
         static let largeFileThreshold = "MacCleaner.largeFileThreshold"
     }

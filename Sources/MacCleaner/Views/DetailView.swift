@@ -31,6 +31,13 @@ struct DetailView: View {
                         items: store.items(for: .unusedApp),
                         store: store
                     )
+                case .caches:
+                    ReviewListView(
+                        title: "Caches",
+                        subtitle: "Regenerable app and developer caches. Cleared safely to the Trash.",
+                        items: store.items(for: .cache),
+                        store: store
+                    )
                 case .cleanupPlan:
                     CleanupPlanView(store: store)
                 }

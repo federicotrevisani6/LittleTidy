@@ -38,6 +38,8 @@ struct SidebarView: View {
             ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .largeFile))
         case .unusedApps:
             ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .unusedApp))
+        case .caches:
+            ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .cache))
         case .cleanupPlan:
             "\(store.selectedItems.count) selected"
         }

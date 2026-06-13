@@ -14,6 +14,7 @@ public struct ScanOptions: Sendable {
     public var includeHiddenFiles: Bool
     public var includeSystemFolders: Bool
     public var followSymbolicLinks: Bool
+    public var includeCaches: Bool
     public var minimumDuplicateSize: Int64
     public var largeFileThreshold: Int64
 
@@ -21,12 +22,14 @@ public struct ScanOptions: Sendable {
         includeHiddenFiles: Bool = false,
         includeSystemFolders: Bool = false,
         followSymbolicLinks: Bool = false,
+        includeCaches: Bool = true,
         minimumDuplicateSize: Int64 = 1_000_000,
         largeFileThreshold: Int64 = 500_000_000
     ) {
         self.includeHiddenFiles = includeHiddenFiles
         self.includeSystemFolders = includeSystemFolders
         self.followSymbolicLinks = followSymbolicLinks
+        self.includeCaches = includeCaches
         self.minimumDuplicateSize = minimumDuplicateSize
         self.largeFileThreshold = largeFileThreshold
     }
