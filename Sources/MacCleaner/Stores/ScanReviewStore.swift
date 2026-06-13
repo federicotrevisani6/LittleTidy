@@ -38,6 +38,13 @@ final class ScanReviewStore: ObservableObject {
     @Published var includeCaches = true {
         didSet { persistScanPreferences() }
     }
+    @Published var includeRelatedAppData = false {
+        didSet {
+            persistScanPreferences()
+            cleanupResultMessage = nil
+            cleanupReportItems = []
+        }
+    }
     @Published var minimumDuplicateSize: Int64 = 1_000_000 {
         didSet { persistScanPreferences() }
     }
@@ -79,6 +86,7 @@ final class ScanReviewStore: ObservableObject {
         self.includeHiddenFiles = preferences.includeHiddenFiles
         self.includeSystemFolders = preferences.includeSystemFolders
         self.includeCaches = preferences.includeCaches
+        self.includeRelatedAppData = preferences.includeRelatedAppData
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
         refreshPermissionReadiness()
@@ -232,6 +240,7 @@ final class ScanReviewStore: ObservableObject {
         includeHiddenFiles = false
         includeSystemFolders = false
         includeCaches = true
+        includeRelatedAppData = false
         statusMessage = "Default scan settings restored"
     }
 
@@ -256,6 +265,10 @@ final class ScanReviewStore: ObservableObject {
 
     func revealInFinder(_ copy: DuplicateCopyReview) {
         NSWorkspace.shared.activateFileViewerSelecting([copy.url])
+    }
+
+    func revealInFinder(forURL url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     func open(_ copy: DuplicateCopyReview) {
@@ -334,9 +347,16 @@ final class ScanReviewStore: ObservableObject {
             .flatMap { $0.plannedURLs }
             .map { $0.deletingLastPathComponent() }
 
+        // Related app data lives in standard Library locations outside the scan
+        // roots; approve their parents so the containment check passes.
+        let relatedDataRoots = items
+            .filter { $0.category == .unusedApp }
+            .flatMap { $0.relatedData }
+            .map { $0.url.deletingLastPathComponent() }
+
         return Array(
             Dictionary(
-                grouping: scanRoots + appRoots + cacheRoots,
+                grouping: scanRoots + appRoots + cacheRoots + relatedDataRoots,
                 by: { $0.standardizedFileURL.path }
             )
             .compactMap { $0.value.first }
@@ -352,7 +372,10 @@ final class ScanReviewStore: ObservableObject {
 
     private func selectedPlannedURLs(for item: ReviewItem) -> [URL] {
         if item.duplicateCopies.isEmpty {
-            return item.isSelected ? item.plannedURLs : []
+            guard item.isSelected else {
+                return []
+            }
+            return item.plannedURLs + includedRelatedURLs(for: item)
         }
         return item.duplicateCopies
             .filter { $0.isSelected && !$0.isRecommendedKeep }
@@ -361,7 +384,7 @@ final class ScanReviewStore: ObservableObject {
 
     private func selectedBytes(for item: ReviewItem) -> Int64 {
         if item.duplicateCopies.isEmpty {
-            return item.isSelected ? item.bytes : 0
+            return item.isSelected ? item.bytes + includedRelatedBytes(for: item) : 0
         }
         return item.duplicateCopies
             .filter { $0.isSelected && !$0.isRecommendedKeep }
@@ -370,22 +393,42 @@ final class ScanReviewStore: ObservableObject {
 
     private func reclaimableBytes(for item: ReviewItem) -> Int64 {
         if item.duplicateCopies.isEmpty {
-            return item.bytes
+            return item.bytes + includedRelatedBytes(for: item)
         }
         return item.duplicateCopies
             .filter { !$0.isRecommendedKeep }
             .reduce(Int64(0)) { $0 + $1.bytes }
     }
 
+    /// Related app-data entries that should join the cleanup plan, gated by the
+    /// opt-in "deep uninstall" toggle and applicable only to unused apps.
+    private func includedRelatedURLs(for item: ReviewItem) -> [URL] {
+        guard includeRelatedAppData, item.category == .unusedApp else {
+            return []
+        }
+        return item.relatedData.map(\.url)
+    }
+
+    private func includedRelatedBytes(for item: ReviewItem) -> Int64 {
+        guard includeRelatedAppData, item.category == .unusedApp else {
+            return 0
+        }
+        return item.relatedData.reduce(Int64(0)) { $0 + $1.sizeBytes }
+    }
+
     private func bytes(for url: URL, in item: ReviewItem) -> Int64 {
         if let copy = item.duplicateCopies.first(where: { $0.url == url }) {
             return copy.bytes
         }
-        // Single-entry items (large files, unused apps) carry their exact size on the item.
-        if item.plannedURLs.count <= 1 {
+        if let related = item.relatedData.first(where: { $0.url == url }) {
+            return related.sizeBytes
+        }
+        // The item's own size applies to its primary planned entry (e.g. an app
+        // bundle, a large file). A single-entry item always uses it directly.
+        if item.plannedURLs.contains(url) || (item.plannedURLs.count <= 1 && item.relatedData.isEmpty) {
             return item.bytes
         }
-        // Multi-entry items: measure each entry rather than splitting the total evenly.
+        // Anything else: measure the entry rather than splitting a total evenly.
         if let values = try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .fileSizeKey]),
            let measured = values.totalFileAllocatedSize ?? values.fileSize {
             return Int64(measured)
@@ -616,7 +659,11 @@ final class ScanReviewStore: ObservableObject {
         }
 
         if selectedItems.contains(where: { $0.category == .unusedApp }) {
-            warnings.append("Unused app cleanup moves only the app bundle; related app data is excluded.")
+            if includeRelatedAppData {
+                warnings.append("Deep uninstall is on: related app data matched by bundle identifier will also be moved to Trash.")
+            } else {
+                warnings.append("Unused app cleanup moves only the app bundle; related app data is excluded.")
+            }
         }
 
         let missingCount = selectedItems
@@ -735,6 +782,7 @@ final class ScanReviewStore: ObservableObject {
             includeHiddenFiles: includeHiddenFiles,
             includeSystemFolders: includeSystemFolders,
             includeCaches: includeCaches,
+            includeRelatedAppData: includeRelatedAppData,
             minimumDuplicateSize: minimumDuplicateSize,
             largeFileThreshold: largeFileThreshold
         ))
@@ -880,6 +928,7 @@ final class ScanReviewStore: ObservableObject {
                 reason: classified.reason,
                 plannedURLs: [classified.record.appURL],
                 duplicateCopies: [],
+                relatedData: classified.record.relatedData,
                 isSelected: false
             )
         }

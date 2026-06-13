@@ -12,6 +12,7 @@ struct ReviewItem: Identifiable, Hashable {
     let reason: String
     let plannedURLs: [URL]
     var duplicateCopies: [DuplicateCopyReview]
+    var relatedData: [RelatedAppData] = []
     var isSelected: Bool
 }
 

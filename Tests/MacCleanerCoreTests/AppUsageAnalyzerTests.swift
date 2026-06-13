@@ -65,6 +65,36 @@ struct AppUsageAnalyzerTests {
         #expect(record.confidence == .low)
     }
 
+    @Test("locates related app data by exact bundle identifier and ignores others")
+    func findsRelatedAppData() throws {
+        let home = try TemporaryDirectory().url
+        let library = home.appendingPathComponent("Library", isDirectory: true)
+        let bundleID = "com.example.app"
+
+        let appSupport = library.appendingPathComponent("Application Support/\(bundleID)", isDirectory: true)
+        let container = library.appendingPathComponent("Containers/\(bundleID)", isDirectory: true)
+        let unrelated = library.appendingPathComponent("Application Support/com.other.app", isDirectory: true)
+        for directory in [appSupport, container, unrelated] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        try Data(repeating: 1, count: 4_096).write(to: appSupport.appendingPathComponent("data.bin"))
+        try Data(repeating: 2, count: 8_192).write(to: container.appendingPathComponent("data.bin"))
+        try Data(repeating: 3, count: 4_096).write(to: unrelated.appendingPathComponent("data.bin"))
+
+        let preferences = library.appendingPathComponent("Preferences", isDirectory: true)
+        try FileManager.default.createDirectory(at: preferences, withIntermediateDirectories: true)
+        try Data(repeating: 4, count: 1_024).write(to: preferences.appendingPathComponent("\(bundleID).plist"))
+
+        let analyzer = AppUsageAnalyzer(homeDirectory: home)
+        let related = analyzer.relatedAppData(bundleIdentifier: bundleID)
+
+        let kinds = Set(related.map(\.kind))
+        #expect(kinds == ["Application Support", "Container", "Preferences"])
+        #expect(related.allSatisfy { $0.url.path.contains(bundleID) })
+        #expect(!related.contains { $0.url.path.contains("com.other.app") })
+        #expect(analyzer.relatedAppData(bundleIdentifier: nil).isEmpty)
+    }
+
     private func createAppBundle(in applications: URL) throws -> URL {
         let app = applications.appendingPathComponent("Example.app", isDirectory: true)
         let contents = app.appendingPathComponent("Contents", isDirectory: true)

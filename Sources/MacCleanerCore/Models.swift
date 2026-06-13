@@ -89,6 +89,20 @@ public struct LargeFileCandidate: Codable, Sendable {
     }
 }
 
+/// A file or folder belonging to an app, located conservatively by exact
+/// bundle identifier. Surfaced for "deep uninstall" and always Trash-only.
+public struct RelatedAppData: Codable, Sendable, Hashable {
+    public let url: URL
+    public let sizeBytes: Int64
+    public let kind: String
+
+    public init(url: URL, sizeBytes: Int64, kind: String) {
+        self.url = url
+        self.sizeBytes = sizeBytes
+        self.kind = kind
+    }
+}
+
 public struct AppUsageRecord: Codable, Sendable {
     public let appURL: URL
     public let bundleIdentifier: String?
@@ -98,6 +112,7 @@ public struct AppUsageRecord: Codable, Sendable {
     public let lastOpenedDate: Date?
     public let installDate: Date?
     public let relatedDataEstimateBytes: Int64?
+    public let relatedData: [RelatedAppData]
     public let confidence: Confidence
 
     public init(
@@ -109,6 +124,7 @@ public struct AppUsageRecord: Codable, Sendable {
         lastOpenedDate: Date?,
         installDate: Date?,
         relatedDataEstimateBytes: Int64?,
+        relatedData: [RelatedAppData] = [],
         confidence: Confidence
     ) {
         self.appURL = appURL
@@ -119,6 +135,7 @@ public struct AppUsageRecord: Codable, Sendable {
         self.lastOpenedDate = lastOpenedDate
         self.installDate = installDate
         self.relatedDataEstimateBytes = relatedDataEstimateBytes
+        self.relatedData = relatedData
         self.confidence = confidence
     }
 }

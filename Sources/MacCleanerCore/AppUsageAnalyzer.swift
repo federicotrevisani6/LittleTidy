@@ -22,15 +22,18 @@ public struct ClassifiedAppUsage: Sendable {
 
 public struct AppUsageAnalyzer {
     private let fileManager: FileManager
+    private let home: URL
     private let now: @Sendable () -> Date
     private let lastUsedMetadataDate: @Sendable (URL) -> Date?
 
     public init(
         fileManager: FileManager = .default,
+        homeDirectory: URL? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         lastUsedMetadataDate: @escaping @Sendable (URL) -> Date? = AppUsageAnalyzer.spotlightLastUsedDate
     ) {
         self.fileManager = fileManager
+        self.home = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
         self.now = now
         self.lastUsedMetadataDate = lastUsedMetadataDate
     }
@@ -91,6 +94,7 @@ public struct AppUsageAnalyzer {
         let values = try? appURL.resourceValues(forKeys: [.creationDateKey, .contentAccessDateKey, .contentModificationDateKey])
         let metadataLastUsedDate = lastUsedMetadataDate(appURL)
         let fallbackLastOpenedDate = values?.contentAccessDate ?? values?.contentModificationDate
+        let relatedData = relatedAppData(bundleIdentifier: bundleIdentifier)
         return AppUsageRecord(
             appURL: appURL,
             bundleIdentifier: bundleIdentifier,
@@ -99,9 +103,63 @@ public struct AppUsageAnalyzer {
             appSizeBytes: directoryAllocatedSize(appURL),
             lastOpenedDate: metadataLastUsedDate ?? fallbackLastOpenedDate,
             installDate: values?.creationDate,
-            relatedDataEstimateBytes: nil,
+            relatedDataEstimateBytes: relatedData.isEmpty ? nil : relatedData.reduce(Int64(0)) { $0 + $1.sizeBytes },
+            relatedData: relatedData,
             confidence: metadataLastUsedDate == nil ? .low : .medium
         )
+    }
+
+    /// Locates app support files conservatively: exact bundle-identifier match
+    /// only, in the standard user Library locations. Group Containers (keyed by
+    /// team identifier) and display-name matches are intentionally excluded to
+    /// avoid removing data that belongs to another app.
+    func relatedAppData(bundleIdentifier: String?) -> [RelatedAppData] {
+        guard let bundleID = bundleIdentifier, !bundleID.isEmpty else {
+            return []
+        }
+
+        let library = home.appendingPathComponent("Library", isDirectory: true)
+        var results: [RelatedAppData] = []
+
+        func append(_ url: URL, kind: String) {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+                return
+            }
+            let size = isDirectory.boolValue ? directoryAllocatedSize(url) : fileAllocatedSize(url)
+            results.append(RelatedAppData(url: url, sizeBytes: size, kind: kind))
+        }
+
+        // Directories named exactly by bundle identifier.
+        append(library.appendingPathComponent("Application Support/\(bundleID)", isDirectory: true), kind: "Application Support")
+        append(library.appendingPathComponent("Caches/\(bundleID)", isDirectory: true), kind: "Caches")
+        append(library.appendingPathComponent("Containers/\(bundleID)", isDirectory: true), kind: "Container")
+        append(library.appendingPathComponent("HTTPStorages/\(bundleID)", isDirectory: true), kind: "HTTP storage")
+        append(library.appendingPathComponent("WebKit/\(bundleID)", isDirectory: true), kind: "WebKit data")
+        append(library.appendingPathComponent("Logs/\(bundleID)", isDirectory: true), kind: "Logs")
+
+        // Files named exactly by bundle identifier.
+        append(library.appendingPathComponent("Preferences/\(bundleID).plist"), kind: "Preferences")
+        append(library.appendingPathComponent("Saved Application State/\(bundleID).savedState", isDirectory: true), kind: "Saved state")
+
+        // Launch agents are prefixed by the bundle identifier.
+        let launchAgents = library.appendingPathComponent("LaunchAgents", isDirectory: true)
+        if let entries = try? fileManager.contentsOfDirectory(
+            at: launchAgents,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            for entry in entries where entry.pathExtension == "plist" && entry.lastPathComponent.hasPrefix(bundleID) {
+                append(entry, kind: "Launch agent")
+            }
+        }
+
+        return results
+    }
+
+    private func fileAllocatedSize(_ url: URL) -> Int64 {
+        let values = try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .fileSizeKey])
+        return Int64(values?.totalFileAllocatedSize ?? values?.fileSize ?? 0)
     }
 
     private func collectApplications(at root: URL, into records: inout [AppUsageRecord]) {

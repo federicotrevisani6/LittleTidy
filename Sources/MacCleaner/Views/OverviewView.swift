@@ -412,6 +412,13 @@ private struct ScanSettingsView: View {
                     Toggle("Scan", isOn: $store.includeCaches)
                         .toggleStyle(.checkbox)
                 }
+
+                GridRow {
+                    Text("Deep uninstall")
+                        .foregroundStyle(.secondary)
+                    Toggle("Include related app data", isOn: $store.includeRelatedAppData)
+                        .toggleStyle(.checkbox)
+                }
             }
 
             HStack {

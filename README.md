@@ -30,6 +30,11 @@ to the **Trash**, so nothing is irreversible.
   `~/Library/Caches`, Xcode DerivedData, and dev-tool caches (npm, Yarn, pip,
   Gradle). Everything here is rebuilt automatically by its owning tool, and
   removal stays Trash-only.
+- **Deep uninstall (opt-in)** for unused apps: locates related app data by
+  *exact bundle identifier* (Application Support, Caches, Containers,
+  Preferences, Saved State, Logs, …). Off by default, shown transparently
+  before removal, and Trash-only. Group Containers and name-based matches are
+  intentionally excluded to avoid removing another app's data.
 - **Cleanup plan** with validation, warnings (cloud-synced folders, missing files,
   duplicate-keep rules), and a post-cleanup report of trashed / skipped / failed items.
 - **Security-scoped bookmarks** so approved folders persist across launches.
@@ -95,7 +100,7 @@ outputs/             # logic & UI design specs
 Active development. The current version covers the v1 safety model: Trash-only
 removal, no system areas, and no related-app-data cleanup. See
 [outputs/mac-cleaner-logic-spec.md](outputs/mac-cleaner-logic-spec.md) for the
-full design and roadmap (orphaned app-data cleanup, cleanup history, storage treemap).
+full design and roadmap (cleanup history, storage treemap).
 
 ## License
 

@@ -71,8 +71,12 @@ struct ReviewListView: View {
                                 }
                             )
 
-                            if expandedDuplicateIDs.contains(item.id), !item.duplicateCopies.isEmpty {
-                                DuplicateCopiesView(item: item, store: store)
+                            if expandedDuplicateIDs.contains(item.id) {
+                                if !item.duplicateCopies.isEmpty {
+                                    DuplicateCopiesView(item: item, store: store)
+                                } else if !item.relatedData.isEmpty {
+                                    RelatedDataView(item: item, store: store)
+                                }
                             }
                         }
                         if item.id != filteredItems.last?.id {
@@ -95,7 +99,7 @@ struct ReviewListView: View {
     }
 
     private func toggleExpansion(for item: ReviewItem) {
-        guard !item.duplicateCopies.isEmpty else {
+        guard !item.duplicateCopies.isEmpty || !item.relatedData.isEmpty else {
             return
         }
         if expandedDuplicateIDs.contains(item.id) {
@@ -234,15 +238,19 @@ private struct ReviewRow: View {
     let open: () -> Void
     let preview: () -> Void
 
+    private var hasExpandableDetail: Bool {
+        !item.duplicateCopies.isEmpty || !item.relatedData.isEmpty
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             Button(action: toggleExpansion) {
-                Image(systemName: item.duplicateCopies.isEmpty ? "circle" : isExpanded ? "chevron.down" : "chevron.right")
-                    .foregroundStyle(item.duplicateCopies.isEmpty ? .clear : .secondary)
+                Image(systemName: hasExpandableDetail ? (isExpanded ? "chevron.down" : "chevron.right") : "circle")
+                    .foregroundStyle(hasExpandableDetail ? Color.secondary : Color.clear)
                     .frame(width: 16)
             }
             .buttonStyle(.plain)
-            .disabled(item.duplicateCopies.isEmpty)
+            .disabled(!hasExpandableDetail)
 
             Toggle("", isOn: Binding(get: { isSelected }, set: { _ in toggle() }))
                 .labelsHidden()
@@ -356,6 +364,86 @@ private struct DuplicateCopiesView: View {
                 .padding(.vertical, 8)
                 .padding(.leading, 58)
                 .padding(.trailing, 14)
+            }
+        }
+        .background(.thinMaterial)
+    }
+}
+
+private struct RelatedDataView: View {
+    let item: ReviewItem
+    @ObservedObject var store: ScanReviewStore
+
+    private var totalBytes: Int64 {
+        item.relatedData.reduce(Int64(0)) { $0 + $1.sizeBytes }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Toggle("Also remove related data", isOn: $store.includeRelatedAppData)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                Spacer()
+                Text("\(item.relatedData.count) items · \(ByteCountFormatter.cleanerString(from: totalBytes))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 8)
+            .padding(.leading, 58)
+            .padding(.trailing, 14)
+
+            Text(store.includeRelatedAppData
+                 ? "Matched by bundle identifier. Included in the cleanup plan and moved to Trash with the app."
+                 : "Matched by bundle identifier. Not included — enable the switch to move these to Trash with the app.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 58)
+                .padding(.trailing, 14)
+                .padding(.bottom, 6)
+
+            ForEach(item.relatedData, id: \.url) { entry in
+                HStack(spacing: 12) {
+                    Image(systemName: "folder")
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 16)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 8) {
+                            Text(entry.kind)
+                                .font(.subheadline.weight(.medium))
+                            Text(entry.url.lastPathComponent)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        Text(entry.url.deletingLastPathComponent().path(percentEncoded: false))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .layoutPriority(1)
+
+                    Spacer()
+
+                    Text(ByteCountFormatter.cleanerString(from: entry.sizeBytes))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        store.revealInFinder(forURL: entry.url)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+                .padding(.leading, 58)
+                .padding(.trailing, 14)
+                .opacity(store.includeRelatedAppData ? 1 : 0.55)
             }
         }
         .background(.thinMaterial)
