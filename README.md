@@ -109,5 +109,6 @@ full design and background.
 
 ## License
 
-To be decided — see project owner. Until a `LICENSE` file is added, all rights
-are reserved.
+Released under the [MIT License](LICENSE) — © 2026 Federico Trevisani. You may
+use, modify, and distribute it freely, including in closed-source software,
+provided the copyright notice and license text are retained.
