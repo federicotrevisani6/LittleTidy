@@ -69,6 +69,8 @@ struct CleanupPlanView: View {
             CleanupReportView(items: store.cleanupReportItems)
 
             CleanupCategoryGroupsView(items: store.selectedItems, store: store)
+
+            CleanupHistoryView(store: store)
         }
     }
 }
@@ -198,6 +200,79 @@ private struct CleanupCategoryGroup {
         return item.duplicateCopies
             .filter { $0.isSelected && !$0.isRecommendedKeep }
             .reduce(Int64(0)) { $0 + $1.bytes }
+    }
+}
+
+private struct CleanupHistoryView: View {
+    @ObservedObject var store: ScanReviewStore
+
+    private var totalFreed: Int64 {
+        store.cleanupHistory.reduce(Int64(0)) { $0 + $1.bytesFreed }
+    }
+
+    var body: some View {
+        if !store.cleanupHistory.isEmpty {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(store.cleanupHistory.prefix(10)) { entry in
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 18)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline.weight(.medium))
+                                Text(historyDetail(for: entry))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Text(ByteCountFormatter.cleanerString(from: entry.bytesFreed))
+                                .font(.headline)
+                                .foregroundStyle(.green)
+                        }
+                    }
+
+                    if store.cleanupHistory.count > 10 {
+                        Text("\(store.cleanupHistory.count - 10) earlier cleanups not shown")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button("Clear History", role: .destructive) {
+                        store.clearCleanupHistory()
+                    }
+                    .controlSize(.small)
+                    .padding(.top, 4)
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Label("Cleanup History", systemImage: "clock.arrow.circlepath")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(ByteCountFormatter.cleanerString(from: totalFreed)) freed total")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .cleanerSurface()
+        }
+    }
+
+    private func historyDetail(for entry: CleanupHistoryEntry) -> String {
+        var parts = ["\(entry.movedCount) moved"]
+        if entry.skippedCount > 0 {
+            parts.append("\(entry.skippedCount) skipped")
+        }
+        if entry.failedCount > 0 {
+            parts.append("\(entry.failedCount) failed")
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

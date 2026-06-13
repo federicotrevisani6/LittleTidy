@@ -55,6 +55,7 @@ final class ScanReviewStore: ObservableObject {
     @Published var cleanupErrorMessage: String?
     @Published var cleanupResultMessage: String?
     @Published var cleanupReportItems: [CleanupReportItem] = []
+    @Published var cleanupHistory: [CleanupHistoryEntry] = []
     @Published var isCleaning = false
     @Published var reviewSortOption: ReviewSortOption = .largestFirst
 
@@ -64,6 +65,7 @@ final class ScanReviewStore: ObservableObject {
     private let trashExecutor: TrashExecutor
     private let folderBookmarkStore: FolderBookmarkStore
     private let scanPreferencesStore: ScanPreferencesStore
+    private let cleanupHistoryStore: CleanupHistoryStore
 
     init(
         items: [ReviewItem] = [],
@@ -71,12 +73,14 @@ final class ScanReviewStore: ObservableObject {
         appRoots: [URL]? = nil,
         folderBookmarkStore: FolderBookmarkStore = .shared,
         scanPreferencesStore: ScanPreferencesStore = .shared,
+        cleanupHistoryStore: CleanupHistoryStore = .shared,
         trashPlanBuilder: TrashPlanBuilder = TrashPlanBuilder(),
         trashExecutor: TrashExecutor = TrashExecutor()
     ) {
         self.items = items
         self.folderBookmarkStore = folderBookmarkStore
         self.scanPreferencesStore = scanPreferencesStore
+        self.cleanupHistoryStore = cleanupHistoryStore
         self.scanRoots = scanRoots ?? folderBookmarkStore.restoredScanRoots(fallback: Self.defaultScanRoots())
         self.appRoots = appRoots ?? folderBookmarkStore.restoredAppRoots(fallback: Self.defaultApplicationRoots())
         self.trashPlanBuilder = trashPlanBuilder
@@ -89,6 +93,7 @@ final class ScanReviewStore: ObservableObject {
         self.includeRelatedAppData = preferences.includeRelatedAppData
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
+        self.cleanupHistory = cleanupHistoryStore.load()
         refreshPermissionReadiness()
     }
 
@@ -315,8 +320,36 @@ final class ScanReviewStore: ObservableObject {
             self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be moved to Trash."
             self.cleanupResultMessage = "\(result.trashed.count) moved to Trash, \(result.skipped.count) skipped."
             self.statusMessage = "Cleanup complete"
+            self.recordCleanupHistory(from: self.cleanupReportItems)
             self.selectedSection = .cleanupPlan
         }
+    }
+
+    func clearCleanupHistory() {
+        cleanupHistoryStore.clear()
+        cleanupHistory = []
+    }
+
+    private func recordCleanupHistory(from reportItems: [CleanupReportItem]) {
+        let moved = reportItems.filter { $0.status == .moved }
+        guard !moved.isEmpty else {
+            return
+        }
+
+        var bytesByCategory: [String: Int64] = [:]
+        for item in moved {
+            let key = (item.category ?? .largeFile).rawValue
+            bytesByCategory[key, default: 0] += item.bytes
+        }
+
+        let entry = CleanupHistoryEntry(
+            bytesFreed: moved.reduce(Int64(0)) { $0 + $1.bytes },
+            movedCount: moved.count,
+            skippedCount: reportItems.filter { $0.status == .skipped }.count,
+            failedCount: reportItems.filter { $0.status == .failed }.count,
+            bytesByCategory: bytesByCategory
+        )
+        cleanupHistory = cleanupHistoryStore.record(entry)
     }
 
     private func buildCleanupPlan() throws -> TrashPlan {

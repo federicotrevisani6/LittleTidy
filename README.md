@@ -37,6 +37,8 @@ to the **Trash**, so nothing is irreversible.
   intentionally excluded to avoid removing another app's data.
 - **Cleanup plan** with validation, warnings (cloud-synced folders, missing files,
   duplicate-keep rules), and a post-cleanup report of trashed / skipped / failed items.
+- **Cleanup history**: each completed run is logged (date, bytes freed, per-category
+  breakdown) and persisted, so you can see how much space you've reclaimed over time.
 - **Security-scoped bookmarks** so approved folders persist across launches.
 
 ## Architecture
@@ -100,7 +102,7 @@ outputs/             # logic & UI design specs
 Active development. The current version covers the v1 safety model: Trash-only
 removal, no system areas, and no related-app-data cleanup. See
 [outputs/mac-cleaner-logic-spec.md](outputs/mac-cleaner-logic-spec.md) for the
-full design and roadmap (cleanup history, storage treemap).
+full design and roadmap (storage treemap, richer history visualization).
 
 ## License
 
