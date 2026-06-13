@@ -609,7 +609,10 @@ final class ScanReviewStore: ObservableObject {
                         self.currentScanLocation = url.path(percentEncoded: false)
                         self.currentRootIndex = index
                         self.rootCount = total
-                        self.progress = total == 0 ? 0 : Double(index - 1) / Double(total)
+                        // Indeterminate during indexing: the true total file count
+                        // is unknown, so root position is shown as text ("X of Y")
+                        // rather than as a misleading determinate bar.
+                        self.progress = 0
                     case .indexedFile(let record):
                         records.append(record)
                     case .skipped(let url, let reason):
@@ -674,14 +677,9 @@ final class ScanReviewStore: ObservableObject {
         currentRootIndex = snapshot.rootIndex
         rootCount = snapshot.rootCount
         currentScanLocation = snapshot.currentRoot?.path(percentEncoded: false)
-
-        guard snapshot.rootCount > 0 else {
-            progress = 0
-            return
-        }
-
-        let rootProgress = min(Double(snapshot.rootIndex) / Double(snapshot.rootCount), 1)
-        progress = min(rootProgress * 0.85, 0.85)
+        // Stay indeterminate while indexing; the determinate tail begins at the
+        // analysis phase (.completed sets 0.9, the final result sets 1).
+        progress = 0
     }
 
     private func cleanupPlanWarnings() -> [String] {
