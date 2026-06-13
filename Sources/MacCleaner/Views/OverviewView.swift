@@ -39,7 +39,7 @@ struct OverviewView: View {
             if store.scanDidFail {
                 EmptyStateCard(
                     icon: "exclamationmark.triangle.fill",
-                    tint: .orange,
+                    tint: .cleanerWarning,
                     title: "Scan didn’t finish",
                     message: store.statusMessage
                 )
@@ -47,7 +47,7 @@ struct OverviewView: View {
                 if store.hasCompletedScan {
                     EmptyStateCard(
                         icon: "checkmark.seal.fill",
-                        tint: .green,
+                        tint: .cleanerSuccess,
                         title: "Nothing to clean up",
                         message: "No duplicates, large files, or unused apps were found in the selected folders."
                     )
@@ -176,11 +176,11 @@ private struct PermissionReadinessView: View {
     private func color(for severity: PermissionReadinessItem.Severity) -> Color {
         switch severity {
         case .ready:
-            return .green
+            return .cleanerSuccess
         case .advisory:
-            return .blue
+            return .cleanerInfo
         case .warning:
-            return .orange
+            return .cleanerWarning
         }
     }
 }
@@ -341,7 +341,7 @@ private struct ScanIssuesView: View {
                     ForEach(store.scanIssues.prefix(12)) { issue in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: issue.kind == .permissionDenied ? "lock.trianglebadge.exclamationmark" : "minus.circle")
-                                .foregroundStyle(issue.kind == .permissionDenied ? .orange : .secondary)
+                                .foregroundStyle(issue.kind == .permissionDenied ? Color.cleanerWarning : Color.secondary)
                                 .frame(width: 18)
 
                             VStack(alignment: .leading, spacing: 2) {

@@ -54,14 +54,14 @@ struct CleanupPlanView: View {
 
             if let cleanupErrorMessage = store.cleanupErrorMessage {
                 Label(cleanupErrorMessage, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.cleanerWarning)
                     .padding(12)
                     .cleanerSubtleSurface()
             }
 
             if let cleanupResultMessage = store.cleanupResultMessage {
                 Label(cleanupResultMessage, systemImage: "checkmark.circle")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.cleanerSuccess)
                     .padding(12)
                     .cleanerSubtleSurface()
             }
@@ -114,9 +114,9 @@ private struct CleanupPlanValidationView: View {
         case .noSelection:
             return .secondary
         case .ready:
-            return .green
+            return .cleanerSuccess
         case .blocked:
-            return .orange
+            return .cleanerWarning
         }
     }
 }
@@ -232,7 +232,7 @@ private struct CleanupHistoryView: View {
 
                             Text(ByteCountFormatter.cleanerString(from: entry.bytesFreed))
                                 .font(.headline)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.cleanerSuccess)
                         }
                     }
 
@@ -334,7 +334,7 @@ private struct CleanupReportRow: View {
                 } else {
                     Text(item.message)
                         .font(.caption2)
-                        .foregroundStyle(item.status == .failed ? .orange : .secondary)
+                        .foregroundStyle(item.status == .failed ? Color.cleanerWarning : Color.secondary)
                         .lineLimit(2)
                 }
             }
@@ -355,11 +355,11 @@ private struct CleanupReportRow: View {
     private var iconColor: Color {
         switch item.status {
         case .moved:
-            return .green
+            return .cleanerSuccess
         case .skipped:
             return .secondary
         case .failed:
-            return .orange
+            return .cleanerWarning
         }
     }
 }

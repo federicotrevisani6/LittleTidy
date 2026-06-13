@@ -328,7 +328,7 @@ private struct DuplicateCopiesView: View {
                             if copy.isRecommendedKeep {
                                 Label("Keep", systemImage: "checkmark.shield")
                                     .font(.caption)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.cleanerSuccess)
                             }
                         }
                         Text(copy.url.deletingLastPathComponent().path(percentEncoded: false))
@@ -469,8 +469,8 @@ private struct ConfidenceBadge: View {
 
     private var foregroundStyle: Color {
         switch confidence {
-        case .high: .green
-        case .medium: .orange
+        case .high: .cleanerSuccess
+        case .medium: .cleanerWarning
         case .low: .secondary
         }
     }
