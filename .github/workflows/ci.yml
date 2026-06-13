@@ -78,9 +78,48 @@ jobs:
           </plist>
           PLIST
 
-      # Ad-hoc signing lets the app run on Apple Silicon. It is NOT notarized;
-      # see the notarization section in CONTRIBUTING/README for the signed flow.
-      - name: Ad-hoc sign
+      # Developer ID signing + notarization runs when the signing secrets are
+      # present; otherwise it falls back to ad-hoc signing so the workflow still
+      # produces a runnable (un-notarized) build.
+      - name: Detect signing secrets
+        id: signing
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+        run: |
+          if [ -n "$CERT_P12" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+
+      - name: Sign, notarize, and staple
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP="dist/LittleTidy.app"
+          printf '%s' "$API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          codesign --force --deep --options runtime --timestamp \
+            --sign "Developer ID Application" "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Ad-hoc sign (fallback when no Developer ID secrets)
+        if: steps.signing.outputs.enabled != 'true'
         run: codesign --force --deep --sign - dist/LittleTidy.app
 
       - name: Package zip
@@ -94,8 +133,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+          SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
+          if [ "$SIGNED" = "true" ]; then
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 14+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Everything is moved to the Trash only and reversible; system areas are excluded by default and deep uninstall is opt-in."
+          else
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 14+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Everything is moved to the Trash only and reversible."
+          fi
           gh release create "$GITHUB_REF_NAME" "dist/LittleTidy-${VERSION}-macos.zip" \
             --title "LittleTidy ${VERSION}" \
             --generate-notes \
-            --notes "Universal build (Apple Silicon + Intel), macOS 14+. The app is ad-hoc signed but **not notarized**: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Everything is moved to Trash only and reversible."
+            --notes "$NOTE"
