@@ -2,8 +2,8 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="MacCleaner"
-BUNDLE_ID="com.federicotrevisani.MacCleaner"
+APP_NAME="LittleTidy"
+BUNDLE_ID="com.federicotrevisani.LittleTidy"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

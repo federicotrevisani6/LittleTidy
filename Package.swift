@@ -3,39 +3,39 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacCleaner",
+    name: "LittleTidy",
     platforms: [
         .macOS(.v14)
     ],
     products: [
         .library(
-            name: "MacCleanerCore",
-            targets: ["MacCleanerCore"]
+            name: "LittleTidyCore",
+            targets: ["LittleTidyCore"]
         ),
         .executable(
-            name: "MacCleaner",
-            targets: ["MacCleaner"]
+            name: "LittleTidy",
+            targets: ["LittleTidy"]
         ),
         .executable(
-            name: "MacCleanerQA",
-            targets: ["MacCleanerQA"]
+            name: "LittleTidyQA",
+            targets: ["LittleTidyQA"]
         )
     ],
     targets: [
         .target(
-            name: "MacCleanerCore"
+            name: "LittleTidyCore"
         ),
         .executableTarget(
-            name: "MacCleaner",
-            dependencies: ["MacCleanerCore"]
+            name: "LittleTidy",
+            dependencies: ["LittleTidyCore"]
         ),
         .executableTarget(
-            name: "MacCleanerQA",
-            dependencies: ["MacCleanerCore"]
+            name: "LittleTidyQA",
+            dependencies: ["LittleTidyCore"]
         ),
         .testTarget(
-            name: "MacCleanerCoreTests",
-            dependencies: ["MacCleanerCore"]
+            name: "LittleTidyCoreTests",
+            dependencies: ["LittleTidyCore"]
         )
     ]
 )

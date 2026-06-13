@@ -1,6 +1,6 @@
-# MacCleaner
+# LittleTidy
 
-A safe, review-first disk maintenance utility for macOS. MacCleaner helps you
+A safe, review-first disk maintenance utility for macOS. LittleTidy helps you
 reclaim disk space by finding **duplicate files**, **large files**, and
 **unused apps** — and it never deletes anything outright. Every candidate is
 shown with a reason, size, and confidence level, and confirmed items are moved
@@ -51,9 +51,9 @@ in isolation.
 
 | Target | Description |
 |---|---|
-| `MacCleanerCore` | Scanning engine, analyzers (duplicate / large file / app usage), trash plan builder & executor. Pure logic, fully unit-tested. |
-| `MacCleaner` | SwiftUI app (sidebar + detail review UI, cleanup plan, settings). |
-| `MacCleanerQA` | Command-line harness for exercising the engine against QA fixtures. |
+| `LittleTidyCore` | Scanning engine, analyzers (duplicate / large file / app usage), trash plan builder & executor. Pure logic, fully unit-tested. |
+| `LittleTidy` | SwiftUI app (sidebar + detail review UI, cleanup plan, settings). |
+| `LittleTidyQA` | Command-line harness for exercising the engine against QA fixtures. |
 
 ```
 Scan roots → directory enumerator → file metadata index
@@ -79,7 +79,7 @@ swift build
 swift test
 
 # Run the app from Xcode
-open MacCleaner.xcodeproj
+open LittleTidy.xcodeproj
 ```
 
 A helper script is provided:
@@ -92,10 +92,10 @@ A helper script is provided:
 
 ```
 Sources/
-  MacCleanerCore/   # engine + analyzers (tested, UI-free)
-  MacCleaner/        # SwiftUI app
-  MacCleanerQA/      # CLI QA harness
-Tests/               # MacCleanerCore unit tests
+  LittleTidyCore/   # engine + analyzers (tested, UI-free)
+  LittleTidy/        # SwiftUI app
+  LittleTidyQA/      # CLI QA harness
+Tests/               # LittleTidyCore unit tests
 QA/                  # manual QA checklist + generated fixtures
 outputs/             # logic & UI design specs
 ```
