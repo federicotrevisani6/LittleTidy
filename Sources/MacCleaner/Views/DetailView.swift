@@ -38,6 +38,8 @@ struct DetailView: View {
                         items: store.items(for: .cache),
                         store: store
                     )
+                case .storage:
+                    StorageMapView(store: store)
                 case .cleanupPlan:
                     CleanupPlanView(store: store)
                 }

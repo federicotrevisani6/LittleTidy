@@ -40,6 +40,8 @@ struct SidebarView: View {
             ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .unusedApp))
         case .caches:
             ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .cache))
+        case .storage:
+            store.folderUsage.isEmpty ? "—" : "\(store.folderUsage.count) folders"
         case .cleanupPlan:
             "\(store.selectedItems.count) selected"
         }

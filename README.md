@@ -39,6 +39,9 @@ to the **Trash**, so nothing is irreversible.
   duplicate-keep rules), and a post-cleanup report of trashed / skipped / failed items.
 - **Cleanup history**: each completed run is logged (date, bytes freed, per-category
   breakdown) and persisted, so you can see how much space you've reclaimed over time.
+- **Storage map**: a squarified treemap of the largest folders across the scanned
+  roots, aggregated from the indexed files (no extra disk traversal). Tap a tile to
+  reveal it in Finder.
 - **Security-scoped bookmarks** so approved folders persist across launches.
 
 ## Architecture
@@ -99,10 +102,10 @@ outputs/             # logic & UI design specs
 
 ## Status
 
-Active development. The current version covers the v1 safety model: Trash-only
-removal, no system areas, and no related-app-data cleanup. See
+Active development. The current version keeps the v1 safety model throughout:
+Trash-only removal, no system areas by default, and opt-in deep uninstall. See
 [outputs/mac-cleaner-logic-spec.md](outputs/mac-cleaner-logic-spec.md) for the
-full design and roadmap (storage treemap, richer history visualization).
+full design and background.
 
 ## License
 

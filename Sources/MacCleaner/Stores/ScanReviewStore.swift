@@ -52,6 +52,7 @@ final class ScanReviewStore: ObservableObject {
         didSet { persistScanPreferences() }
     }
     @Published var items: [ReviewItem]
+    @Published var folderUsage: [FolderUsage] = []
     @Published var cleanupErrorMessage: String?
     @Published var cleanupResultMessage: String?
     @Published var cleanupReportItems: [CleanupReportItem] = []
@@ -571,6 +572,7 @@ final class ScanReviewStore: ObservableObject {
         )
 
         items = []
+        folderUsage = []
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
         cleanupReportItems = []
@@ -637,13 +639,14 @@ final class ScanReviewStore: ObservableObject {
                 }
 
                 let analysisTask = Task.detached(priority: .userInitiated) {
-                    try CleanupAnalysis().analyze(files: records, options: options, appRoots: appRoots)
+                    try CleanupAnalysis().analyze(files: records, options: options, appRoots: appRoots, scanRoots: roots)
                 }
                 self.analysisTask = analysisTask
                 let result = try await analysisTask.value
                 self.analysisTask = nil
 
                 self.items = Self.reviewItems(from: result)
+                self.folderUsage = result.folderUsage
                 self.progress = 1
                 self.scanPhase = "Complete"
                 self.currentScanLocation = nil

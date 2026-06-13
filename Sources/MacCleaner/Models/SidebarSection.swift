@@ -6,6 +6,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case largeFiles
     case unusedApps
     case caches
+    case storage
     case cleanupPlan
 
     var id: String { rawValue }
@@ -17,6 +18,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .largeFiles: "Large Files"
         case .unusedApps: "Unused Apps"
         case .caches: "Caches"
+        case .storage: "Storage Map"
         case .cleanupPlan: "Cleanup Plan"
         }
     }
@@ -28,6 +30,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .largeFiles: "internaldrive"
         case .unusedApps: "app.dashed"
         case .caches: "shippingbox"
+        case .storage: "square.grid.2x2"
         case .cleanupPlan: "trash"
         }
     }
