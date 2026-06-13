@@ -1,0 +1,20 @@
+# Build artifacts
+.build/
+dist/
+DerivedData/
+
+# Swift Package Manager / Xcode IDE state
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+
+# Editor & tooling
+.claude/settings.local.json
+.codex/
+work/
+
+# macOS
+.DS_Store
+
+# Generated QA fixtures (recreate with script/create_qa_fixture.sh)
+QA/MacCleanerFixture/
