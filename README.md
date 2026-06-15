@@ -88,6 +88,31 @@ A helper script is provided:
 ./script/build_and_run.sh
 ```
 
+## Release packaging
+
+GitHub release artifacts should be Developer ID signed and notarized before
+upload. The release script archives the app, signs it with the local Developer
+ID Application certificate, verifies the signature, submits it to Apple's notary
+service, staples the ticket, and writes the final zip under `dist/release/`.
+
+First save notary credentials in the Keychain:
+
+```sh
+xcrun notarytool store-credentials littletidy-notary
+```
+
+Then package a notarized release:
+
+```sh
+./script/package_release.sh --notary-profile littletidy-notary
+```
+
+For local signing validation without notarization:
+
+```sh
+./script/package_release.sh --skip-notarization
+```
+
 ## Project layout
 
 ```
