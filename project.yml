@@ -11,7 +11,7 @@ settings:
     DEVELOPMENT_TEAM: 3VU7K9SUV8
     ENABLE_HARDENED_RUNTIME: YES
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
 targets:
   LittleTidyCore:
     type: framework
