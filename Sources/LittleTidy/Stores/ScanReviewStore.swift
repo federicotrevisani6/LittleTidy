@@ -173,6 +173,14 @@ final class ScanReviewStore: ObservableObject {
         items(for: category).reduce(0) { $0 + reclaimableBytes(for: $1) }
     }
 
+    var suggestedSelectionPreview: BulkSelectionPreview {
+        bulkSelectionPreview(for: .suggestedWithoutCaches)
+    }
+
+    var reviewedCachesSelectionPreview: BulkSelectionPreview {
+        bulkSelectionPreview(for: .reviewedCaches)
+    }
+
     func toggleSelection(for item: ReviewItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else {
             return
@@ -208,18 +216,29 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func selectSuggested() {
+        applyBulkSelection(.suggestedWithoutCaches)
+    }
+
+    func applyBulkSelection(_ mode: BulkSelectionMode) {
         for index in items.indices {
-            if items[index].duplicateCopies.isEmpty {
-                items[index].isSelected = items[index].confidence == .high
-            } else {
+            let shouldSelect = shouldSelectItem(items[index], for: mode)
+
+            if !items[index].duplicateCopies.isEmpty {
                 for copyIndex in items[index].duplicateCopies.indices {
-                    items[index].duplicateCopies[copyIndex].isSelected = !items[index].duplicateCopies[copyIndex].isRecommendedKeep
+                    items[index].duplicateCopies[copyIndex].isSelected = shouldSelect && !items[index].duplicateCopies[copyIndex].isRecommendedKeep
                 }
                 items[index].isSelected = items[index].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
+            } else if mode == .reviewedCaches {
+                if items[index].category == .cache {
+                    items[index].isSelected = shouldSelect
+                }
+            } else {
+                items[index].isSelected = shouldSelect
             }
         }
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
+        cleanupReportItems = []
     }
 
 #if DEBUG
@@ -433,6 +452,63 @@ final class ScanReviewStore: ObservableObject {
             .filter { !$0.isRecommendedKeep }
             .reduce(Int64(0)) { $0 + $1.bytes }
     }
+
+    private func bulkSelectionPreview(for mode: BulkSelectionMode) -> BulkSelectionPreview {
+        let selectedCandidates = items.filter { shouldSelectItem($0, for: mode) }
+        let breakdown = Self.cleanupCategoryOrder.compactMap { category -> BulkSelectionPreview.CategoryBreakdown? in
+            let categoryItems = selectedCandidates.filter { $0.category == category }
+            guard !categoryItems.isEmpty else { return nil }
+            return BulkSelectionPreview.CategoryBreakdown(
+                category: category,
+                itemCount: categoryItems.count,
+                filesystemEntryCount: categoryItems.reduce(0) { $0 + bulkFilesystemEntryCount(for: $1) },
+                bytes: categoryItems.reduce(Int64(0)) { $0 + bulkBytes(for: $1) }
+            )
+        }
+
+        let excludedCaches = mode == .suggestedWithoutCaches ? items.filter { $0.category == .cache && $0.confidence == .high } : []
+
+        return BulkSelectionPreview(
+            mode: mode,
+            itemCount: selectedCandidates.count,
+            filesystemEntryCount: selectedCandidates.reduce(0) { $0 + bulkFilesystemEntryCount(for: $1) },
+            bytes: selectedCandidates.reduce(Int64(0)) { $0 + bulkBytes(for: $1) },
+            categoryBreakdown: breakdown,
+            excludedCacheItemCount: excludedCaches.count,
+            excludedCacheBytes: excludedCaches.reduce(Int64(0)) { $0 + bulkBytes(for: $1) }
+        )
+    }
+
+    private func shouldSelectItem(_ item: ReviewItem, for mode: BulkSelectionMode) -> Bool {
+        guard item.confidence == .high else {
+            return false
+        }
+
+        switch mode {
+        case .suggestedWithoutCaches:
+            return item.category != .cache
+        case .reviewedCaches:
+            return item.category == .cache
+        }
+    }
+
+    private func bulkFilesystemEntryCount(for item: ReviewItem) -> Int {
+        if item.duplicateCopies.isEmpty {
+            return max(1, item.plannedURLs.count)
+        }
+        return item.duplicateCopies.filter { !$0.isRecommendedKeep }.count
+    }
+
+    private func bulkBytes(for item: ReviewItem) -> Int64 {
+        if item.duplicateCopies.isEmpty {
+            return item.bytes
+        }
+        return item.duplicateCopies
+            .filter { !$0.isRecommendedKeep }
+            .reduce(Int64(0)) { $0 + $1.bytes }
+    }
+
+    private static let cleanupCategoryOrder: [CleanupCategory] = [.duplicate, .largeFile, .unusedApp, .cache]
 
     /// Related app-data entries that should join the cleanup plan, gated by the
     /// opt-in "deep uninstall" toggle and applicable only to unused apps.
@@ -698,6 +774,10 @@ final class ScanReviewStore: ObservableObject {
             } else {
                 warnings.append("Unused app cleanup moves only the app bundle; related app data is excluded.")
             }
+        }
+
+        if selectedItems.contains(where: { $0.category == .cache }) {
+            warnings.append("Caches are regenerable, but review cache-heavy selections before moving them to Trash.")
         }
 
         let missingCount = selectedItems

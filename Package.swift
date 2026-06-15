@@ -1,11 +1,11 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "LittleTidy",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v26)
     ],
     products: [
         .library(
@@ -27,7 +27,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "LittleTidy",
-            dependencies: ["LittleTidyCore"]
+            dependencies: ["LittleTidyCore"],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .executableTarget(
             name: "LittleTidyQA",

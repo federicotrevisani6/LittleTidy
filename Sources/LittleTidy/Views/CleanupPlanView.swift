@@ -8,49 +8,29 @@ struct CleanupPlanView: View {
     var body: some View {
         let validation = store.cleanupPlanValidation
 
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Cleanup Plan")
-                        .font(.largeTitle.weight(.semibold))
-                    Text("Final review before moving anything to Trash.")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    if store.validateCleanupPlan() != nil {
-                        showingCleanupConfirmation = true
+        GlassEffectContainer {
+            VStack(alignment: .leading, spacing: 16) {
+                CleanupPlanSummaryPanel(
+                    store: store,
+                    validation: validation,
+                    moveToTrash: {
+                        if store.validateCleanupPlan() != nil {
+                            showingCleanupConfirmation = true
+                        }
                     }
-                } label: {
-                    Label(store.isCleaning ? "Cleaning" : "Move Selected to Trash", systemImage: "trash")
+                )
+                .confirmationDialog(
+                    "Move selected items to Trash?",
+                    isPresented: $showingCleanupConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Move to Trash", role: .destructive) {
+                        store.executeCleanup()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(cleanupConfirmationMessage)
                 }
-                .disabled(!validation.canMoveToTrash)
-                .buttonStyle(.borderedProminent)
-            }
-            .confirmationDialog(
-                "Move selected items to Trash?",
-                isPresented: $showingCleanupConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Move to Trash", role: .destructive) {
-                    store.executeCleanup()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("\(store.selectedFilesystemEntryCount) filesystem entries will be moved to Trash. This does not permanently delete them.")
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Label("\(store.selectedItems.count) items selected", systemImage: "checkmark.circle")
-                Label("\(store.selectedFilesystemEntryCount) filesystem entries planned", systemImage: "doc.badge.gearshape")
-                Label(ByteCountFormatter.cleanerString(from: store.selectedBytes), systemImage: "externaldrive.badge.minus")
-                Label("System folders and app support data are excluded.", systemImage: "lock.shield")
-                    .foregroundStyle(.secondary)
-            }
-            .padding(16)
-            .cleanerSurface()
-
-            CleanupPlanValidationView(validation: validation)
 
             if let cleanupErrorMessage = store.cleanupErrorMessage {
                 Label(cleanupErrorMessage, systemImage: "exclamationmark.triangle")
@@ -71,30 +51,99 @@ struct CleanupPlanView: View {
             CleanupCategoryGroupsView(items: store.selectedItems, store: store)
 
             CleanupHistoryView(store: store)
+            }
         }
+    }
+
+    private var cleanupConfirmationMessage: String {
+        var lines = [
+            "\(store.selectedFilesystemEntryCount) filesystem entries, \(ByteCountFormatter.cleanerString(from: store.selectedBytes)), will be moved to Trash.",
+            "This does not permanently delete them.",
+            "System folders are excluded."
+        ]
+
+        let breakdown = selectedCategoryBreakdown()
+        if !breakdown.isEmpty {
+            lines.append("")
+            lines.append(contentsOf: breakdown.map { category, count, bytes in
+                "\(category.displayTitle): \(count) items, \(ByteCountFormatter.cleanerString(from: bytes))"
+            })
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func selectedCategoryBreakdown() -> [(CleanupCategory, Int, Int64)] {
+        CleanupCategoryGroup.orderedCategories.compactMap { category in
+            let categoryItems = store.selectedItems.filter { $0.category == category }
+            guard !categoryItems.isEmpty else { return nil }
+            let bytes = categoryItems.reduce(Int64(0)) { $0 + selectedBytes(for: $1) }
+            return (category, categoryItems.count, bytes)
+        }
+    }
+
+    private func selectedBytes(for item: ReviewItem) -> Int64 {
+        guard !item.duplicateCopies.isEmpty else {
+            return item.bytes
+        }
+        return item.duplicateCopies
+            .filter { $0.isSelected && !$0.isRecommendedKeep }
+            .reduce(Int64(0)) { $0 + $1.bytes }
     }
 }
 
-private struct CleanupPlanValidationView: View {
+private struct CleanupPlanSummaryPanel: View {
+    @ObservedObject var store: ScanReviewStore
     let validation: CleanupPlanValidation
+    let moveToTrash: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(validation.title, systemImage: iconName)
-                .font(.headline)
-                .foregroundStyle(iconColor)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Cleanup Plan")
+                        .font(.largeTitle.weight(.semibold))
+                    Text("Final review before moving anything to Trash.")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(action: moveToTrash) {
+                    Label(store.isCleaning ? "Cleaning" : "Move Selected to Trash", systemImage: "trash")
+                }
+                .disabled(!validation.canMoveToTrash)
+                .buttonStyle(.glassProminent)
+                .accessibilityHint("Opens the final Trash confirmation before moving selected items.")
+            }
 
-            Text(validation.detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 28) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("\(store.selectedItems.count) items selected", systemImage: "checkmark.circle")
+                    Label("\(store.selectedFilesystemEntryCount) filesystem entries planned", systemImage: "doc.badge.gearshape")
+                    Label(ByteCountFormatter.cleanerString(from: store.selectedBytes), systemImage: "externaldrive.badge.minus")
+                    Label("System folders and app support data are excluded.", systemImage: "lock.shield")
+                        .foregroundStyle(.secondary)
+                }
 
-            ForEach(validation.warnings, id: \.self) { warning in
-                Label(warning, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(validation.title, systemImage: iconName)
+                        .font(.headline)
+                        .foregroundStyle(iconColor)
+
+                    Text(validation.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(validation.warnings, id: \.self) { warning in
+                        Label(warning, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
-        .padding(16)
+        .padding(18)
         .cleanerSurface()
     }
 
@@ -149,6 +198,7 @@ private struct CleanupCategoryGroupsView: View {
                         title: group.title,
                         subtitle: "\(group.items.count) selected, \(ByteCountFormatter.cleanerString(from: group.bytes))",
                         items: store.sortedItems(group.items),
+                        category: group.category,
                         store: store,
                         headerStyle: .section
                     )

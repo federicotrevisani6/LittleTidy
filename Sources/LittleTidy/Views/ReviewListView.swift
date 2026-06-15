@@ -11,19 +11,25 @@ struct ReviewListView: View {
     let title: String
     let subtitle: String
     let items: [ReviewItem]
+    var category: CleanupCategory?
     @ObservedObject var store: ScanReviewStore
     var headerStyle: HeaderStyle = .large
     @State private var expandedDuplicateIDs: Set<ReviewItem.ID> = []
     @State private var searchText = ""
     @State private var filterScope: ReviewFilterScope = .all
+    @State private var showingCacheSelectionConfirmation = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        GlassEffectContainer {
+            VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(title)
                         .font(titleFont)
                     Spacer()
+                    if headerStyle == .large {
+                        ReviewSelectionSummary(store: store)
+                    }
                     if headerStyle == .large {
                         SortPicker(store: store)
                     }
@@ -35,6 +41,12 @@ struct ReviewListView: View {
 
             if headerStyle == .large {
                 ReviewFilterBar(searchText: $searchText, filterScope: $filterScope)
+            }
+
+            if headerStyle == .large, category == .cache {
+                CacheReviewPanel(store: store, items: items) {
+                    showingCacheSelectionConfirmation = true
+                }
             }
 
             if filteredItems.isEmpty {
@@ -86,6 +98,22 @@ struct ReviewListView: View {
                 }
                 .cleanerSurface()
             }
+        }
+        }
+        .confirmationDialog(
+            "Select reviewed caches?",
+            isPresented: $showingCacheSelectionConfirmation,
+            titleVisibility: .visible
+        ) {
+            let preview = store.reviewedCachesSelectionPreview
+            Button("Select \(preview.itemCount) Cache Items") {
+                store.applyBulkSelection(.reviewedCaches)
+            }
+            .disabled(!preview.hasItems)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            let preview = store.reviewedCachesSelectionPreview
+            Text("\(preview.itemCount) cache items, \(preview.filesystemEntryCount) filesystem entries, \(ByteCountFormatter.cleanerString(from: preview.bytes)) will be selected. Nothing moves to Trash until you confirm the Cleanup Plan.")
         }
     }
 
@@ -157,6 +185,96 @@ struct ReviewListView: View {
 
         return searchableValues.contains { value in
             value.localizedCaseInsensitiveContains(query)
+        }
+    }
+}
+
+private struct ReviewSelectionSummary: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text("Selected")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(ByteCountFormatter.cleanerString(from: store.selectedBytes))
+                .font(.headline)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Selected total \(ByteCountFormatter.cleanerString(from: store.selectedBytes))")
+    }
+}
+
+private struct CacheReviewPanel: View {
+    @ObservedObject var store: ScanReviewStore
+    let items: [ReviewItem]
+    let selectReviewedCaches: () -> Void
+
+    private var preview: BulkSelectionPreview {
+        store.reviewedCachesSelectionPreview
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Cache Review Required", systemImage: "shippingbox")
+                        .font(.headline)
+                    Text("Caches are regenerable, but they can dominate cleanup size. Review this category before selecting cache items.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    selectReviewedCaches()
+                } label: {
+                    Label("Select Reviewed Caches", systemImage: "checkmark.circle")
+                }
+                .buttonStyle(.glass)
+                .disabled(!preview.hasItems)
+            }
+
+            HStack(spacing: 18) {
+                CacheMetric(label: "Items", value: "\(preview.itemCount)")
+                CacheMetric(label: "Entries", value: "\(preview.filesystemEntryCount)")
+                CacheMetric(label: "Reclaimable", value: ByteCountFormatter.cleanerString(from: preview.bytes))
+            }
+
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Largest cache groups")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(Array(items.prefix(3))) { item in
+                        HStack {
+                            Text(item.title)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Text(ByteCountFormatter.cleanerString(from: item.bytes))
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .cleanerSurface()
+    }
+}
+
+private struct CacheMetric: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline)
         }
     }
 }
@@ -251,9 +369,12 @@ private struct ReviewRow: View {
             }
             .buttonStyle(.plain)
             .disabled(!hasExpandableDetail)
+            .accessibilityLabel(isExpanded ? "Collapse details for \(item.title)" : "Expand details for \(item.title)")
 
             Toggle("", isOn: Binding(get: { isSelected }, set: { _ in toggle() }))
                 .labelsHidden()
+                .accessibilityLabel(isSelected ? "Deselect \(item.title)" : "Select \(item.title)")
+                .accessibilityHint("Adds or removes this item from the cleanup plan.")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
@@ -294,6 +415,7 @@ private struct ReviewRow: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
+            .accessibilityLabel("More actions for \(item.title)")
         }
         .padding(14)
         .contextMenu {
@@ -318,6 +440,8 @@ private struct DuplicateCopiesView: View {
                     ))
                     .labelsHidden()
                     .disabled(copy.isRecommendedKeep)
+                    .accessibilityLabel(copy.isRecommendedKeep ? "Keep \(copy.url.lastPathComponent)" : (copy.isSelected ? "Deselect \(copy.url.lastPathComponent)" : "Select \(copy.url.lastPathComponent)"))
+                    .accessibilityHint(copy.isRecommendedKeep ? "Recommended copy to keep; duplicate rules prevent selecting every copy." : "Adds this duplicate copy to the cleanup plan.")
 
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 8) {
@@ -329,6 +453,10 @@ private struct DuplicateCopiesView: View {
                                 Label("Keep", systemImage: "checkmark.shield")
                                     .font(.caption)
                                     .foregroundStyle(Color.cleanerSuccess)
+                            } else {
+                                Label(copy.isSelected ? "Move to Trash" : "Candidate", systemImage: copy.isSelected ? "trash" : "circle.dashed")
+                                    .font(.caption)
+                                    .foregroundStyle(copy.isSelected ? Color.cleanerWarning : Color.secondary)
                             }
                         }
                         Text(copy.url.deletingLastPathComponent().path(percentEncoded: false))
@@ -360,13 +488,14 @@ private struct DuplicateCopiesView: View {
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
+                    .accessibilityLabel("More actions for \(copy.url.lastPathComponent)")
                 }
                 .padding(.vertical, 8)
                 .padding(.leading, 58)
                 .padding(.trailing, 14)
             }
         }
-        .background(.thinMaterial)
+        .cleanerSubtleSurface(cornerRadius: 0)
     }
 }
 
@@ -446,7 +575,7 @@ private struct RelatedDataView: View {
                 .opacity(store.includeRelatedAppData ? 1 : 0.55)
             }
         }
-        .background(.thinMaterial)
+        .cleanerSubtleSurface(cornerRadius: 0)
     }
 }
 

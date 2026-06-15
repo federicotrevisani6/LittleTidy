@@ -1,0 +1,138 @@
+{
+  "color-space-for-untagged-svg-colors" : "display-p3",
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
+  "fill" : {
+    "solid" : "display-p3:0.41022,0.35823,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "30-check.svg",
+          "name" : "30 Check",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -97.92837969431571,
+              -170.5865222795419
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "40-sparkles.svg",
+          "name" : "40 Sparkles",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              76.07162030568429,
+              -38.586522279541896
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.531640625
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    },
+    {
+      "blend-mode" : "normal",
+      "blur-material" : 0.4,
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "idiom" : "macOS",
+              "value" : false
+            }
+          ],
+          "image-name" : "10-window.svg",
+          "name" : "10 Window",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              5.0716203056842915,
+              -43.701211868368546
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "20-trash.svg",
+          "name" : "20 Trash",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -24.316719082708005,
+              -0.5865222795418958
+            ]
+          }
+        }
+      ],
+      "lighting" : "combined",
+      "refractivity" : {
+        "depth" : 0.4989453124999999,
+        "enabled" : true,
+        "strength" : -0.0221484375
+      },
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.45
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.6
+      }
+    },
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+
+      ],
+      "refractivity" : {
+        "depth" : 0.5122265625,
+        "enabled" : true,
+        "strength" : 0.0024609375
+      },
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "macOS"
+    ]
+  }
+}

@@ -66,8 +66,8 @@ Scan roots → directory enumerator → file metadata index
 
 ## Requirements
 
-- macOS 14+
-- Swift 6 toolchain / Xcode 16+
+- macOS 26+
+- Swift 6.2+ toolchain / Xcode 26+
 
 ## Build & run
 

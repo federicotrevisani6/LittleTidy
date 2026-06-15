@@ -2,11 +2,11 @@ name: LittleTidy
 options:
   minimumXcodeGenVersion: 2.41.0
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "26.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
     MARKETING_VERSION: "0.1.0"
@@ -35,7 +35,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: LittleTidy
         INFOPLIST_KEY_CFBundleName: LittleTidy
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
-        INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
+        INFOPLIST_KEY_LSMinimumSystemVersion: "26.0"
         INFOPLIST_KEY_NSPrincipalClass: NSApplication
   LittleTidyQA:
     type: tool

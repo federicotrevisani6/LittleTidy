@@ -15,6 +15,7 @@ struct DetailView: View {
                         title: "Duplicate Files",
                         subtitle: "Byte-identical copies confirmed by hash.",
                         items: store.items(for: .duplicate),
+                        category: .duplicate,
                         store: store
                     )
                 case .largeFiles:
@@ -22,6 +23,7 @@ struct DetailView: View {
                         title: "Large Files",
                         subtitle: "Ranked by size, age, location, and file type.",
                         items: store.items(for: .largeFile),
+                        category: .largeFile,
                         store: store
                     )
                 case .unusedApps:
@@ -29,6 +31,7 @@ struct DetailView: View {
                         title: "Unused Apps",
                         subtitle: "App bundles only. Related app data is not selected in v1.",
                         items: store.items(for: .unusedApp),
+                        category: .unusedApp,
                         store: store
                     )
                 case .caches:
@@ -36,6 +39,7 @@ struct DetailView: View {
                         title: "Caches",
                         subtitle: "Regenerable app and developer caches. Cleared safely to the Trash.",
                         items: store.items(for: .cache),
+                        category: .cache,
                         store: store
                     )
                 case .storage:

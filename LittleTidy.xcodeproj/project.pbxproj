@@ -13,6 +13,7 @@
 		2902FC2ADCF57F1F8442702C /* FolderUsageAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE7CCDF815C3C4FED1B2E5B /* FolderUsageAnalyzerTests.swift */; };
 		31AE0A2FCF64C626B62F91FC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE89A7C8159571BC2038EF50 /* main.swift */; };
 		32300521695B0F46B358162D /* FolderBookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1CDB918CD85C50D419BF78A /* FolderBookmarkStore.swift */; };
+		3889D889184FECC5AECD1CBE /* BulkSelectionPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEBC6A605F4990FD8362C89 /* BulkSelectionPreview.swift */; };
 		3AFFC952F5F355E57516E3F0 /* CleanupAnalysisTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1E6E7B6CDA9BCC38020EC9 /* CleanupAnalysisTests.swift */; };
 		3F623C2EE572D4E6E83660EA /* CleanupReportItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D2225B6F8705962D20673F /* CleanupReportItem.swift */; };
 		43CF9595C8F39DE6F466E727 /* FolderUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C54777095CC61C9961E9503 /* FolderUsageAnalyzer.swift */; };
@@ -31,6 +32,7 @@
 		6E53B6B1A2747B23FA21A676 /* CleanupAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351FAD905F685829E68FF78C /* CleanupAnalysis.swift */; };
 		6EA1930E5585DD931833ED23 /* ScanPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BD287B6A067EDBFB8BD364 /* ScanPreferencesStore.swift */; };
 		71036016D19D676B85F397BC /* LittleTidyCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C9F3605D668B71239C4D707 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BC3219B70A8305C5C7D85140 /* AppIcon.icon */; };
 		8468C97C960B92D41F43A90E /* ScanIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133DD1DA86A555DF634B03D5 /* ScanIssue.swift */; };
 		890EDA33FDE55BF86F8AE0C4 /* TrashPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E540515C1EBBE5B4834229A /* TrashPlanBuilder.swift */; };
 		975E72CB128897154526E968 /* ScanReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BA8A3C7102B78DCD10C7FC /* ScanReviewStore.swift */; };
@@ -144,7 +146,9 @@
 		A38EBAD802E29FE8E46A347C /* CleanupHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupHistoryStore.swift; sourceTree = "<group>"; };
 		AC89084EC436283E250D2A79 /* DuplicateAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateAnalyzer.swift; sourceTree = "<group>"; };
 		B2E47BA04802EF1253E7173E /* LargeFileAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileAnalyzerTests.swift; sourceTree = "<group>"; };
-		BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */ = {isa = PBXFileReference; includeInIndex = 0; path = LittleTidyQA; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBEBC6A605F4990FD8362C89 /* BulkSelectionPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkSelectionPreview.swift; sourceTree = "<group>"; };
+		BC3219B70A8305C5C7D85140 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LittleTidyQA; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3BB0C64712ECFC9D99CCCA4 /* PermissionReadinessItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionReadinessItem.swift; sourceTree = "<group>"; };
 		C5883168F4CB5F18F6AB6B8E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CBE7CCDF815C3C4FED1B2E5B /* FolderUsageAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderUsageAnalyzerTests.swift; sourceTree = "<group>"; };
@@ -193,6 +197,7 @@
 		1680F098189B0B23394CB7FB /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				BBEBC6A605F4990FD8362C89 /* BulkSelectionPreview.swift */,
 				2F088923160AE773A0314A54 /* CleanupHistoryEntry.swift */,
 				E36ADCECA510D78CC3A304A5 /* CleanupPlanValidation.swift */,
 				32D2225B6F8705962D20673F /* CleanupReportItem.swift */,
@@ -211,6 +216,7 @@
 			children = (
 				51FFCC7F4D5942EB69D26D6F /* App */,
 				1680F098189B0B23394CB7FB /* Models */,
+				E3B67114D2EE61AF3DC3EA34 /* Resources */,
 				CA2659CF4AC590D0C41914FF /* Stores */,
 				6867F7570D23DB97924AEF75 /* Support */,
 				AC5CDED2A2843412022685DF /* Views */,
@@ -330,6 +336,14 @@
 			path = Sources/LittleTidyCore;
 			sourceTree = "<group>";
 		};
+		E3B67114D2EE61AF3DC3EA34 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BC3219B70A8305C5C7D85140 /* AppIcon.icon */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -394,6 +408,7 @@
 			buildConfigurationList = 4B20D2C173C7D11CBFCDEB64 /* Build configuration list for PBXNativeTarget "LittleTidy" */;
 			buildPhases = (
 				85AEC488B5FA9711450D2A9A /* Sources */,
+				4834F07649D12E7C8BEEBE15 /* Resources */,
 				466EF56C67E7B9192CE1E188 /* Frameworks */,
 				4E57A05A659CD34A6593E732 /* Embed Frameworks */,
 			);
@@ -416,7 +431,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					17CCFC3AF1674626E6146823 = {
 						DevelopmentTeam = "";
@@ -457,6 +472,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4834F07649D12E7C8BEEBE15 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C9F3605D668B71239C4D707 /* AppIcon.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2C2B536FFB560E2E3176D46D /* Sources */ = {
@@ -504,6 +530,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3889D889184FECC5AECD1CBE /* BulkSelectionPreview.swift in Sources */,
 				007461F3FC3280620CB7677D /* ByteCountFormatter+Cleaner.swift in Sources */,
 				EE2E8C02560EBC7BB7A67FE8 /* CleanerPalette.swift in Sources */,
 				6CDEEBF28442EE6E77702A5A /* CleanerSurface.swift in Sources */,
@@ -560,16 +587,19 @@
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -581,6 +611,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -594,6 +625,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -626,10 +658,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -644,13 +678,14 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -661,6 +696,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -693,10 +729,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -705,12 +743,13 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -723,16 +762,19 @@
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -744,6 +786,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -758,6 +801,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -774,11 +818,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
 				INFOPLIST_KEY_CFBundleName = LittleTidy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -794,11 +839,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
 				INFOPLIST_KEY_CFBundleName = LittleTidy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -814,6 +860,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
