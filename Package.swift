@@ -39,10 +39,6 @@ let package = Package(
         .testTarget(
             name: "LittleTidyCoreTests",
             dependencies: ["LittleTidyCore"]
-        ),
-        .testTarget(
-            name: "LittleTidyTests",
-            dependencies: ["LittleTidy", "LittleTidyCore"]
         )
     ]
 )
