@@ -13,6 +13,7 @@ struct CleanupReportItem: Identifiable, Hashable {
     let destinationURL: URL?
     let status: Status
     let message: String
+    let reason: String
     let category: CleanupCategory?
     let bytes: Int64
 }

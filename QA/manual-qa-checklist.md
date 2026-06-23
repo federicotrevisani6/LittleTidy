@@ -1,4 +1,4 @@
-# MacCleaner Manual QA Checklist
+# LittleTidy Manual QA Checklist
 
 Use the generated fixture folder before scanning real user folders.
 
@@ -12,7 +12,7 @@ cd /Users/federicotrevisani/MacCleaner
 Fixture path:
 
 ```text
-/Users/federicotrevisani/MacCleaner/QA/MacCleanerFixture
+/Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture
 ```
 
 ## Expected Fixture Contents
@@ -30,7 +30,7 @@ Run the automated fixture audit first:
 
 ```bash
 cd /Users/federicotrevisani/MacCleaner
-swift run MacCleanerQA
+swift run LittleTidyQA
 ```
 
 Expected output:
@@ -45,23 +45,23 @@ unusedApps=1
 1. Open the Xcode project:
 
    ```bash
-   open /Users/federicotrevisani/MacCleaner/MacCleaner.xcodeproj
+   open /Users/federicotrevisani/MacCleaner/LittleTidy.xcodeproj
    ```
 
-2. Run the `MacCleaner` scheme.
+2. Run the `LittleTidy` scheme.
 
-3. Click `Use QA Fixture` in the overview's `Scan Settings` section.
+3. Expand `Advanced Scan Settings`, then click `Use QA Fixture`.
 
 4. Confirm the overview shows this file root:
 
    ```text
-   /Users/federicotrevisani/MacCleaner/QA/MacCleanerFixture
+   /Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture
    ```
 
 5. Confirm the overview shows this app root:
 
    ```text
-   /Users/federicotrevisani/MacCleaner/QA/MacCleanerFixture/Applications
+   /Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture/Applications
    ```
 
 6. Quit and relaunch the app, then confirm the fixture file root and app root are still selected.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FIXTURE_DIR="$ROOT_DIR/QA/MacCleanerFixture"
+FIXTURE_DIR="$ROOT_DIR/QA/LittleTidyFixture"
 
 rm -rf "$FIXTURE_DIR"
 mkdir -p \
@@ -19,7 +19,7 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 
-duplicate = b"MacCleaner duplicate fixture\n" * 45_000
+duplicate = b"LittleTidy duplicate fixture\n" * 45_000
 (root / "Downloads" / "duplicate-copy-a.bin").write_bytes(duplicate)
 (root / "Documents" / "duplicate-copy-b.bin").write_bytes(duplicate)
 (root / "Documents" / "unique-same-size.bin").write_bytes(b"Unique fixture payload\n" * 58_000)
@@ -35,7 +35,7 @@ with installer_path.open("wb") as f:
 app = root / "Applications" / "OldFixtureApp.app"
 contents = app / "Contents"
 info = {
-    "CFBundleIdentifier": "com.federicotrevisani.MacCleanerFixture.OldFixtureApp",
+    "CFBundleIdentifier": "com.federicotrevisani.LittleTidyFixture.OldFixtureApp",
     "CFBundleName": "OldFixtureApp",
     "CFBundleDisplayName": "Old Fixture App",
     "CFBundleShortVersionString": "1.0",
@@ -53,5 +53,5 @@ PY
 
 echo "Created QA fixture at: $FIXTURE_DIR"
 echo
-echo "Use this folder with MacCleaner:"
+echo "Use this folder with LittleTidy:"
 echo "  $FIXTURE_DIR"

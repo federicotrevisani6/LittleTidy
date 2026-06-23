@@ -78,6 +78,17 @@
                ReferencedContainer = "container:LittleTidy.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "32C9593C6422B159849810C8"
+               BuildableName = "LittleTidyTests.xctest"
+               BlueprintName = "LittleTidyTests"
+               ReferencedContainer = "container:LittleTidy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

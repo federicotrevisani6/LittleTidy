@@ -59,9 +59,16 @@ final class ScanReviewStore: ObservableObject {
     @Published var cleanupHistory: [CleanupHistoryEntry] = []
     @Published var isCleaning = false
     @Published var reviewSortOption: ReviewSortOption = .largestFirst
+    @Published var reviewSearchText = ""
+    @Published var reviewFilterScope: ReviewFilterScope = .all
+    @Published var selectedInspectorItemID: ReviewItem.ID?
+    @Published var cleanupReportFilter: CleanupReportFilter = .all
+    @Published var manualReviewConfirmed = false
+    @Published var bulkSelectionUndoMessage: String?
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
+    private var previousSelectionSnapshot: [SelectionSnapshot]?
     private let trashPlanBuilder: TrashPlanBuilder
     private let trashExecutor: TrashExecutor
     private let folderBookmarkStore: FolderBookmarkStore
@@ -82,8 +89,14 @@ final class ScanReviewStore: ObservableObject {
         self.folderBookmarkStore = folderBookmarkStore
         self.scanPreferencesStore = scanPreferencesStore
         self.cleanupHistoryStore = cleanupHistoryStore
-        self.scanRoots = scanRoots ?? folderBookmarkStore.restoredScanRoots(fallback: Self.defaultScanRoots())
-        self.appRoots = appRoots ?? folderBookmarkStore.restoredAppRoots(fallback: Self.defaultApplicationRoots())
+        if ProcessInfo.processInfo.environment["LITTLE_TIDY_FIXTURE_ROOT"] != nil {
+            let fixture = Self.qaFixtureRoot()
+            self.scanRoots = scanRoots ?? [fixture]
+            self.appRoots = appRoots ?? [fixture.appendingPathComponent("Applications", isDirectory: true)]
+        } else {
+            self.scanRoots = scanRoots ?? folderBookmarkStore.restoredScanRoots(fallback: Self.defaultScanRoots())
+            self.appRoots = appRoots ?? folderBookmarkStore.restoredAppRoots(fallback: Self.defaultApplicationRoots())
+        }
         self.trashPlanBuilder = trashPlanBuilder
         self.trashExecutor = trashExecutor
 
@@ -108,11 +121,75 @@ final class ScanReviewStore: ObservableObject {
     }
 
     var selectedBytes: Int64 {
-        selectedItems.reduce(0) { $0 + selectedBytes(for: $1) }
+        selectedItems.reduce(0) { $0 + selectedBytesForItem($1) }
     }
 
     var selectedFilesystemEntryCount: Int {
         selectedItems.reduce(0) { $0 + selectedPlannedURLs(for: $1).count }
+    }
+
+    var selectedNeedsManualReview: Bool {
+        selectedItems.contains { $0.confidence != .high }
+    }
+
+    var selectedRiskBreakdown: [(ReviewRisk, Int, Int64)] {
+        ReviewRisk.allCases.compactMap { risk in
+            let matchingItems = selectedItems.filter { ReviewRisk.risk(for: $0.confidence) == risk }
+            guard !matchingItems.isEmpty else { return nil }
+            let bytes = matchingItems.reduce(Int64(0)) { $0 + selectedBytesForItem($1) }
+            return (risk, matchingItems.count, bytes)
+        }
+    }
+
+    var selectedCategoryBreakdown: [(CleanupCategory, Int, Int64)] {
+        Self.cleanupCategoryOrder.compactMap { category in
+            let categoryItems = selectedItems.filter { $0.category == category }
+            guard !categoryItems.isEmpty else { return nil }
+            return (category, categoryItems.count, selectedBytes(for: category))
+        }
+    }
+
+    func selectedBytes(for category: CleanupCategory) -> Int64 {
+        selectedItems
+            .filter { $0.category == category }
+            .reduce(0) { $0 + selectedBytesForItem($1) }
+    }
+
+    func selectedCount(for category: CleanupCategory) -> Int {
+        selectedItems.filter { $0.category == category }.count
+    }
+
+    func selectedEntryCount(for item: ReviewItem) -> Int {
+        selectedPlannedURLs(for: item).count
+    }
+
+    func selectedBytes(for item: ReviewItem) -> Int64 {
+        selectedBytesForItem(item)
+    }
+
+    func plannedURLs(for item: ReviewItem) -> [URL] {
+        if item.duplicateCopies.isEmpty {
+            return item.plannedURLs + includedRelatedURLs(for: item)
+        }
+        return item.duplicateCopies
+            .filter { !$0.isRecommendedKeep }
+            .map(\.url)
+    }
+
+    func visibleReviewItems(from items: [ReviewItem]) -> [ReviewItem] {
+        items.filter { item in
+            matchesReviewScope(item) && matchesReviewSearch(item)
+        }
+    }
+
+    func visibleSelectedBytes(from items: [ReviewItem]) -> Int64 {
+        visibleReviewItems(from: items).reduce(Int64(0)) { total, item in
+            total + selectedBytesForItem(item)
+        }
+    }
+
+    func visibleSelectedCount(from items: [ReviewItem]) -> Int {
+        visibleReviewItems(from: items).filter(isItemSelected).count
     }
 
     var cleanupPlanValidation: CleanupPlanValidation {
@@ -199,6 +276,8 @@ final class ScanReviewStore: ObservableObject {
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
         cleanupReportItems = []
+        manualReviewConfirmed = false
+        bulkSelectionUndoMessage = nil
     }
 
     func toggleDuplicateCopy(for item: ReviewItem, copy: DuplicateCopyReview) {
@@ -213,6 +292,8 @@ final class ScanReviewStore: ObservableObject {
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
         cleanupReportItems = []
+        manualReviewConfirmed = false
+        bulkSelectionUndoMessage = nil
     }
 
     func selectSuggested() {
@@ -220,6 +301,7 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func applyBulkSelection(_ mode: BulkSelectionMode) {
+        previousSelectionSnapshot = items.map(SelectionSnapshot.init(item:))
         for index in items.indices {
             let shouldSelect = shouldSelectItem(items[index], for: mode)
 
@@ -239,11 +321,71 @@ final class ScanReviewStore: ObservableObject {
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
         cleanupReportItems = []
+        manualReviewConfirmed = false
+        let preview = bulkSelectionPreview(for: mode)
+        bulkSelectionUndoMessage = "\(preview.itemCount) items selected"
+    }
+
+    func selectHighConfidence(in visibleItems: [ReviewItem]) {
+        applyVisibleSelection(visibleItems, shouldSelect: { item in
+            item.confidence == .high && item.category != .cache
+        }, messagePrefix: "High-confidence")
+    }
+
+    func selectVisibleReviewedItems(_ visibleItems: [ReviewItem], includeCaches: Bool = false) {
+        applyVisibleSelection(visibleItems, shouldSelect: { item in
+            item.confidence == .high && (includeCaches || item.category != .cache)
+        }, messagePrefix: "Visible")
+    }
+
+    func deselectVisibleItems(_ visibleItems: [ReviewItem]) {
+        applyVisibleSelection(visibleItems, shouldSelect: { _ in false }, messagePrefix: "Visible", isDeselecting: true)
+    }
+
+    func filteredCleanupReportItems() -> [CleanupReportItem] {
+        cleanupReportItems.filter { item in
+            switch cleanupReportFilter {
+            case .all:
+                return true
+            case .moved:
+                return item.status == .moved
+            case .skipped:
+                return item.status == .skipped
+            case .failed:
+                return item.status == .failed
+            }
+        }
+    }
+
+    func undoBulkSelection() {
+        guard let snapshot = previousSelectionSnapshot else {
+            return
+        }
+
+        for index in items.indices {
+            guard let saved = snapshot.first(where: { $0.itemID == items[index].id }) else {
+                continue
+            }
+            items[index].isSelected = saved.isSelected
+            for copyIndex in items[index].duplicateCopies.indices {
+                let copyID = items[index].duplicateCopies[copyIndex].id
+                if let wasSelected = saved.duplicateCopySelections[copyID] {
+                    items[index].duplicateCopies[copyIndex].isSelected = wasSelected
+                }
+            }
+        }
+
+        previousSelectionSnapshot = nil
+        bulkSelectionUndoMessage = nil
+        cleanupErrorMessage = nil
+        cleanupResultMessage = nil
+        cleanupReportItems = []
+        manualReviewConfirmed = false
     }
 
 #if DEBUG
     func useFixtureSettings() {
-        let fixture = URL(fileURLWithPath: "/Users/federicotrevisani/MacCleaner/QA/MacCleanerFixture", isDirectory: true)
+        let fixture = Self.qaFixtureRoot()
         scanRoots = [fixture]
         appRoots = [fixture.appendingPathComponent("Applications", isDirectory: true)]
         persistApprovedFolders()
@@ -320,9 +462,38 @@ final class ScanReviewStore: ObservableObject {
             return
         }
 
+        execute(plan: plan)
+    }
+
+    func retryFailedCleanup() {
+        let failedItems = cleanupReportItems.filter { $0.status == .failed }
+        guard !failedItems.isEmpty else {
+            return
+        }
+
+        let plan = TrashPlan(items: failedItems.map { item in
+            TrashPlanItem(
+                sourceURL: item.sourceURL,
+                bytes: item.bytes,
+                category: item.category ?? .largeFile,
+                reason: item.reason
+            )
+        })
+        execute(plan: plan, preservingReport: true)
+    }
+
+    func openTrash() {
+        let trashURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
+        NSWorkspace.shared.open(trashURL)
+    }
+
+    private func execute(plan: TrashPlan, preservingReport: Bool = false) {
+        let existingReportItems = preservingReport ? cleanupReportItems : []
         isCleaning = true
         cleanupResultMessage = nil
-        cleanupReportItems = []
+        if !preservingReport {
+            cleanupReportItems = []
+        }
 
         Task { [weak self] in
             guard let self else { return }
@@ -334,13 +505,15 @@ final class ScanReviewStore: ObservableObject {
             }.value
 
             let trashedSourcePaths = Set(result.trashed.map { $0.sourceURL.standardizedFileURL.path })
-            self.cleanupReportItems = self.cleanupReportItems(from: result, plan: plan)
+            let newReportItems = self.cleanupReportItems(from: result, plan: plan)
+            self.cleanupReportItems = existingReportItems + newReportItems
             self.items = self.items.compactMap { self.itemAfterCleanup($0, trashedSourcePaths: trashedSourcePaths) }
             self.isCleaning = false
             self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be moved to Trash."
-            self.cleanupResultMessage = "\(result.trashed.count) moved to Trash, \(result.skipped.count) skipped."
-            self.statusMessage = "Cleanup complete"
-            self.recordCleanupHistory(from: self.cleanupReportItems)
+            self.cleanupResultMessage = preservingReport ? "Retry complete: \(result.trashed.count) moved to Trash, \(result.skipped.count) skipped." : "\(result.trashed.count) moved to Trash, \(result.skipped.count) skipped."
+            self.statusMessage = preservingReport ? "Cleanup retry complete" : "Cleanup complete"
+            self.manualReviewConfirmed = false
+            self.recordCleanupHistory(from: newReportItems)
             self.selectedSection = .cleanupPlan
         }
     }
@@ -423,6 +596,94 @@ final class ScanReviewStore: ObservableObject {
         return item.duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
     }
 
+    private func applyVisibleSelection(
+        _ visibleItems: [ReviewItem],
+        shouldSelect: (ReviewItem) -> Bool,
+        messagePrefix: String,
+        isDeselecting: Bool = false
+    ) {
+        let visibleIDs = Set(visibleItems.map(\.id))
+        guard !visibleIDs.isEmpty else {
+            return
+        }
+
+        previousSelectionSnapshot = items.map(SelectionSnapshot.init(item:))
+        var changedCount = 0
+
+        for index in items.indices where visibleIDs.contains(items[index].id) {
+            let newSelection = shouldSelect(items[index])
+            let oldSelection = isItemSelected(items[index])
+
+            if !items[index].duplicateCopies.isEmpty {
+                for copyIndex in items[index].duplicateCopies.indices {
+                    items[index].duplicateCopies[copyIndex].isSelected = newSelection && !items[index].duplicateCopies[copyIndex].isRecommendedKeep
+                }
+                items[index].isSelected = items[index].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
+            } else {
+                items[index].isSelected = newSelection
+            }
+
+            if oldSelection != isItemSelected(items[index]) {
+                changedCount += 1
+            }
+        }
+
+        cleanupErrorMessage = nil
+        cleanupResultMessage = nil
+        cleanupReportItems = []
+        manualReviewConfirmed = false
+        bulkSelectionUndoMessage = isDeselecting ? "\(changedCount) visible items deselected" : "\(messagePrefix) items selected: \(changedCount)"
+    }
+
+    private func matchesReviewScope(_ item: ReviewItem) -> Bool {
+        switch reviewFilterScope {
+        case .all:
+            return true
+        case .selected:
+            return isItemSelected(item)
+        case .unselected:
+            return !isItemSelected(item)
+        case .highConfidence:
+            return item.confidence == .high
+        case .needsReview:
+            return item.confidence != .high
+        case .includesRelatedData:
+            return !item.relatedData.isEmpty
+        case .failedLastCleanup:
+            return failedCleanupSourcePaths.contains { path in
+                allCandidateURLs(for: item).contains { $0.standardizedFileURL.path == path }
+            }
+        }
+    }
+
+    private func matchesReviewSearch(_ item: ReviewItem) -> Bool {
+        let query = reviewSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return true
+        }
+
+        let searchableValues = [
+            item.title,
+            item.detail,
+            item.location,
+            item.reason,
+            item.category.displayTitle,
+            item.confidence.rawValue
+        ] + allCandidateURLs(for: item).map(\.path) + item.relatedData.flatMap { [$0.kind, $0.url.lastPathComponent, $0.url.path] }
+
+        return searchableValues.contains { value in
+            value.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var failedCleanupSourcePaths: Set<String> {
+        Set(cleanupReportItems.filter { $0.status == .failed }.map { $0.sourceURL.standardizedFileURL.path })
+    }
+
+    private func allCandidateURLs(for item: ReviewItem) -> [URL] {
+        item.plannedURLs + item.duplicateCopies.map(\.url) + item.relatedData.map(\.url)
+    }
+
     private func selectedPlannedURLs(for item: ReviewItem) -> [URL] {
         if item.duplicateCopies.isEmpty {
             guard item.isSelected else {
@@ -435,7 +696,7 @@ final class ScanReviewStore: ObservableObject {
             .map(\.url)
     }
 
-    private func selectedBytes(for item: ReviewItem) -> Int64 {
+    private func selectedBytesForItem(_ item: ReviewItem) -> Int64 {
         if item.duplicateCopies.isEmpty {
             return item.isSelected ? item.bytes + includedRelatedBytes(for: item) : 0
         }
@@ -730,6 +991,7 @@ final class ScanReviewStore: ObservableObject {
                 self.hasCompletedScan = true
                 self.scanDidFail = false
                 self.statusMessage = "Scan complete"
+                self.applyVisualQASectionIfNeeded()
             } catch is CancellationError {
                 self.progress = 0
                 self.scanPhase = "Cancelled"
@@ -886,6 +1148,63 @@ final class ScanReviewStore: ObservableObject {
         scanIssues.append(ScanIssue(kind: kind, url: url, message: message))
     }
 
+    private func applyVisualQASectionIfNeeded() {
+        guard let value = ProcessInfo.processInfo.environment["LITTLE_TIDY_VISUAL_SECTION"] else {
+            return
+        }
+
+        switch value {
+        case "duplicates":
+            selectedSection = .duplicates
+        case "large-files":
+            selectedSection = .largeFiles
+        case "unused-apps":
+            selectedSection = .unusedApps
+        case "caches":
+            selectedSection = .caches
+        case "cleanup-plan":
+            selectedSection = .cleanupPlan
+        default:
+            break
+        }
+    }
+
+    private static func qaFixtureRoot() -> URL {
+        if let override = ProcessInfo.processInfo.environment["LITTLE_TIDY_FIXTURE_ROOT"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+
+        let workingDirectoryCandidate = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+            .appendingPathComponent("QA/LittleTidyFixture", isDirectory: true)
+        if FileManager.default.fileExists(atPath: workingDirectoryCandidate.path) {
+            return workingDirectoryCandidate
+        }
+
+        let sourceRootCandidate = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("QA/LittleTidyFixture", isDirectory: true)
+        if FileManager.default.fileExists(atPath: sourceRootCandidate.path) {
+            return sourceRootCandidate
+        }
+
+        return workingDirectoryCandidate
+    }
+
+    private struct SelectionSnapshot {
+        let itemID: ReviewItem.ID
+        let isSelected: Bool
+        let duplicateCopySelections: [DuplicateCopyReview.ID: Bool]
+
+        init(item: ReviewItem) {
+            itemID = item.id
+            isSelected = item.isSelected
+            duplicateCopySelections = Dictionary(uniqueKeysWithValues: item.duplicateCopies.map { ($0.id, $0.isSelected) })
+        }
+    }
+
     private func persistApprovedFolders() {
         folderBookmarkStore.saveScanRoots(scanRoots)
         folderBookmarkStore.saveAppRoots(appRoots)
@@ -959,6 +1278,7 @@ final class ScanReviewStore: ObservableObject {
                 destinationURL: trashed.trashURL,
                 status: .moved,
                 message: "Moved to Trash",
+                reason: planItem?.reason ?? "Cleanup plan item",
                 category: planItem?.category,
                 bytes: planItem?.bytes ?? 0
             )
@@ -971,6 +1291,7 @@ final class ScanReviewStore: ObservableObject {
                 destinationURL: nil,
                 status: .skipped,
                 message: "Source file was already missing",
+                reason: planItem?.reason ?? "Cleanup plan item",
                 category: planItem?.category,
                 bytes: planItem?.bytes ?? 0
             )
@@ -983,6 +1304,7 @@ final class ScanReviewStore: ObservableObject {
                 destinationURL: nil,
                 status: .failed,
                 message: failed.error.localizedDescription,
+                reason: planItem?.reason ?? "Cleanup plan item",
                 category: planItem?.category,
                 bytes: planItem?.bytes ?? 0
             )
@@ -1011,6 +1333,10 @@ final class ScanReviewStore: ObservableObject {
                 confidence: group.confidence,
                 reason: "Same size and SHA-256 hash. Keeps: \(group.recommendedKeep?.url.lastPathComponent ?? "one copy").",
                 plannedURLs: removableFiles.map(\.url),
+                contentHash: group.contentHash,
+                bundleIdentifier: nil,
+                lastOpenedDate: nil,
+                installDate: nil,
                 duplicateCopies: duplicateCopies,
                 isSelected: false
             )
@@ -1026,6 +1352,10 @@ final class ScanReviewStore: ObservableObject {
                 confidence: candidate.confidence,
                 reason: candidate.reason,
                 plannedURLs: [candidate.file.url],
+                contentHash: nil,
+                bundleIdentifier: nil,
+                lastOpenedDate: nil,
+                installDate: nil,
                 duplicateCopies: [],
                 isSelected: false
             )
@@ -1041,6 +1371,10 @@ final class ScanReviewStore: ObservableObject {
                 confidence: classified.record.confidence,
                 reason: classified.reason,
                 plannedURLs: [classified.record.appURL],
+                contentHash: nil,
+                bundleIdentifier: classified.record.bundleIdentifier,
+                lastOpenedDate: classified.record.lastOpenedDate,
+                installDate: classified.record.installDate,
                 duplicateCopies: [],
                 relatedData: classified.record.relatedData,
                 isSelected: false
@@ -1057,6 +1391,10 @@ final class ScanReviewStore: ObservableObject {
                 confidence: candidate.confidence,
                 reason: candidate.reason,
                 plannedURLs: [candidate.url],
+                contentHash: nil,
+                bundleIdentifier: nil,
+                lastOpenedDate: nil,
+                installDate: nil,
                 duplicateCopies: [],
                 isSelected: false
             )

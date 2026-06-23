@@ -17,9 +17,11 @@
 		3AFFC952F5F355E57516E3F0 /* CleanupAnalysisTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1E6E7B6CDA9BCC38020EC9 /* CleanupAnalysisTests.swift */; };
 		3F623C2EE572D4E6E83660EA /* CleanupReportItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D2225B6F8705962D20673F /* CleanupReportItem.swift */; };
 		43CF9595C8F39DE6F466E727 /* FolderUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C54777095CC61C9961E9503 /* FolderUsageAnalyzer.swift */; };
+		49CE371F5E1E1A3F0B0D9722 /* LittleTidyCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; };
 		4C11C8DDC7924BA71512CA2B /* LittleTidyCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4D05E65B45E3976EE0D849AE /* LargeFileAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E47BA04802EF1253E7173E /* LargeFileAnalyzerTests.swift */; };
 		4D746BABB3F95265EBEBFCD9 /* CleanupPlanValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E36ADCECA510D78CC3A304A5 /* CleanupPlanValidation.swift */; };
+		4FE0E0BF1C33967C28356083 /* CleanupReportFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4192D18F2A060FA907ABBA82 /* CleanupReportFilter.swift */; };
 		50FD6E0F9BD63FF99F2174D2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3F66D8B23E59068AEBADD9 /* ContentView.swift */; };
 		5542485D1CECFDBAB00B3BBA /* AppUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979F50D10A734516A2063457 /* AppUsageAnalyzer.swift */; };
 		555E3EB1108ACD54FD56B8C5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB16B51F1AEFD7021B76EE8 /* Models.swift */; };
@@ -36,8 +38,10 @@
 		8468C97C960B92D41F43A90E /* ScanIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133DD1DA86A555DF634B03D5 /* ScanIssue.swift */; };
 		890EDA33FDE55BF86F8AE0C4 /* TrashPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E540515C1EBBE5B4834229A /* TrashPlanBuilder.swift */; };
 		975E72CB128897154526E968 /* ScanReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BA8A3C7102B78DCD10C7FC /* ScanReviewStore.swift */; };
+		9DE7D72AC34BE86F3C52D8E4 /* ReviewRisk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B80B965DB8A3F7D51818D6E /* ReviewRisk.swift */; };
 		A109BCD1D2346BDD9A952075 /* SidebarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2D82CCD743AE2C9B04A582 /* SidebarSection.swift */; };
 		A35515E5700E19DE983CE1E8 /* LargeFileAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F74F5751636630B1DA439ED7 /* LargeFileAnalyzer.swift */; };
+		A55AC6B8D4DCFB8D0B088277 /* ScanReviewStorePowerReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656189CBD7F5B6F700D7856D /* ScanReviewStorePowerReviewTests.swift */; };
 		B33372D5FE649B3F233B50D9 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6515A1AB724759F7BDD146 /* SidebarView.swift */; };
 		B5A620D33F86AC9CCE306724 /* ReviewFilterScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AA9D7813287A4F279C2D49 /* ReviewFilterScope.swift */; };
 		BA1121E98E7E4434E0EC4B3C /* CacheAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A780C7DAFD1218DA461145 /* CacheAnalyzerTests.swift */; };
@@ -54,6 +58,7 @@
 		D94AB0E629B0014F44C73790 /* QuickLookPreviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0497072DA65695FC3F6A9D8 /* QuickLookPreviewController.swift */; };
 		DD5850C9D8A751A4FEA62CE4 /* AppUsageAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E5918642D5AD64D0FD71E4 /* AppUsageAnalyzerTests.swift */; };
 		E05AADDEE326F2A5E1B3BCBD /* ReviewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379A56D8CCD301EF5DE9FEF5 /* ReviewItem.swift */; };
+		E548B94F9AF3B53D5E27370C /* LittleTidyCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E7C2C246578BD2C3FF5B85FE /* LittleTidyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D6C26E8ABFF8AFF0D6E94A3 /* LittleTidyApp.swift */; };
 		EB6D32B67A550344D7E0FA4E /* StorageMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027D616014525410F97D53B6 /* StorageMapView.swift */; };
 		EE2E8C02560EBC7BB7A67FE8 /* CleanerPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10AF1F003CF8BA788F01F40C /* CleanerPalette.swift */; };
@@ -76,6 +81,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = BD27B783873947383E483366;
 			remoteInfo = LittleTidyCore;
+		};
+		62CCD75C90D6BF77528EB93D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5486AD437BE38638A500C96B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BD27B783873947383E483366;
+			remoteInfo = LittleTidyCore;
+		};
+		99331F109A01AD5EA59E0C2B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5486AD437BE38638A500C96B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FFEF49DAC23F05349673D82D;
+			remoteInfo = LittleTidy;
 		};
 		FE41119454240583A17A8BE4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -109,6 +128,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EE885D7697BA422729646D28 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				E548B94F9AF3B53D5E27370C /* LittleTidyCore.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -129,16 +159,20 @@
 		351FAD905F685829E68FF78C /* CleanupAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupAnalysis.swift; sourceTree = "<group>"; };
 		379A56D8CCD301EF5DE9FEF5 /* ReviewItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewItem.swift; sourceTree = "<group>"; };
 		381E0DD5DF4B49DB8EBE2470 /* DuplicateAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateAnalyzerTests.swift; sourceTree = "<group>"; };
+		4192D18F2A060FA907ABBA82 /* CleanupReportFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupReportFilter.swift; sourceTree = "<group>"; };
 		496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LittleTidyCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C2D82CCD743AE2C9B04A582 /* SidebarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSection.swift; sourceTree = "<group>"; };
 		5154FD0E070A15DFF89787E6 /* ReviewListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewListView.swift; sourceTree = "<group>"; };
 		55C05EF931488448DA32C51B /* CacheAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheAnalyzer.swift; sourceTree = "<group>"; };
+		5B80B965DB8A3F7D51818D6E /* ReviewRisk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewRisk.swift; sourceTree = "<group>"; };
 		5C54777095CC61C9961E9503 /* FolderUsageAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderUsageAnalyzer.swift; sourceTree = "<group>"; };
 		5DC34A04355CA23F690F35D2 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
 		62130299396E39D7E43F64A8 /* LittleTidy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LittleTidy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		62BD287B6A067EDBFB8BD364 /* ScanPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPreferencesStore.swift; sourceTree = "<group>"; };
+		656189CBD7F5B6F700D7856D /* ScanReviewStorePowerReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReviewStorePowerReviewTests.swift; sourceTree = "<group>"; };
 		77AA9D7813287A4F279C2D49 /* ReviewFilterScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewFilterScope.swift; sourceTree = "<group>"; };
 		7EB16B51F1AEFD7021B76EE8 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		899A443BED8B4FCE5D974639 /* LittleTidyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LittleTidyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D6C26E8ABFF8AFF0D6E94A3 /* LittleTidyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LittleTidyApp.swift; sourceTree = "<group>"; };
 		979F50D10A734516A2063457 /* AppUsageAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUsageAnalyzer.swift; sourceTree = "<group>"; };
 		99EC8D63F070BEE3B82116BC /* ReviewSortOption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSortOption.swift; sourceTree = "<group>"; };
@@ -175,6 +209,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3B4D6C1CC9ECCAD8CFED6F16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49CE371F5E1E1A3F0B0D9722 /* LittleTidyCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		466EF56C67E7B9192CE1E188 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -200,10 +242,12 @@
 				BBEBC6A605F4990FD8362C89 /* BulkSelectionPreview.swift */,
 				2F088923160AE773A0314A54 /* CleanupHistoryEntry.swift */,
 				E36ADCECA510D78CC3A304A5 /* CleanupPlanValidation.swift */,
+				4192D18F2A060FA907ABBA82 /* CleanupReportFilter.swift */,
 				32D2225B6F8705962D20673F /* CleanupReportItem.swift */,
 				C3BB0C64712ECFC9D99CCCA4 /* PermissionReadinessItem.swift */,
 				77AA9D7813287A4F279C2D49 /* ReviewFilterScope.swift */,
 				379A56D8CCD301EF5DE9FEF5 /* ReviewItem.swift */,
+				5B80B965DB8A3F7D51818D6E /* ReviewRisk.swift */,
 				99EC8D63F070BEE3B82116BC /* ReviewSortOption.swift */,
 				133DD1DA86A555DF634B03D5 /* ScanIssue.swift */,
 				4C2D82CCD743AE2C9B04A582 /* SidebarSection.swift */,
@@ -240,6 +284,7 @@
 				496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */,
 				D84EC51C7801061F1EB60060 /* LittleTidyCoreTests.xctest */,
 				BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */,
+				899A443BED8B4FCE5D974639 /* LittleTidyTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -289,6 +334,7 @@
 				DF7987290DED7188139031D8 /* LittleTidyCore */,
 				D726C36995966C1AB08CBFB8 /* LittleTidyCoreTests */,
 				8704E898B797BE8FDAC9CA47 /* LittleTidyQA */,
+				D56A7277328A18143B741A50 /* LittleTidyTests */,
 				67EB7CB2F4064610688647BD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -299,6 +345,15 @@
 				24BA8A3C7102B78DCD10C7FC /* ScanReviewStore.swift */,
 			);
 			path = Stores;
+			sourceTree = "<group>";
+		};
+		D56A7277328A18143B741A50 /* LittleTidyTests */ = {
+			isa = PBXGroup;
+			children = (
+				656189CBD7F5B6F700D7856D /* ScanReviewStorePowerReviewTests.swift */,
+			);
+			name = LittleTidyTests;
+			path = Tests/LittleTidyTests;
 			sourceTree = "<group>";
 		};
 		D726C36995966C1AB08CBFB8 /* LittleTidyCoreTests */ = {
@@ -365,6 +420,27 @@
 			);
 			productName = LittleTidyCoreTests;
 			productReference = D84EC51C7801061F1EB60060 /* LittleTidyCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		32C9593C6422B159849810C8 /* LittleTidyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11DE16A0E13AAE407A1321FD /* Build configuration list for PBXNativeTarget "LittleTidyTests" */;
+			buildPhases = (
+				67296F02C89BC5BD93761C01 /* Sources */,
+				3B4D6C1CC9ECCAD8CFED6F16 /* Frameworks */,
+				EE885D7697BA422729646D28 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				95B1370DEE742EC939EB3D14 /* PBXTargetDependency */,
+				A3C7D974EFD3865D927B84A5 /* PBXTargetDependency */,
+			);
+			name = LittleTidyTests;
+			packageProductDependencies = (
+			);
+			productName = LittleTidyTests;
+			productReference = 899A443BED8B4FCE5D974639 /* LittleTidyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		BD27B783873947383E483366 /* LittleTidyCore */ = {
@@ -437,6 +513,10 @@
 						DevelopmentTeam = 3VU7K9SUV8;
 						ProvisioningStyle = Automatic;
 					};
+					32C9593C6422B159849810C8 = {
+						DevelopmentTeam = 3VU7K9SUV8;
+						ProvisioningStyle = Automatic;
+					};
 					BD27B783873947383E483366 = {
 						DevelopmentTeam = 3VU7K9SUV8;
 						ProvisioningStyle = Automatic;
@@ -469,6 +549,7 @@
 				BD27B783873947383E483366 /* LittleTidyCore */,
 				17CCFC3AF1674626E6146823 /* LittleTidyCoreTests */,
 				C113BBBFBDE88E40669A5EF3 /* LittleTidyQA */,
+				32C9593C6422B159849810C8 /* LittleTidyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -526,6 +607,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		67296F02C89BC5BD93761C01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A55AC6B8D4DCFB8D0B088277 /* ScanReviewStorePowerReviewTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		85AEC488B5FA9711450D2A9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -538,6 +627,7 @@
 				CEBD15C5B288EA617193F6F4 /* CleanupHistoryStore.swift in Sources */,
 				4D746BABB3F95265EBEBFCD9 /* CleanupPlanValidation.swift in Sources */,
 				BA6AEE7AAFE63CE973844A26 /* CleanupPlanView.swift in Sources */,
+				4FE0E0BF1C33967C28356083 /* CleanupReportFilter.swift in Sources */,
 				3F623C2EE572D4E6E83660EA /* CleanupReportItem.swift in Sources */,
 				50FD6E0F9BD63FF99F2174D2 /* ContentView.swift in Sources */,
 				5FF929D7FBFC7CDFF3FFDFFE /* DetailView.swift in Sources */,
@@ -549,6 +639,7 @@
 				B5A620D33F86AC9CCE306724 /* ReviewFilterScope.swift in Sources */,
 				E05AADDEE326F2A5E1B3BCBD /* ReviewItem.swift in Sources */,
 				F14800420B340D8BA2726E81 /* ReviewListView.swift in Sources */,
+				9DE7D72AC34BE86F3C52D8E4 /* ReviewRisk.swift in Sources */,
 				C7AA12F3B9CEBEA3377944DD /* ReviewSortOption.swift in Sources */,
 				8468C97C960B92D41F43A90E /* ScanIssue.swift in Sources */,
 				6EA1930E5585DD931833ED23 /* ScanPreferencesStore.swift in Sources */,
@@ -572,6 +663,16 @@
 			isa = PBXTargetDependency;
 			target = BD27B783873947383E483366 /* LittleTidyCore */;
 			targetProxy = 35C780842F2A00E285FAC7E2 /* PBXContainerItemProxy */;
+		};
+		95B1370DEE742EC939EB3D14 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FFEF49DAC23F05349673D82D /* LittleTidy */;
+			targetProxy = 99331F109A01AD5EA59E0C2B /* PBXContainerItemProxy */;
+		};
+		A3C7D974EFD3865D927B84A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BD27B783873947383E483366 /* LittleTidyCore */;
+			targetProxy = 62CCD75C90D6BF77528EB93D /* PBXContainerItemProxy */;
 		};
 		E210FD85196C5B1DDDD8941C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -782,6 +883,23 @@
 			};
 			name = Release;
 		};
+		94C9A4953C456477D937D603 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LittleTidy.app/Contents/MacOS/LittleTidy";
+			};
+			name = Release;
+		};
 		C6F7BFD26A588D7A47E017AB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -815,6 +933,23 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidy;
 				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		D8A0CC85EF76F178262D6735 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LittleTidy.app/Contents/MacOS/LittleTidy";
 			};
 			name = Debug;
 		};
@@ -857,6 +992,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		11DE16A0E13AAE407A1321FD /* Build configuration list for PBXNativeTarget "LittleTidyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D8A0CC85EF76F178262D6735 /* Debug */,
+				94C9A4953C456477D937D603 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		197304DEE3CC9AA55E43CA24 /* Build configuration list for PBXNativeTarget "LittleTidyQA" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

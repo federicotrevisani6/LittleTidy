@@ -15,40 +15,81 @@ struct ReviewListView: View {
     @ObservedObject var store: ScanReviewStore
     var headerStyle: HeaderStyle = .large
     @State private var expandedDuplicateIDs: Set<ReviewItem.ID> = []
-    @State private var searchText = ""
-    @State private var filterScope: ReviewFilterScope = .all
     @State private var showingCacheSelectionConfirmation = false
 
     var body: some View {
         GlassEffectContainer {
             VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(title)
-                        .font(titleFont)
-                    Spacer()
-                    if headerStyle == .large {
-                        ReviewSelectionSummary(store: store)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(title)
+                            .font(titleFont)
+                        Spacer()
+                        if headerStyle == .large {
+                            ReviewSelectionSummary(store: store)
+                            SortPicker(store: store)
+                        }
                     }
-                    if headerStyle == .large {
-                        SortPicker(store: store)
+                    Text(subtitle)
+                        .foregroundStyle(.secondary)
+                        .font(headerStyle == .large ? .body : .subheadline)
+                }
+
+                if headerStyle == .large {
+                    ReviewFilterBar(store: store)
+                    ReviewBatchToolbar(
+                        store: store,
+                        visibleItems: filteredItems,
+                        category: category,
+                        selectReviewedCaches: {
+                            showingCacheSelectionConfirmation = true
+                        }
+                    )
+                }
+
+                if headerStyle == .large, category == .cache {
+                    CacheReviewPanel(store: store, items: filteredItems) {
+                        showingCacheSelectionConfirmation = true
                     }
                 }
-                Text(subtitle)
-                    .foregroundStyle(.secondary)
-                    .font(headerStyle == .large ? .body : .subheadline)
-            }
 
-            if headerStyle == .large {
-                ReviewFilterBar(searchText: $searchText, filterScope: $filterScope)
-            }
-
-            if headerStyle == .large, category == .cache {
-                CacheReviewPanel(store: store, items: items) {
-                    showingCacheSelectionConfirmation = true
+                if headerStyle == .large {
+                    HStack(alignment: .top, spacing: 14) {
+                        reviewList
+                            .frame(minWidth: 460)
+                        ReviewInspectorView(item: selectedInspectorItem, store: store)
+                            .frame(width: 330)
+                    }
+                } else {
+                    reviewList
                 }
             }
+        }
+        .onAppear {
+            if headerStyle == .large, store.selectedInspectorItemID == nil {
+                store.selectedInspectorItemID = filteredItems.first?.id
+            }
+        }
+        .confirmationDialog(
+            "Select reviewed caches?",
+            isPresented: $showingCacheSelectionConfirmation,
+            titleVisibility: .visible
+        ) {
+            let visibleCacheItems = filteredItems.filter { $0.category == .cache }
+            Button("Select \(visibleCacheItems.count) Visible Cache Items") {
+                store.selectVisibleReviewedItems(visibleCacheItems, includeCaches: true)
+            }
+            .disabled(visibleCacheItems.isEmpty)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            let visibleCacheItems = filteredItems.filter { $0.category == .cache }
+            let bytes = visibleCacheItems.reduce(Int64(0)) { $0 + $1.bytes }
+            Text("\(visibleCacheItems.count) visible cache items, \(ByteCountFormatter.cleanerString(from: bytes)) will be selected. Nothing moves to Trash until you confirm the Cleanup Plan.")
+        }
+    }
 
+    private var reviewList: some View {
+        Group {
             if filteredItems.isEmpty {
                 ContentUnavailableView(
                     emptyTitle,
@@ -65,9 +106,13 @@ struct ReviewListView: View {
                             ReviewRow(
                                 item: item,
                                 isSelected: item.isSelected,
+                                isInspectorSelected: store.selectedInspectorItemID == item.id,
                                 isExpanded: expandedDuplicateIDs.contains(item.id),
                                 toggle: {
                                     store.toggleSelection(for: item)
+                                },
+                                inspect: {
+                                    store.selectedInspectorItemID = item.id
                                 },
                                 toggleExpansion: {
                                     toggleExpansion(for: item)
@@ -99,22 +144,6 @@ struct ReviewListView: View {
                 .cleanerSurface()
             }
         }
-        }
-        .confirmationDialog(
-            "Select reviewed caches?",
-            isPresented: $showingCacheSelectionConfirmation,
-            titleVisibility: .visible
-        ) {
-            let preview = store.reviewedCachesSelectionPreview
-            Button("Select \(preview.itemCount) Cache Items") {
-                store.applyBulkSelection(.reviewedCaches)
-            }
-            .disabled(!preview.hasItems)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            let preview = store.reviewedCachesSelectionPreview
-            Text("\(preview.itemCount) cache items, \(preview.filesystemEntryCount) filesystem entries, \(ByteCountFormatter.cleanerString(from: preview.bytes)) will be selected. Nothing moves to Trash until you confirm the Cleanup Plan.")
-        }
     }
 
     private var titleFont: Font {
@@ -142,13 +171,11 @@ struct ReviewListView: View {
             return items
         }
 
-        return items.filter { item in
-            matchesScope(item) && matchesSearch(item)
-        }
+        return store.visibleReviewItems(from: items)
     }
 
     private var hasActiveFilter: Bool {
-        headerStyle == .large && (filterScope != .all || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        headerStyle == .large && (store.reviewFilterScope != .all || !store.reviewSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     private var emptyTitle: String {
@@ -159,33 +186,11 @@ struct ReviewListView: View {
         hasActiveFilter ? "Adjust search or filter scope to show more results." : "Run a scan or choose another category."
     }
 
-    private func matchesScope(_ item: ReviewItem) -> Bool {
-        switch filterScope {
-        case .all:
-            return true
-        case .selected:
-            return item.isSelected || item.duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
-        case .highConfidence:
-            return item.confidence == .high
+    private var selectedInspectorItem: ReviewItem? {
+        guard let id = store.selectedInspectorItemID else {
+            return filteredItems.first
         }
-    }
-
-    private func matchesSearch(_ item: ReviewItem) -> Bool {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            return true
-        }
-
-        let searchableValues = [
-            item.title,
-            item.detail,
-            item.location,
-            item.reason
-        ] + item.plannedURLs.map(\.path) + item.duplicateCopies.flatMap { [$0.url.lastPathComponent, $0.url.path] }
-
-        return searchableValues.contains { value in
-            value.localizedCaseInsensitiveContains(query)
-        }
+        return filteredItems.first { $0.id == id } ?? filteredItems.first
     }
 }
 
@@ -295,8 +300,7 @@ private struct SortPicker: View {
 }
 
 private struct ReviewFilterBar: View {
-    @Binding var searchText: String
-    @Binding var filterScope: ReviewFilterScope
+    @ObservedObject var store: ScanReviewStore
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -307,12 +311,12 @@ private struct ReviewFilterBar: View {
                     Label("Search", systemImage: "magnifyingglass")
                         .labelStyle(.iconOnly)
                         .foregroundStyle(.secondary)
-                    TextField("Search", text: $searchText)
+                    TextField("Search", text: $store.reviewSearchText)
                         .textFieldStyle(.roundedBorder)
                         .frame(minWidth: 180, maxWidth: 320)
                 }
 
-                Picker("Filter", selection: $filterScope) {
+                Picker("Filter", selection: $store.reviewFilterScope) {
                     ForEach(ReviewFilterScope.allCases) { scope in
                         Text(scope.title).tag(scope)
                     }
@@ -330,11 +334,11 @@ private struct ReviewFilterBar: View {
                 .labelStyle(.iconOnly)
                 .foregroundStyle(.secondary)
 
-            TextField("Search", text: $searchText)
+            TextField("Search", text: $store.reviewSearchText)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 180, maxWidth: 320)
 
-            Picker("Filter", selection: $filterScope) {
+            Picker("Filter", selection: $store.reviewFilterScope) {
                 ForEach(ReviewFilterScope.allCases) { scope in
                     Text(scope.title).tag(scope)
                 }
@@ -346,11 +350,85 @@ private struct ReviewFilterBar: View {
     }
 }
 
+private struct ReviewBatchToolbar: View {
+    @ObservedObject var store: ScanReviewStore
+    let visibleItems: [ReviewItem]
+    let category: CleanupCategory?
+    let selectReviewedCaches: () -> Void
+
+    private var visibleHighConfidenceCount: Int {
+        visibleItems.filter { $0.confidence == .high && $0.category != .cache }.count
+    }
+
+    private var visibleCacheCount: Int {
+        visibleItems.filter { $0.category == .cache && $0.confidence == .high }.count
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            controls
+            VStack(alignment: .leading, spacing: 8) {
+                controls
+                summary
+            }
+        }
+        .padding(12)
+        .cleanerSubtleSurface()
+    }
+
+    private var controls: some View {
+        HStack(spacing: 10) {
+            summary
+            Spacer()
+            Button {
+                store.selectHighConfidence(in: visibleItems)
+            } label: {
+                Label("Select High Confidence", systemImage: "checkmark.seal")
+            }
+            .disabled(visibleHighConfidenceCount == 0)
+
+            Button {
+                if category == .cache {
+                    selectReviewedCaches()
+                } else {
+                    store.selectVisibleReviewedItems(visibleItems)
+                }
+            } label: {
+                Label("Select Visible", systemImage: "checkmark.circle")
+            }
+            .disabled(category == .cache ? visibleCacheCount == 0 : visibleHighConfidenceCount == 0)
+
+            Button {
+                store.deselectVisibleItems(visibleItems)
+            } label: {
+                Label("Deselect Visible", systemImage: "minus.circle")
+            }
+            .disabled(visibleItems.isEmpty)
+
+            Button {
+                store.undoBulkSelection()
+            } label: {
+                Label("Undo", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(store.bulkSelectionUndoMessage == nil)
+        }
+        .controlSize(.small)
+    }
+
+    private var summary: some View {
+        Text("\(visibleItems.count) visible · \(store.visibleSelectedCount(from: visibleItems)) selected · \(ByteCountFormatter.cleanerString(from: store.visibleSelectedBytes(from: visibleItems))) selected")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+}
+
 private struct ReviewRow: View {
     let item: ReviewItem
     let isSelected: Bool
+    let isInspectorSelected: Bool
     let isExpanded: Bool
     let toggle: () -> Void
+    let inspect: () -> Void
     let toggleExpansion: () -> Void
     let reveal: () -> Void
     let open: () -> Void
@@ -361,20 +439,27 @@ private struct ReviewRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             Button(action: toggleExpansion) {
                 Image(systemName: hasExpandableDetail ? (isExpanded ? "chevron.down" : "chevron.right") : "circle")
                     .foregroundStyle(hasExpandableDetail ? Color.secondary : Color.clear)
-                    .frame(width: 16)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!hasExpandableDetail)
             .accessibilityLabel(isExpanded ? "Collapse details for \(item.title)" : "Expand details for \(item.title)")
+            .help(hasExpandableDetail ? "Show item details" : "")
 
             Toggle("", isOn: Binding(get: { isSelected }, set: { _ in toggle() }))
                 .labelsHidden()
+                .frame(width: 44, alignment: .center)
                 .accessibilityLabel(isSelected ? "Deselect \(item.title)" : "Select \(item.title)")
                 .accessibilityHint("Adds or removes this item from the cleanup plan.")
+                .help(isSelected ? "Remove from cleanup plan" : "Add to cleanup plan")
+
+            Divider()
+                .frame(height: 32)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
@@ -389,6 +474,9 @@ private struct ReviewRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                HStack(spacing: 8) {
+                    RiskChip(risk: ReviewRisk.risk(for: item.confidence))
+                }
             }
             .layoutPriority(1)
 
@@ -418,10 +506,52 @@ private struct ReviewRow: View {
             .accessibilityLabel("More actions for \(item.title)")
         }
         .padding(14)
+        .background {
+            if isInspectorSelected {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: inspect)
         .contextMenu {
             Button("Preview", action: preview)
             Button("Reveal in Finder", action: reveal)
             Button("Open", action: open)
+        }
+    }
+}
+
+private struct RiskChip: View {
+    let risk: ReviewRisk
+
+    var body: some View {
+        Label(risk.title, systemImage: symbol)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var symbol: String {
+        switch risk {
+        case .low:
+            return "checkmark.shield"
+        case .review:
+            return "exclamationmark.triangle"
+        case .careful:
+            return "questionmark.diamond"
+        }
+    }
+
+    private var color: Color {
+        switch risk {
+        case .low:
+            return .cleanerSuccess
+        case .review:
+            return .cleanerWarning
+        case .careful:
+            return .cleanerDanger
         }
     }
 }
@@ -602,5 +732,226 @@ private struct ConfidenceBadge: View {
         case .medium: .cleanerWarning
         case .low: .secondary
         }
+    }
+}
+
+private struct ReviewInspectorView: View {
+    let item: ReviewItem?
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let item {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Inspector")
+                            .font(.headline)
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    ConfidenceBadge(confidence: item.confidence)
+                }
+
+                InspectorMetricGrid(item: item, store: store)
+
+                InspectorSection(title: "Recommendation", systemImage: "checkmark.seal") {
+                    Text(item.reason)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Label(ReviewRisk.risk(for: item.confidence).title, systemImage: "shield.lefthalf.filled")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(riskColor(for: item))
+                }
+
+                categoryProof(for: item)
+
+                InspectorSection(title: "Planned Trash Entries", systemImage: "trash") {
+                    let plannedURLs = store.plannedURLs(for: item)
+                    if plannedURLs.isEmpty {
+                        Text("Select this item to add entries to the cleanup plan.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(plannedURLs.prefix(6)), id: \.self) { url in
+                            Text(url.path(percentEncoded: false))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        if plannedURLs.count > 6 {
+                            Text("\(plannedURLs.count - 6) more entries")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                InspectorSection(title: "Recovery", systemImage: "arrow.uturn.backward.circle") {
+                    Text("Cleanup moves items to Trash. Nothing is permanently deleted by LittleTidy.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Button {
+                        store.preview(item)
+                    } label: {
+                        Label("Preview", systemImage: "eye")
+                    }
+                    Button {
+                        store.revealInFinder(item)
+                    } label: {
+                        Label("Reveal", systemImage: "magnifyingglass")
+                    }
+                    Button {
+                        store.openFirstPlannedURL(item)
+                    } label: {
+                        Label("Open", systemImage: "arrow.up.forward.square")
+                    }
+                }
+                .controlSize(.small)
+            } else {
+                ContentUnavailableView(
+                    "No Item Selected",
+                    systemImage: "sidebar.right",
+                    description: Text("Select a review row to inspect recommendation evidence.")
+                )
+            }
+        }
+        .padding(16)
+        .cleanerSurface()
+    }
+
+    @ViewBuilder
+    private func categoryProof(for item: ReviewItem) -> some View {
+        switch item.category {
+        case .duplicate:
+            InspectorSection(title: "Duplicate Proof", systemImage: "doc.on.doc") {
+                Text("Same size and SHA-256 hash.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let hash = item.contentHash {
+                    Text(hash)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                ForEach(item.duplicateCopies) { copy in
+                    Label(copy.isRecommendedKeep ? "Keep \(copy.url.lastPathComponent)" : (copy.isSelected ? "Trash \(copy.url.lastPathComponent)" : "Candidate \(copy.url.lastPathComponent)"), systemImage: copy.isRecommendedKeep ? "checkmark.shield" : "doc")
+                        .font(.caption)
+                        .foregroundStyle(copy.isRecommendedKeep ? Color.cleanerSuccess : Color.secondary)
+                }
+            }
+        case .largeFile:
+            InspectorSection(title: "Large File Evidence", systemImage: "externaldrive") {
+                Text(item.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(item.location)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        case .unusedApp:
+            InspectorSection(title: "App Evidence", systemImage: "app.badge") {
+                if let bundleIdentifier = item.bundleIdentifier {
+                    Label(bundleIdentifier, systemImage: "number")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let lastOpenedDate = item.lastOpenedDate {
+                    Label("Last opened \(lastOpenedDate.formatted(date: .abbreviated, time: .omitted))", systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let installDate = item.installDate {
+                    Label("Installed \(installDate.formatted(date: .abbreviated, time: .omitted))", systemImage: "calendar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Label(store.includeRelatedAppData ? "Related app data included" : "Related app data excluded", systemImage: store.includeRelatedAppData ? "folder.badge.minus" : "folder")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(store.includeRelatedAppData ? Color.cleanerWarning : Color.secondary)
+                ForEach(item.relatedData.prefix(5), id: \.url) { entry in
+                    Text("\(entry.kind): \(entry.url.lastPathComponent) · \(ByteCountFormatter.cleanerString(from: entry.sizeBytes))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+        case .cache:
+            InspectorSection(title: "Cache Evidence", systemImage: "shippingbox") {
+                Text(item.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Regenerable cache. Review before selecting because caches can dominate cleanup size.")
+                    .font(.caption)
+                    .foregroundStyle(Color.cleanerWarning)
+            }
+        }
+    }
+
+    private func riskColor(for item: ReviewItem) -> Color {
+        switch ReviewRisk.risk(for: item.confidence) {
+        case .low:
+            return .cleanerSuccess
+        case .review:
+            return .cleanerWarning
+        case .careful:
+            return .cleanerDanger
+        }
+    }
+}
+
+private struct InspectorMetricGrid: View {
+    let item: ReviewItem
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+            GridRow {
+                metric("Category", item.category.displayTitle)
+                metric("Size", ByteCountFormatter.cleanerString(from: item.bytes))
+            }
+            GridRow {
+                metric("Selected", "\(store.selectedEntryCount(for: item)) entries")
+                metric("Risk", ReviewRisk.risk(for: item.confidence).title)
+            }
+        }
+    }
+
+    private func metric(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+    }
+}
+
+private struct InspectorSection<Content: View>: View {
+    let title: String
+    let systemImage: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .cleanerSubtleSurface(cornerRadius: 10)
     }
 }

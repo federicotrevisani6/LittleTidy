@@ -121,6 +121,10 @@ struct StorageMapView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Label("Darker tiles are larger folders. Use the folder list below when a tile is too small to read.", systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 GeometryReader { geometry in
                     let bounds = CGRect(origin: .zero, size: geometry.size)
                     let weights = store.folderUsage.map { Double($0.bytes) }
@@ -142,6 +146,19 @@ struct StorageMapView: View {
                     }
                 }
                 .frame(height: 460)
+                .cleanerSurface()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Largest Folders")
+                        .font(.headline)
+
+                    ForEach(store.folderUsage.prefix(12)) { folder in
+                        StorageFolderRow(folder: folder, totalBytes: totalBytes) {
+                            store.revealInFinder(forURL: folder.url)
+                        }
+                    }
+                }
+                .padding(16)
                 .cleanerSurface()
             }
         }
@@ -187,5 +204,78 @@ private struct TreemapTile: View {
     private var tileColor: Color {
         let progress = count > 1 ? Double(rank) / Double(count - 1) : 0
         return Color(hue: 0.58, saturation: 0.85 - progress * 0.55, brightness: 0.55 + progress * 0.2)
+    }
+}
+
+private struct StorageFolderRow: View {
+    let folder: FolderUsage
+    let totalBytes: Int64
+    let reveal: () -> Void
+
+    private var share: Double {
+        guard totalBytes > 0 else {
+            return 0
+        }
+        return Double(folder.bytes) / Double(totalBytes)
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            wideRow
+            compactRow
+        }
+    }
+
+    private var folderText: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(folder.name)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Text(folder.url.path(percentEncoded: false))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .layoutPriority(1)
+    }
+
+    private var metrics: some View {
+        HStack(spacing: 12) {
+            Text("\(folder.fileCount) files")
+            Text(share.formatted(.percent.precision(.fractionLength(0...1))))
+            Text(ByteCountFormatter.cleanerString(from: folder.bytes))
+                .font(.subheadline.weight(.semibold))
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private var revealButton: some View {
+        Button {
+            reveal()
+        } label: {
+            Label("Reveal", systemImage: "magnifyingglass")
+        }
+        .controlSize(.small)
+    }
+
+    private var wideRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            folderText
+            metrics
+            revealButton
+        }
+    }
+
+    private var compactRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                folderText
+                revealButton
+            }
+            metrics
+        }
     }
 }

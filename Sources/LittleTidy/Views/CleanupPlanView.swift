@@ -15,21 +15,25 @@ struct CleanupPlanView: View {
                     validation: validation,
                     moveToTrash: {
                         if store.validateCleanupPlan() != nil {
+                            store.manualReviewConfirmed = !store.selectedNeedsManualReview
                             showingCleanupConfirmation = true
                         }
                     }
                 )
-                .confirmationDialog(
-                    "Move selected items to Trash?",
-                    isPresented: $showingCleanupConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Move to Trash", role: .destructive) {
-                        store.executeCleanup()
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text(cleanupConfirmationMessage)
+                .sheet(isPresented: $showingCleanupConfirmation) {
+                    CleanupConfirmationSheet(
+                        store: store,
+                        message: cleanupConfirmationMessage,
+                        confirm: {
+                            showingCleanupConfirmation = false
+                            store.executeCleanup()
+                        },
+                        cancel: {
+                            showingCleanupConfirmation = false
+                        }
+                    )
+                    .frame(minWidth: 520)
+                    .padding(22)
                 }
 
             if let cleanupErrorMessage = store.cleanupErrorMessage {
@@ -46,7 +50,7 @@ struct CleanupPlanView: View {
                     .cleanerSubtleSurface()
             }
 
-            CleanupReportView(items: store.cleanupReportItems)
+            CleanupReportView(store: store, items: store.filteredCleanupReportItems())
 
             CleanupCategoryGroupsView(items: store.selectedItems, store: store)
 
@@ -62,7 +66,7 @@ struct CleanupPlanView: View {
             "System folders are excluded."
         ]
 
-        let breakdown = selectedCategoryBreakdown()
+        let breakdown = store.selectedCategoryBreakdown
         if !breakdown.isEmpty {
             lines.append("")
             lines.append(contentsOf: breakdown.map { category, count, bytes in
@@ -70,25 +74,113 @@ struct CleanupPlanView: View {
             })
         }
 
+        let riskBreakdown = store.selectedRiskBreakdown
+        if !riskBreakdown.isEmpty {
+            lines.append("")
+            lines.append(contentsOf: riskBreakdown.map { risk, count, bytes in
+                "\(risk.title): \(count) items, \(ByteCountFormatter.cleanerString(from: bytes))"
+            })
+        }
+
         return lines.joined(separator: "\n")
     }
+}
 
-    private func selectedCategoryBreakdown() -> [(CleanupCategory, Int, Int64)] {
-        CleanupCategoryGroup.orderedCategories.compactMap { category in
-            let categoryItems = store.selectedItems.filter { $0.category == category }
-            guard !categoryItems.isEmpty else { return nil }
-            let bytes = categoryItems.reduce(Int64(0)) { $0 + selectedBytes(for: $1) }
-            return (category, categoryItems.count, bytes)
+private struct CleanupConfirmationSheet: View {
+    @ObservedObject var store: ScanReviewStore
+    let message: String
+    let confirm: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "trash")
+                    .font(.title2)
+                    .foregroundStyle(Color.cleanerWarning)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Move selected items to Trash?")
+                        .font(.title2.weight(.semibold))
+                    Text("LittleTidy moves files to Trash only. You can still recover them from Finder.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .padding(12)
+                .cleanerSubtleSurface()
+
+            CleanupBreakdownPanel(store: store)
+
+            if store.selectedNeedsManualReview {
+                Toggle(isOn: $store.manualReviewConfirmed) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("I manually reviewed the non-high-confidence items")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Medium and low confidence items are never selected by bulk actions, so confirm that you inspected them before cleanup.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: cancel)
+                Button(role: .destructive, action: confirm) {
+                    Label("Move to Trash", systemImage: "trash")
+                }
+                .disabled(store.selectedNeedsManualReview && !store.manualReviewConfirmed)
+                .buttonStyle(.glassProminent)
+            }
         }
     }
+}
 
-    private func selectedBytes(for item: ReviewItem) -> Int64 {
-        guard !item.duplicateCopies.isEmpty else {
-            return item.bytes
+private struct CleanupBreakdownPanel: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Plan Breakdown", systemImage: "list.bullet.rectangle")
+                .font(.headline)
+
+            ForEach(store.selectedCategoryBreakdown, id: \.0) { category, count, bytes in
+                HStack {
+                    Text(category.displayTitle)
+                    Spacer()
+                    Text("\(count) items")
+                        .foregroundStyle(.secondary)
+                    Text(ByteCountFormatter.cleanerString(from: bytes))
+                        .monospacedDigit()
+                }
+                .font(.caption)
+            }
+
+            Divider()
+
+            ForEach(store.selectedRiskBreakdown, id: \.0) { risk, count, bytes in
+                HStack {
+                    Text(risk.title)
+                    Spacer()
+                    Text("\(count) items")
+                        .foregroundStyle(.secondary)
+                    Text(ByteCountFormatter.cleanerString(from: bytes))
+                        .monospacedDigit()
+                }
+                .font(.caption)
+            }
+
+            Label(store.includeRelatedAppData ? "Matched related app data is included." : "Related app data is excluded unless deep uninstall is enabled.", systemImage: "folder.badge.gearshape")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        return item.duplicateCopies
-            .filter { $0.isSelected && !$0.isRecommendedKeep }
-            .reduce(Int64(0)) { $0 + $1.bytes }
+        .padding(12)
+        .cleanerSubtleSurface()
     }
 }
 
@@ -120,7 +212,7 @@ private struct CleanupPlanSummaryPanel: View {
                     Label("\(store.selectedItems.count) items selected", systemImage: "checkmark.circle")
                     Label("\(store.selectedFilesystemEntryCount) filesystem entries planned", systemImage: "doc.badge.gearshape")
                     Label(ByteCountFormatter.cleanerString(from: store.selectedBytes), systemImage: "externaldrive.badge.minus")
-                    Label("System folders and app support data are excluded.", systemImage: "lock.shield")
+                    Label(appSupportDataSummary, systemImage: "lock.shield")
                         .foregroundStyle(.secondary)
                 }
 
@@ -168,6 +260,13 @@ private struct CleanupPlanSummaryPanel: View {
             return .cleanerWarning
         }
     }
+
+    private var appSupportDataSummary: String {
+        if store.selectedItems.contains(where: { $0.category == .unusedApp }) {
+            return store.includeRelatedAppData ? "Matched app support data is included." : "Matched app support data is excluded."
+        }
+        return "System folders are excluded."
+    }
 }
 
 private struct CleanupCategoryGroupsView: View {
@@ -196,7 +295,7 @@ private struct CleanupCategoryGroupsView: View {
                 ForEach(categoryGroups, id: \.category) { group in
                     ReviewListView(
                         title: group.title,
-                        subtitle: "\(group.items.count) selected, \(ByteCountFormatter.cleanerString(from: group.bytes))",
+                        subtitle: "\(group.items.count) selected, \(ByteCountFormatter.cleanerString(from: store.selectedBytes(for: group.category)))",
                         items: store.sortedItems(group.items),
                         category: group.category,
                         store: store,
@@ -237,20 +336,6 @@ private struct CleanupCategoryGroup {
         }
     }
 
-    var bytes: Int64 {
-        items.reduce(0) { partialResult, item in
-            partialResult + selectedBytes(for: item)
-        }
-    }
-
-    private func selectedBytes(for item: ReviewItem) -> Int64 {
-        guard !item.duplicateCopies.isEmpty else {
-            return item.bytes
-        }
-        return item.duplicateCopies
-            .filter { $0.isSelected && !$0.isRecommendedKeep }
-            .reduce(Int64(0)) { $0 + $1.bytes }
-    }
 }
 
 private struct CleanupHistoryView: View {
@@ -327,16 +412,60 @@ private struct CleanupHistoryView: View {
 }
 
 private struct CleanupReportView: View {
+    @ObservedObject var store: ScanReviewStore
     let items: [CleanupReportItem]
 
-    var body: some View {
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Cleanup Report", systemImage: "list.bullet.clipboard")
-                    .font(.headline)
+    private var failedCount: Int {
+        items.filter { $0.status == .failed }.count
+    }
 
-                ForEach(items) { item in
-                    CleanupReportRow(item: item)
+    var body: some View {
+        if !store.cleanupReportItems.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Cleanup Report", systemImage: "list.bullet.clipboard")
+                        .font(.headline)
+                    Spacer()
+                    Picker("Report Filter", selection: $store.cleanupReportFilter) {
+                        ForEach(CleanupReportFilter.allCases) { filter in
+                            Text(filter.title).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .frame(maxWidth: 280)
+                    Button {
+                        store.startOrCancelScan()
+                    } label: {
+                        Label("Rescan", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(store.isScanning)
+                    Button {
+                        store.openTrash()
+                    } label: {
+                        Label("Open Trash", systemImage: "trash")
+                    }
+                    if failedCount > 0 {
+                        Button {
+                            store.retryFailedCleanup()
+                        } label: {
+                            Label("Retry Failed", systemImage: "arrow.clockwise")
+                        }
+                    }
+                }
+
+                if items.isEmpty {
+                    ContentUnavailableView(
+                        "No Report Items",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        description: Text("Choose another report filter to see cleanup entries.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(18)
+                } else {
+                    ForEach(items) { item in
+                        CleanupReportRow(item: item, store: store)
+                    }
                 }
             }
             .padding(16)
@@ -347,6 +476,7 @@ private struct CleanupReportView: View {
 
 private struct CleanupReportRow: View {
     let item: CleanupReportItem
+    @ObservedObject var store: ScanReviewStore
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -381,13 +511,37 @@ private struct CleanupReportRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                } else {
+                }
+
+                Text(item.reason)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                if item.status != .moved {
                     Text(item.message)
                         .font(.caption2)
                         .foregroundStyle(item.status == .failed ? Color.cleanerWarning : Color.secondary)
                         .lineLimit(2)
                 }
             }
+
+            VStack(alignment: .trailing, spacing: 6) {
+                if item.status == .moved, let destinationURL = item.destinationURL {
+                    Button {
+                        store.revealInFinder(forURL: destinationURL)
+                    } label: {
+                        Label("Reveal in Trash", systemImage: "magnifyingglass")
+                    }
+                } else {
+                    Button {
+                        store.revealInFinder(forURL: item.sourceURL)
+                    } label: {
+                        Label(item.status == .failed ? "Reveal Source" : "Reveal", systemImage: "magnifyingglass")
+                    }
+                }
+            }
+            .controlSize(.small)
         }
     }
 

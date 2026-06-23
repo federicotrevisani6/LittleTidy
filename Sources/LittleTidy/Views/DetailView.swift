@@ -7,6 +7,14 @@ struct DetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if let message = store.bulkSelectionUndoMessage {
+                    BulkSelectionUndoBanner(message: message) {
+                        store.undoBulkSelection()
+                    } viewPlan: {
+                        store.selectedSection = .cleanupPlan
+                    }
+                }
+
                 switch store.selectedSection {
                 case .overview:
                     OverviewView(store: store)
@@ -29,7 +37,7 @@ struct DetailView: View {
                 case .unusedApps:
                     ReviewListView(
                         title: "Unused Apps",
-                        subtitle: "App bundles only. Related app data is not selected in v1.",
+                        subtitle: store.includeRelatedAppData ? "App bundles and matched related app data are included when selected." : "App bundles only. Related app data stays excluded unless you enable deep uninstall.",
                         items: store.items(for: .unusedApp),
                         category: .unusedApp,
                         store: store
@@ -50,5 +58,25 @@ struct DetailView: View {
             }
             .padding(24)
         }
+    }
+}
+
+private struct BulkSelectionUndoBanner: View {
+    let message: String
+    let undo: () -> Void
+    let viewPlan: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(message, systemImage: "checkmark.circle")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.cleanerSuccess)
+            Spacer()
+            Button("Undo", action: undo)
+            Button("View Cleanup Plan", action: viewPlan)
+                .buttonStyle(.glass)
+        }
+        .padding(12)
+        .cleanerSubtleSurface()
     }
 }

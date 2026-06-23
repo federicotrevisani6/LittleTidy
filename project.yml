@@ -60,6 +60,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.federicotrevisani.LittleTidyCoreTests
         GENERATE_INFOPLIST_FILE: YES
+  LittleTidyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/LittleTidyTests
+    dependencies:
+      - target: LittleTidy
+      - target: LittleTidyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.federicotrevisani.LittleTidyTests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   LittleTidy:
     build:
@@ -74,3 +86,4 @@ schemes:
       config: Debug
       targets:
         - LittleTidyCoreTests
+        - LittleTidyTests

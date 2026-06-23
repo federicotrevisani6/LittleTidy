@@ -11,6 +11,10 @@ struct ReviewItem: Identifiable, Hashable {
     let confidence: Confidence
     let reason: String
     let plannedURLs: [URL]
+    let contentHash: String?
+    let bundleIdentifier: String?
+    let lastOpenedDate: Date?
+    let installDate: Date?
     var duplicateCopies: [DuplicateCopyReview]
     var relatedData: [RelatedAppData] = []
     var isSelected: Bool

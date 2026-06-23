@@ -1,13 +1,20 @@
 import Foundation
 import LittleTidyCore
 
-let fixtureRoot = URL(fileURLWithPath: "/Users/federicotrevisani/LittleTidy/QA/LittleTidyFixture", isDirectory: true)
+let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+let fixtureRoot = ProcessInfo.processInfo.environment["LITTLE_TIDY_FIXTURE_ROOT"].map {
+    URL(fileURLWithPath: $0, isDirectory: true)
+} ?? currentDirectory.appendingPathComponent("QA/LittleTidyFixture", isDirectory: true)
 let appRoot = fixtureRoot.appendingPathComponent("Applications", isDirectory: true)
 let options = ScanOptions(minimumDuplicateSize: 1_000_000, largeFileThreshold: 1_000_000)
 let scanner = FileInventoryScanner()
 
 var records: [FileRecord] = []
 var summary: ScanSummary?
+
+guard FileManager.default.fileExists(atPath: fixtureRoot.path) else {
+    throw QAError.unexpected("Fixture not found at \(fixtureRoot.path). Run ./script/create_qa_fixture.sh first or set LITTLE_TIDY_FIXTURE_ROOT.")
+}
 
 for try await event in scanner.scan(request: ScanRequest(roots: [fixtureRoot], options: options)) {
     switch event {
