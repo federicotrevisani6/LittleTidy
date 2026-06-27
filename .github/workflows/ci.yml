@@ -27,10 +27,34 @@ jobs:
       - name: Test
         run: swift test
 
-  release:
-    name: Release
+  # Surfaces whether Developer ID signing secrets are configured so the release
+  # job can be gated on them. Secrets are not allowed in job-level `if:`, so we
+  # expose the result as a job output.
+  signing-check:
+    name: Check signing secrets
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.detect.outputs.enabled }}
+    steps:
+      - id: detect
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+        run: |
+          if [ -n "$CERT_P12" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Release
+    needs: [test, signing-check]
+    # Only publish from CI when it can produce a notarized build. Without signing
+    # secrets the release is done locally (notarized), so CI must not also create
+    # a second, ad-hoc release for the same tag.
+    if: startsWith(github.ref, 'refs/tags/v') && needs.signing-check.outputs.enabled == 'true'
     runs-on: macos-15
     permissions:
       contents: write
