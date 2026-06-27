@@ -2,19 +2,21 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = ScanReviewStore()
-    @State private var showingSuggestedSelectionConfirmation = false
 
     var body: some View {
         NavigationSplitView {
             SidebarView(store: store)
         } detail: {
             DetailView(store: store)
+                .safeAreaInset(edge: .bottom) {
+                    CleanupCartBar(store: store)
+                }
                 .toolbar {
                     ToolbarItem {
                         Button {
                             store.startOrCancelScan()
                         } label: {
-                            Label(store.isScanning ? "Cancel Scan" : "Start Scan", systemImage: store.isScanning ? "xmark.circle" : "play.circle")
+                            Label(store.isScanning ? "Cancel Scan" : "Scan", systemImage: store.isScanning ? "xmark.circle" : "play.circle")
                         }
                         .keyboardShortcut("r", modifiers: [.command])
                     }
@@ -40,63 +42,58 @@ struct ContentView: View {
                         }
                         .disabled(store.isScanning)
                     }
-
-                    ToolbarSpacer(.fixed)
-
-                    ToolbarItem {
-                        Button {
-                            showingSuggestedSelectionConfirmation = true
-                        } label: {
-                            Label("Select Suggested", systemImage: "checkmark.circle")
-                        }
-                        .disabled(store.isScanning || !store.suggestedSelectionPreview.hasItems)
-                        .accessibilityHint("Opens a confirmation before selecting high-confidence non-cache items.")
-                    }
                 }
         }
         .navigationSplitViewStyle(.balanced)
-        .confirmationDialog(
-            "Select suggested cleanup items?",
-            isPresented: $showingSuggestedSelectionConfirmation,
-            titleVisibility: .visible
-        ) {
-            let preview = store.suggestedSelectionPreview
-            Button("Select \(preview.itemCount) Suggested Items") {
-                store.applyBulkSelection(.suggestedWithoutCaches)
-            }
-            .disabled(!preview.hasItems)
+    }
+}
 
-            if store.reviewedCachesSelectionPreview.hasItems {
-                Button("Review Caches First") {
-                    store.selectedSection = .caches
-                }
-            }
+/// Persistent cart shown at the bottom of the detail pane whenever items are
+/// selected. It surfaces the running selection total and routes to the cleanup
+/// plan, so the plan no longer needs to be a top-level sidebar destination.
+private struct CleanupCartBar: View {
+    @ObservedObject var store: ScanReviewStore
 
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(suggestedSelectionMessage)
-        }
+    private var isVisible: Bool {
+        !store.selectedItems.isEmpty && store.selectedSection != .cleanupPlan
     }
 
-    private var suggestedSelectionMessage: String {
-        let preview = store.suggestedSelectionPreview
-        var lines = [
-            "\(preview.itemCount) items, \(preview.filesystemEntryCount) filesystem entries, \(ByteCountFormatter.cleanerString(from: preview.bytes)) will be selected.",
-            "Nothing moves to Trash until you review the Cleanup Plan and confirm the final action."
-        ]
+    var body: some View {
+        if isVisible {
+            HStack(spacing: 14) {
+                Image(systemName: "trash")
+                    .foregroundStyle(.secondary)
 
-        if !preview.categoryBreakdown.isEmpty {
-            lines.append("")
-            lines.append(contentsOf: preview.categoryBreakdown.map { breakdown in
-                "\(breakdown.category.displayTitle): \(breakdown.itemCount) items, \(ByteCountFormatter.cleanerString(from: breakdown.bytes))"
-            })
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(store.selectedItems.count) item\(store.selectedItems.count == 1 ? "" : "s") selected")
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(ByteCountFormatter.cleanerString(from: store.selectedBytes)) · \(store.selectedFilesystemEntryCount) files & folders")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    store.clearSelection()
+                } label: {
+                    Text("Clear")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
+                Button {
+                    store.selectedSection = .cleanupPlan
+                } label: {
+                    Label("Review & Clean", systemImage: "arrow.right.circle.fill")
+                }
+                .buttonStyle(.glassProminent)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(.bar)
+            .overlay(alignment: .top) { Divider() }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-
-        if preview.excludesCaches {
-            lines.append("")
-            lines.append("Caches are excluded from suggested selection: \(preview.excludedCacheItemCount) cache items, \(ByteCountFormatter.cleanerString(from: preview.excludedCacheBytes)). Review caches separately.")
-        }
-
-        return lines.joined(separator: "\n")
     }
 }

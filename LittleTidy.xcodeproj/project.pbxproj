@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -108,36 +108,30 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		40C83AE08B574B78790BEC9B /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				71036016D19D676B85F397BC /* LittleTidyCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4E57A05A659CD34A6593E732 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				4C11C8DDC7924BA71512CA2B /* LittleTidyCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EE885D7697BA422729646D28 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				E548B94F9AF3B53D5E27370C /* LittleTidyCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -182,7 +176,7 @@
 		B2E47BA04802EF1253E7173E /* LargeFileAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileAnalyzerTests.swift; sourceTree = "<group>"; };
 		BBEBC6A605F4990FD8362C89 /* BulkSelectionPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkSelectionPreview.swift; sourceTree = "<group>"; };
 		BC3219B70A8305C5C7D85140 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */ = {isa = PBXFileReference; includeInIndex = 0; path = LittleTidyQA; sourceTree = BUILT_PRODUCTS_DIR; };
+		BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LittleTidyQA; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3BB0C64712ECFC9D99CCCA4 /* PermissionReadinessItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionReadinessItem.swift; sourceTree = "<group>"; };
 		C5883168F4CB5F18F6AB6B8E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CBE7CCDF815C3C4FED1B2E5B /* FolderUsageAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderUsageAnalyzerTests.swift; sourceTree = "<group>"; };
@@ -203,35 +197,27 @@
 /* Begin PBXFrameworksBuildPhase section */
 		25232784114AE65D3ACF7F8E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				D3FD15A19BE0E5E6ECD54E09 /* LittleTidyCore.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3B4D6C1CC9ECCAD8CFED6F16 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				49CE371F5E1E1A3F0B0D9722 /* LittleTidyCore.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		466EF56C67E7B9192CE1E188 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				105FD5DE285F4ACA4E49922F /* LittleTidyCore.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5F31ADFFF223236ED31DBF6D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				56DE9B6A5176096858B87EE3 /* LittleTidyCore.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -416,8 +402,6 @@
 				5E66676FD4D6E8030DCA6F24 /* PBXTargetDependency */,
 			);
 			name = LittleTidyCoreTests;
-			packageProductDependencies = (
-			);
 			productName = LittleTidyCoreTests;
 			productReference = D84EC51C7801061F1EB60060 /* LittleTidyCoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -437,8 +421,6 @@
 				A3C7D974EFD3865D927B84A5 /* PBXTargetDependency */,
 			);
 			name = LittleTidyTests;
-			packageProductDependencies = (
-			);
 			productName = LittleTidyTests;
 			productReference = 899A443BED8B4FCE5D974639 /* LittleTidyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -451,11 +433,7 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = LittleTidyCore;
-			packageProductDependencies = (
-			);
 			productName = LittleTidyCore;
 			productReference = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */;
 			productType = "com.apple.product-type.framework";
@@ -473,8 +451,6 @@
 				8AA62C5E1611989E8F2CE394 /* PBXTargetDependency */,
 			);
 			name = LittleTidyQA;
-			packageProductDependencies = (
-			);
 			productName = LittleTidyQA;
 			productReference = BCA0B63D5A08ECB846E3CF47 /* LittleTidyQA */;
 			productType = "com.apple.product-type.tool";
@@ -494,8 +470,6 @@
 				E210FD85196C5B1DDDD8941C /* PBXTargetDependency */,
 			);
 			name = LittleTidy;
-			packageProductDependencies = (
-			);
 			productName = LittleTidy;
 			productReference = 62130299396E39D7E43F64A8 /* LittleTidy.app */;
 			productType = "com.apple.product-type.application";
@@ -507,7 +481,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					17CCFC3AF1674626E6146823 = {
 						DevelopmentTeam = 3VU7K9SUV8;
@@ -540,7 +514,7 @@
 			);
 			mainGroup = B70CCD7E6389863097187AF9;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 100;
 			productRefGroup = 67EB7CB2F4064610688647BD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -557,26 +531,21 @@
 /* Begin PBXResourcesBuildPhase section */
 		4834F07649D12E7C8BEEBE15 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				7C9F3605D668B71239C4D707 /* AppIcon.icon in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2C2B536FFB560E2E3176D46D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				31AE0A2FCF64C626B62F91FC /* main.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		327C4A2F7702093E0642D959 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				DD5850C9D8A751A4FEA62CE4 /* AppUsageAnalyzerTests.swift in Sources */,
 				BA1121E98E7E4434E0EC4B3C /* CacheAnalyzerTests.swift in Sources */,
@@ -587,11 +556,9 @@
 				D22365302ED94B725CFAA119 /* ScannerAndTrashPlanTests.swift in Sources */,
 				F3F92267270D2A5F24B79293 /* TestSupport.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		644DD3EF4FFA36F358C84C75 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5542485D1CECFDBAB00B3BBA /* AppUsageAnalyzer.swift in Sources */,
 				D23AA11A5AF22916B019EF6E /* CacheAnalyzer.swift in Sources */,
@@ -605,19 +572,15 @@
 				C9DB0A118F0B7B9161B692A3 /* TrashExecutor.swift in Sources */,
 				890EDA33FDE55BF86F8AE0C4 /* TrashPlanBuilder.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		67296F02C89BC5BD93761C01 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				A55AC6B8D4DCFB8D0B088277 /* ScanReviewStorePowerReviewTests.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		85AEC488B5FA9711450D2A9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				3889D889184FECC5AECD1CBE /* BulkSelectionPreview.swift in Sources */,
 				007461F3FC3280620CB7677D /* ByteCountFormatter+Cleaner.swift in Sources */,
@@ -649,7 +612,6 @@
 				B33372D5FE649B3F233B50D9 /* SidebarView.swift in Sources */,
 				EB6D32B67A550344D7E0FA4E /* StorageMapView.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -682,22 +644,25 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		1677F28ECBDD72B3D43FC012 /* Debug */ = {
+		1677F28ECBDD72B3D43FC012 /* Debug configuration for PBXNativeTarget "LittleTidyCore" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -705,10 +670,11 @@
 			};
 			name = Debug;
 		};
-		16B5977E49F6A56FB0C9E7FA /* Debug */ = {
+		16B5977E49F6A56FB0C9E7FA /* Debug configuration for PBXNativeTarget "LittleTidyQA" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -718,10 +684,11 @@
 			};
 			name = Debug;
 		};
-		1ABF0470EFD5586B1B8093A1 /* Debug */ = {
+		1ABF0470EFD5586B1B8093A1 /* Debug configuration for PBXProject "LittleTidy" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -754,11 +721,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 3VU7K9SUV8;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -780,16 +749,18 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
-		314D039A4F36F41E667B6046 /* Release */ = {
+		314D039A4F36F41E667B6046 /* Release configuration for PBXProject "LittleTidy" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -822,11 +793,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 3VU7K9SUV8;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -841,28 +814,32 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
-		43A022F47D3B51FE920D19E1 /* Release */ = {
+		43A022F47D3B51FE920D19E1 /* Release configuration for PBXNativeTarget "LittleTidyCore" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -870,10 +847,11 @@
 			};
 			name = Release;
 		};
-		7E0C976654B479767860E676 /* Release */ = {
+		7E0C976654B479767860E676 /* Release configuration for PBXNativeTarget "LittleTidyQA" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -883,11 +861,12 @@
 			};
 			name = Release;
 		};
-		94C9A4953C456477D937D603 /* Release */ = {
+		94C9A4953C456477D937D603 /* Release configuration for PBXNativeTarget "LittleTidyTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -900,11 +879,12 @@
 			};
 			name = Release;
 		};
-		C6F7BFD26A588D7A47E017AB /* Release */ = {
+		C6F7BFD26A588D7A47E017AB /* Release configuration for PBXNativeTarget "LittleTidyCoreTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -916,11 +896,13 @@
 			};
 			name = Release;
 		};
-		CF3D404526BC9BF4E5221AE0 /* Debug */ = {
+		CF3D404526BC9BF4E5221AE0 /* Debug configuration for PBXNativeTarget "LittleTidy" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
 				INFOPLIST_KEY_CFBundleName = LittleTidy;
@@ -931,16 +913,18 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidy;
 				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
-		D8A0CC85EF76F178262D6735 /* Debug */ = {
+		D8A0CC85EF76F178262D6735 /* Debug configuration for PBXNativeTarget "LittleTidyTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -953,11 +937,13 @@
 			};
 			name = Debug;
 		};
-		E8B9C564FD74B2FF47E11FB2 /* Release */ = {
+		E8B9C564FD74B2FF47E11FB2 /* Release configuration for PBXNativeTarget "LittleTidy" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
 				INFOPLIST_KEY_CFBundleName = LittleTidy;
@@ -968,16 +954,18 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidy;
 				SDKROOT = macosx;
 			};
 			name = Release;
 		};
-		FE264AB65DC14A5FC93211EE /* Debug */ = {
+		FE264AB65DC14A5FC93211EE /* Debug configuration for PBXNativeTarget "LittleTidyCoreTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -995,55 +983,49 @@
 		11DE16A0E13AAE407A1321FD /* Build configuration list for PBXNativeTarget "LittleTidyTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D8A0CC85EF76F178262D6735 /* Debug */,
-				94C9A4953C456477D937D603 /* Release */,
+				D8A0CC85EF76F178262D6735 /* Debug configuration for PBXNativeTarget "LittleTidyTests" */,
+				94C9A4953C456477D937D603 /* Release configuration for PBXNativeTarget "LittleTidyTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		197304DEE3CC9AA55E43CA24 /* Build configuration list for PBXNativeTarget "LittleTidyQA" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				16B5977E49F6A56FB0C9E7FA /* Debug */,
-				7E0C976654B479767860E676 /* Release */,
+				16B5977E49F6A56FB0C9E7FA /* Debug configuration for PBXNativeTarget "LittleTidyQA" */,
+				7E0C976654B479767860E676 /* Release configuration for PBXNativeTarget "LittleTidyQA" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		3C767BFAB246225FA444D7CF /* Build configuration list for PBXNativeTarget "LittleTidyCore" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				1677F28ECBDD72B3D43FC012 /* Debug */,
-				43A022F47D3B51FE920D19E1 /* Release */,
+				1677F28ECBDD72B3D43FC012 /* Debug configuration for PBXNativeTarget "LittleTidyCore" */,
+				43A022F47D3B51FE920D19E1 /* Release configuration for PBXNativeTarget "LittleTidyCore" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		4B20D2C173C7D11CBFCDEB64 /* Build configuration list for PBXNativeTarget "LittleTidy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				CF3D404526BC9BF4E5221AE0 /* Debug */,
-				E8B9C564FD74B2FF47E11FB2 /* Release */,
+				CF3D404526BC9BF4E5221AE0 /* Debug configuration for PBXNativeTarget "LittleTidy" */,
+				E8B9C564FD74B2FF47E11FB2 /* Release configuration for PBXNativeTarget "LittleTidy" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		9514F4F6AEECC27F313B23EA /* Build configuration list for PBXNativeTarget "LittleTidyCoreTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FE264AB65DC14A5FC93211EE /* Debug */,
-				C6F7BFD26A588D7A47E017AB /* Release */,
+				FE264AB65DC14A5FC93211EE /* Debug configuration for PBXNativeTarget "LittleTidyCoreTests" */,
+				C6F7BFD26A588D7A47E017AB /* Release configuration for PBXNativeTarget "LittleTidyCoreTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 		97B1542547637A2C5FD150B2 /* Build configuration list for PBXProject "LittleTidy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				1ABF0470EFD5586B1B8093A1 /* Debug */,
-				314D039A4F36F41E667B6046 /* Release */,
+				1ABF0470EFD5586B1B8093A1 /* Debug configuration for PBXProject "LittleTidy" */,
+				314D039A4F36F41E667B6046 /* Release configuration for PBXProject "LittleTidy" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */

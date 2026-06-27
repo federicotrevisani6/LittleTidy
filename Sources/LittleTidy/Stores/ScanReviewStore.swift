@@ -225,7 +225,7 @@ final class ScanReviewStore: ObservableObject {
             return CleanupPlanValidation(
                 state: .ready,
                 title: "Plan ready",
-                detail: "\(plan.items.count) filesystem entries can be moved to Trash.",
+                detail: "\(plan.items.count) files & folders can be moved to Trash.",
                 warnings: cleanupPlanWarnings()
             )
         } catch {
@@ -298,6 +298,38 @@ final class ScanReviewStore: ObservableObject {
 
     func selectSuggested() {
         applyBulkSelection(.suggestedWithoutCaches)
+    }
+
+    /// Pre-selects high-confidence, non-cache items right after a scan so the
+    /// "safe" cleanup is ready in one click. Unlike `applyBulkSelection`, this is
+    /// the implicit default state, so it does not arm the undo banner.
+    private func preselectSafeItems() {
+        for index in items.indices {
+            let shouldSelect = shouldSelectItem(items[index], for: .suggestedWithoutCaches)
+            if !items[index].duplicateCopies.isEmpty {
+                for copyIndex in items[index].duplicateCopies.indices {
+                    items[index].duplicateCopies[copyIndex].isSelected = shouldSelect && !items[index].duplicateCopies[copyIndex].isRecommendedKeep
+                }
+                items[index].isSelected = items[index].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
+            } else {
+                items[index].isSelected = shouldSelect
+            }
+        }
+    }
+
+    func clearSelection() {
+        previousSelectionSnapshot = items.map(SelectionSnapshot.init(item:))
+        for index in items.indices {
+            items[index].isSelected = false
+            for copyIndex in items[index].duplicateCopies.indices {
+                items[index].duplicateCopies[copyIndex].isSelected = false
+            }
+        }
+        cleanupErrorMessage = nil
+        cleanupResultMessage = nil
+        cleanupReportItems = []
+        manualReviewConfirmed = false
+        bulkSelectionUndoMessage = "Selection cleared"
     }
 
     func applyBulkSelection(_ mode: BulkSelectionMode) {
@@ -983,6 +1015,7 @@ final class ScanReviewStore: ObservableObject {
                 self.analysisTask = nil
 
                 self.items = Self.reviewItems(from: result)
+                self.preselectSafeItems()
                 self.folderUsage = result.folderUsage
                 self.progress = 1
                 self.scanPhase = "Complete"

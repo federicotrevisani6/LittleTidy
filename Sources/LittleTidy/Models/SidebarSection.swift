@@ -11,9 +11,35 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Sections shown in the sidebar, grouped. The cleanup plan is reached via
+    /// the cleanup cart bar rather than as a top-level sidebar peer.
+    enum Group: String, CaseIterable, Identifiable {
+        case clean
+        case review
+        case explore
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .clean: "Clean"
+            case .review: "Review"
+            case .explore: "Explore"
+            }
+        }
+
+        var sections: [SidebarSection] {
+            switch self {
+            case .clean: [.overview]
+            case .review: [.duplicates, .largeFiles, .unusedApps, .caches]
+            case .explore: [.storage]
+            }
+        }
+    }
+
     var title: String {
         switch self {
-        case .overview: "Overview"
+        case .overview: "Home"
         case .duplicates: "Duplicates"
         case .largeFiles: "Large Files"
         case .unusedApps: "Unused Apps"

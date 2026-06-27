@@ -4,9 +4,7 @@
     "refractivity",
     "specular-location"
   ],
-  "fill" : {
-    "solid" : "display-p3:0.41022,0.35823,1.00000,1.00000"
-  },
+  "fill" : "system-dark",
   "groups" : [
     {
       "blend-mode" : "normal",

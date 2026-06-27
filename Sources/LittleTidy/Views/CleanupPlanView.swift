@@ -61,7 +61,7 @@ struct CleanupPlanView: View {
 
     private var cleanupConfirmationMessage: String {
         var lines = [
-            "\(store.selectedFilesystemEntryCount) filesystem entries, \(ByteCountFormatter.cleanerString(from: store.selectedBytes)), will be moved to Trash.",
+            "\(store.selectedFilesystemEntryCount) files & folders, \(ByteCountFormatter.cleanerString(from: store.selectedBytes)), will be moved to Trash.",
             "This does not permanently delete them.",
             "System folders are excluded."
         ]
@@ -193,6 +193,15 @@ private struct CleanupPlanSummaryPanel: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 6) {
+                    Button {
+                        store.selectedSection = .overview
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+
                     Text("Cleanup Plan")
                         .font(.largeTitle.weight(.semibold))
                     Text("Final review before moving anything to Trash.")
@@ -210,7 +219,7 @@ private struct CleanupPlanSummaryPanel: View {
             HStack(alignment: .top, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("\(store.selectedItems.count) items selected", systemImage: "checkmark.circle")
-                    Label("\(store.selectedFilesystemEntryCount) filesystem entries planned", systemImage: "doc.badge.gearshape")
+                    Label("\(store.selectedFilesystemEntryCount) files & folders planned", systemImage: "doc.badge.gearshape")
                     Label(ByteCountFormatter.cleanerString(from: store.selectedBytes), systemImage: "externaldrive.badge.minus")
                     Label(appSupportDataSummary, systemImage: "lock.shield")
                         .foregroundStyle(.secondary)
@@ -277,8 +286,8 @@ private struct CleanupCategoryGroupsView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Selected Items")
-                    .font(.largeTitle.weight(.semibold))
-                Text("Items are grouped by cleanup category before plan validation.")
+                    .font(.title2.weight(.semibold))
+                Text("Everything below moves to the Trash. Remove anything you want to keep.")
                     .foregroundStyle(.secondary)
             }
 
@@ -293,14 +302,27 @@ private struct CleanupCategoryGroupsView: View {
                 .cleanerSurface()
             } else {
                 ForEach(categoryGroups, id: \.category) { group in
-                    ReviewListView(
-                        title: group.title,
-                        subtitle: "\(group.items.count) selected, \(ByteCountFormatter.cleanerString(from: store.selectedBytes(for: group.category)))",
-                        items: store.sortedItems(group.items),
-                        category: group.category,
-                        store: store,
-                        headerStyle: .section
-                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(group.title)
+                                .font(.headline)
+                            Spacer()
+                            Text("\(group.items.count) · \(ByteCountFormatter.cleanerString(from: store.selectedBytes(for: group.category)))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(spacing: 0) {
+                            let groupItems = store.sortedItems(group.items)
+                            ForEach(groupItems) { item in
+                                PlanItemRow(item: item, store: store)
+                                if item.id != groupItems.last?.id {
+                                    Divider()
+                                }
+                            }
+                        }
+                        .cleanerSurface()
+                    }
                 }
             }
         }
@@ -313,6 +335,71 @@ private struct CleanupCategoryGroupsView: View {
                 return nil
             }
             return CleanupCategoryGroup(category: category, items: categoryItems)
+        }
+    }
+}
+
+/// Compact, read-only row used in the cleanup plan. Unlike the review list it
+/// only shows what will be removed plus a single "Remove" affordance.
+private struct PlanItemRow: View {
+    let item: ReviewItem
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: ReviewRisk.risk(for: item.confidence).systemImage)
+                .foregroundStyle(riskColor)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(item.location)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .layoutPriority(1)
+
+            Spacer()
+
+            Text(ByteCountFormatter.cleanerString(from: store.selectedBytes(for: item)))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+
+            Button {
+                store.revealInFinder(item)
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Reveal in Finder")
+
+            Button {
+                store.toggleSelection(for: item)
+            } label: {
+                Label("Remove", systemImage: "minus.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Remove from cleanup plan")
+            .accessibilityLabel("Remove \(item.title) from cleanup plan")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var riskColor: Color {
+        switch ReviewRisk.risk(for: item.confidence) {
+        case .low: .cleanerSuccess
+        case .review: .cleanerWarning
+        case .careful: .cleanerDanger
         }
     }
 }

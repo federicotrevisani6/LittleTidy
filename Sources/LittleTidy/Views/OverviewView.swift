@@ -9,181 +9,291 @@ struct OverviewView: View {
         !store.items.isEmpty
     }
 
+    private var totalReclaimableBytes: Int64 {
+        [.duplicate, .largeFile, .unusedApp, .cache].reduce(Int64(0)) { (sum: Int64, category: CleanupCategory) in
+            sum + store.reclaimableBytes(for: category)
+        }
+    }
+
     var body: some View {
         GlassEffectContainer {
             VStack(alignment: .leading, spacing: 18) {
-                if !hasResults && !store.isScanning {
-                    setupGuidePanel
-                } else {
-                    scanActionPanel
-                }
-
                 if store.isScanning {
+                    ScanningHero(store: store)
                     ScanProgressCard(store: store)
-                }
-
-                if store.scanDidFail {
-                    EmptyStateCard(
-                        icon: "exclamationmark.triangle.fill",
-                        tint: .cleanerWarning,
-                        title: "Scan didn’t finish",
-                        message: store.statusMessage
-                    ) {
-                        Button("Try Again") {
-                            store.startOrCancelScan()
-                        }
-                        Button("Choose Folders") {
-                            store.chooseFolders()
-                        }
-                        Button("Full Disk Access") {
-                            store.openFullDiskAccessSettings()
-                        }
+                } else if store.scanDidFail {
+                    ScanFailureCard(store: store)
+                } else if hasResults {
+                    ResultsHero(store: store, totalBytes: totalReclaimableBytes)
+                    CategorySummaryGrid(store: store)
+                } else if store.hasCompletedScan {
+                    NothingToCleanCard(store: store) {
+                        showingAdvancedSettings = true
                     }
-                } else if !hasResults && !store.isScanning {
-                    if store.hasCompletedScan {
-                        EmptyStateCard(
-                            icon: "checkmark.seal.fill",
-                            tint: .cleanerSuccess,
-                            title: "Nothing to clean up",
-                            message: "No duplicates, large files, or unused apps were found in the selected folders."
-                        ) {
-                            Button("Scan Another Folder") {
-                                store.chooseFolders()
-                            }
-                            Button("Adjust Thresholds") {
-                                showingAdvancedSettings = true
-                            }
-                        }
-                    }
-                }
-
-                if hasResults {
-                    resultsPanel
+                } else {
+                    StartHero(store: store)
                 }
 
                 ScanIssuesView(store: store)
 
                 if !store.isScanning {
-                    advancedSettingsPanel
+                    setupAndSettingsPanel
                 }
             }
         }
     }
 
-    private var scanActionPanel: some View {
+    // MARK: - Setup & advanced settings (collapsed by default)
+
+    private var setupAndSettingsPanel: some View {
+        DisclosureGroup(isExpanded: $showingAdvancedSettings) {
+            VStack(alignment: .leading, spacing: 16) {
+                ScanScopePanel(store: store)
+                if store.hasPermissionWarnings {
+                    PermissionReadinessView(store: store)
+                }
+                ScanSettingsView(store: store)
+            }
+            .padding(.top, 8)
+        } label: {
+            Label("Scan Settings & Folders", systemImage: "slider.horizontal.3").font(.headline)
+        }
+    }
+}
+
+// MARK: - Heroes
+
+private struct StartHero: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tidy up your Mac")
+                    .font(.largeTitle.weight(.bold))
+                Text("LittleTidy finds duplicates, large files, unused apps, and caches you can safely remove. Nothing is deleted — everything goes to the Trash so you can undo.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 560, alignment: .leading)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    store.startOrCancelScan()
+                } label: {
+                    Label("Scan My Mac", systemImage: "play.circle.fill")
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .keyboardShortcut("r", modifiers: [.command])
+                .disabled(store.scanRoots.isEmpty)
+
+                Text(store.scanRoots.isEmpty
+                     ? "Choose folders below to get started."
+                     : "Ready to scan \(store.scanRoots.count) location\(store.scanRoots.count == 1 ? "" : "s").")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if store.hasPermissionWarnings {
+                Label("Some folders need permission — see Scan Settings & Folders below.", systemImage: "lock.trianglebadge.exclamationmark")
+                    .font(.caption)
+                    .foregroundStyle(Color.cleanerWarning)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(22)
+        .cleanerSurface()
+    }
+}
+
+private struct ResultsHero: View {
+    @ObservedObject var store: ScanReviewStore
+    let totalBytes: Int64
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Up to \(ByteCountFormatter.cleanerString(from: totalBytes)) can be freed")
+                        .font(.largeTitle.weight(.bold))
+                    Text("Safe items are pre-selected. Review anything else, then move it all to the Trash.")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    store.startOrCancelScan()
+                } label: {
+                    Label("Rescan", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .keyboardShortcut("r", modifiers: [.command])
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    store.selectSuggested()
+                    store.selectedSection = .cleanupPlan
+                } label: {
+                    Label("Clean Safe Items", systemImage: "sparkles")
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .disabled(!store.suggestedSelectionPreview.hasItems)
+                .help("Selects high-confidence safe items and opens the cleanup plan.")
+
+                let preview = store.suggestedSelectionPreview
+                if preview.hasItems {
+                    Text("\(preview.itemCount) safe items · \(ByteCountFormatter.cleanerString(from: preview.bytes))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                TotalBadge(title: "Selected now", bytes: store.selectedBytes)
+            }
+        }
+        .padding(22)
+        .cleanerSurface()
+    }
+}
+
+private struct ScanningHero: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Review Cleanup")
+                Text("Scanning…")
                     .font(.largeTitle.weight(.semibold))
                 Text(store.statusMessage)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
-            TotalBadge(title: "Selected", bytes: store.selectedBytes)
-
             Button {
                 store.startOrCancelScan()
             } label: {
-                Label(
-                    store.isScanning ? "Cancel Scan" : (hasResults ? "Rescan" : "Start Scan"),
-                    systemImage: store.isScanning ? "xmark.circle" : "play.circle.fill"
-                )
+                Label("Cancel", systemImage: "xmark.circle")
             }
-            .buttonStyle(.glassProminent)
             .controlSize(.large)
-            .keyboardShortcut("r", modifiers: [.command])
         }
-        .padding(18)
+        .padding(22)
         .cleanerSurface()
     }
+}
 
-    private var resultsPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Review Results")
-                    .font(.title2.weight(.semibold))
-                Text("Review candidates by category before building the cleanup plan.")
-                    .foregroundStyle(.secondary)
-            }
+// MARK: - Category cards
 
-            VStack(spacing: 8) {
-                ReviewStepRow(index: 1, section: .duplicates, bytes: store.reclaimableBytes(for: .duplicate), selectedCount: store.selectedCount(for: .duplicate), store: store)
-                ReviewStepRow(index: 2, section: .largeFiles, bytes: store.reclaimableBytes(for: .largeFile), selectedCount: store.selectedCount(for: .largeFile), store: store)
-                ReviewStepRow(index: 3, section: .unusedApps, bytes: store.reclaimableBytes(for: .unusedApp), selectedCount: store.selectedCount(for: .unusedApp), store: store)
-                ReviewStepRow(index: 4, section: .caches, bytes: store.reclaimableBytes(for: .cache), selectedCount: store.selectedCount(for: .cache), store: store)
+private struct CategorySummaryGrid: View {
+    @ObservedObject var store: ScanReviewStore
+
+    private let order: [(SidebarSection, CleanupCategory)] = [
+        (.duplicates, .duplicate),
+        (.largeFiles, .largeFile),
+        (.unusedApps, .unusedApp),
+        (.caches, .cache)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Review by category")
+                .font(.title2.weight(.semibold))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                ForEach(order, id: \.0) { section, category in
+                    CategoryCard(
+                        section: section,
+                        bytes: store.reclaimableBytes(for: category),
+                        selectedCount: store.selectedCount(for: category),
+                        totalCount: store.items(for: category).count,
+                        store: store
+                    )
+                }
             }
         }
-        .padding(16)
-        .cleanerSurface()
     }
+}
 
-    private var setupGuidePanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Set Up Scan")
-                    .font(.title2.weight(.semibold))
-                Text("Choose what LittleTidy can inspect, confirm access, then start the scan.")
-                    .foregroundStyle(.secondary)
-            }
+private struct CategoryCard: View {
+    let section: SidebarSection
+    let bytes: Int64
+    let selectedCount: Int
+    let totalCount: Int
+    @ObservedObject var store: ScanReviewStore
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 12)], alignment: .leading, spacing: 12) {
-                SetupStep(number: 1, title: "Choose folders", detail: "\(store.scanRoots.count) file roots, \(store.appRoots.count) app roots") {
-                    Menu {
-                        Button {
-                            store.chooseFolders()
-                        } label: {
-                            Label("Choose File Folders", systemImage: "folder.badge.plus")
-                        }
-                        Button {
-                            store.chooseAppFolders()
-                        } label: {
-                            Label("Choose App Folders", systemImage: "app.badge")
-                        }
-                    } label: {
-                        Label("Folders", systemImage: "folder")
-                    }
-                }
-
-                SetupStep(number: 2, title: "Check access", detail: store.hasPermissionWarnings ? "Permission attention needed" : "Selected folders are ready") {
-                    Label(store.hasPermissionWarnings ? "Review below" : "Ready", systemImage: store.hasPermissionWarnings ? "exclamationmark.triangle" : "checkmark.circle")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(store.hasPermissionWarnings ? Color.cleanerWarning : Color.cleanerSuccess)
-                }
-
-                SetupStep(number: 3, title: "Start scan", detail: "Nothing is selected or moved automatically") {
-                    Button {
-                        store.startOrCancelScan()
-                    } label: {
-                        Label("Start Scan", systemImage: "play.circle.fill")
-                    }
-                    .buttonStyle(.glassProminent)
-                    .disabled(store.scanRoots.isEmpty)
-                }
-            }
-
-            if store.hasPermissionWarnings {
-                PermissionReadinessView(store: store)
-            }
-
-            DisclosureGroup {
-                ScanEvidenceView(store: store)
-            } label: {
-                Label("Selected Scan Scope", systemImage: "folder").font(.headline)
-            }
-        }
-        .padding(18)
-        .cleanerSurface()
-    }
-
-    private var advancedSettingsPanel: some View {
-        DisclosureGroup(isExpanded: $showingAdvancedSettings) {
-            ScanSettingsView(store: store) {
-                showingAdvancedSettings = false
-            }
+    var body: some View {
+        Button {
+            store.selectedSection = section
         } label: {
-            Label("Advanced Scan Settings", systemImage: "slider.horizontal.3").font(.headline)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: section.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                Text(ByteCountFormatter.cleanerString(from: bytes))
+                    .font(.title2.weight(.semibold))
+                Text(section.title)
+                    .font(.subheadline.weight(.medium))
+                Text(detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .cleanerInteractiveSurface(cornerRadius: 14)
+        .accessibilityLabel("\(section.title), \(ByteCountFormatter.cleanerString(from: bytes)), \(selectedCount) of \(totalCount) selected")
+    }
+
+    private var detailText: String {
+        if totalCount == 0 {
+            return "Nothing found"
+        }
+        if selectedCount > 0 {
+            return "\(selectedCount) of \(totalCount) selected"
+        }
+        return "\(totalCount) found"
+    }
+}
+
+// MARK: - Empty / failure states
+
+private struct NothingToCleanCard: View {
+    @ObservedObject var store: ScanReviewStore
+    let adjustThresholds: () -> Void
+
+    var body: some View {
+        EmptyStateCard(
+            icon: "checkmark.seal.fill",
+            tint: .cleanerSuccess,
+            title: "Nothing to clean up",
+            message: "No duplicates, large files, or unused apps were found in the selected folders."
+        ) {
+            Button("Scan Another Folder") { store.chooseFolders() }
+            Button("Adjust Settings", action: adjustThresholds)
+        }
+    }
+}
+
+private struct ScanFailureCard: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        EmptyStateCard(
+            icon: "exclamationmark.triangle.fill",
+            tint: .cleanerWarning,
+            title: "Scan didn’t finish",
+            message: store.statusMessage
+        ) {
+            Button("Try Again") { store.startOrCancelScan() }
+            Button("Choose Folders") { store.chooseFolders() }
+            Button("Full Disk Access") { store.openFullDiskAccessSettings() }
         }
     }
 }
@@ -218,48 +328,6 @@ private struct SetupStep<Actions: View>: View {
     }
 }
 
-private struct ReviewStepRow: View {
-    let index: Int
-    let section: SidebarSection
-    let bytes: Int64
-    let selectedCount: Int
-    @ObservedObject var store: ScanReviewStore
-
-    var body: some View {
-        Button {
-            store.selectedSection = section
-        } label: {
-            HStack(spacing: 12) {
-                Text("\(index)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22)
-                Image(systemName: section.systemImage)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(section.title)
-                        .font(.subheadline.weight(.semibold))
-                    Text(selectedCount > 0 ? "\(selectedCount) selected" : "Not selected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(ByteCountFormatter.cleanerString(from: bytes))
-                    .font(.subheadline.weight(.medium))
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .cleanerInteractiveSurface(cornerRadius: 8)
-        .accessibilityLabel("Review \(section.title), \(ByteCountFormatter.cleanerString(from: bytes)) reclaimable, \(selectedCount) selected")
-    }
-}
-
 private struct EmptyStateCard<Actions: View>: View {
     let icon: String
     let tint: Color
@@ -291,13 +359,56 @@ private struct EmptyStateCard<Actions: View>: View {
     }
 }
 
+// MARK: - Scan scope (folders + access)
+
+private struct ScanScopePanel: View {
+    @ObservedObject var store: ScanReviewStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 12)], alignment: .leading, spacing: 12) {
+                SetupStep(number: 1, title: "Choose folders", detail: "\(store.scanRoots.count) file roots, \(store.appRoots.count) app roots") {
+                    Menu {
+                        Button {
+                            store.chooseFolders()
+                        } label: {
+                            Label("Choose File Folders", systemImage: "folder.badge.plus")
+                        }
+                        Button {
+                            store.chooseAppFolders()
+                        } label: {
+                            Label("Choose App Folders", systemImage: "app.badge")
+                        }
+                    } label: {
+                        Label("Folders", systemImage: "folder")
+                    }
+                }
+
+                SetupStep(number: 2, title: "Check access", detail: store.hasPermissionWarnings ? "Permission attention needed" : "Selected folders are ready") {
+                    Label(store.hasPermissionWarnings ? "Review below" : "Ready", systemImage: store.hasPermissionWarnings ? "exclamationmark.triangle" : "checkmark.circle")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(store.hasPermissionWarnings ? Color.cleanerWarning : Color.cleanerSuccess)
+                }
+            }
+
+            DisclosureGroup {
+                ScanEvidenceView(store: store)
+            } label: {
+                Label("Selected Scan Scope", systemImage: "folder").font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(18)
+        .cleanerSurface()
+    }
+}
+
 private struct PermissionReadinessView: View {
     @ObservedObject var store: ScanReviewStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Access Readiness", systemImage: store.hasPermissionWarnings ? "lock.trianglebadge.exclamationmark" : "checkmark.shield")
+                Label("Permissions", systemImage: store.hasPermissionWarnings ? "lock.trianglebadge.exclamationmark" : "checkmark.shield")
                     .font(.headline)
                 Spacer()
                 Button {
@@ -338,23 +449,17 @@ private struct PermissionReadinessView: View {
 
     private func iconName(for severity: PermissionReadinessItem.Severity) -> String {
         switch severity {
-        case .ready:
-            return "checkmark.circle.fill"
-        case .advisory:
-            return "info.circle.fill"
-        case .warning:
-            return "exclamationmark.triangle.fill"
+        case .ready: "checkmark.circle.fill"
+        case .advisory: "info.circle.fill"
+        case .warning: "exclamationmark.triangle.fill"
         }
     }
 
     private func color(for severity: PermissionReadinessItem.Severity) -> Color {
         switch severity {
-        case .ready:
-            return .cleanerSuccess
-        case .advisory:
-            return .cleanerInfo
-        case .warning:
-            return .cleanerWarning
+        case .ready: .cleanerSuccess
+        case .advisory: .cleanerInfo
+        case .warning: .cleanerWarning
         }
     }
 }
@@ -444,16 +549,7 @@ private struct ScanEvidenceView: View {
                         .truncationMode(.middle)
                 }
             }
-
-            HStack(spacing: 18) {
-                Metric(label: "Files", value: "\(store.scannedFiles)")
-                Metric(label: "Scanned", value: ByteCountFormatter.cleanerString(from: store.scannedBytes))
-                Metric(label: "Skipped", value: "\(store.skippedItems)")
-                Metric(label: "Permission gaps", value: "\(store.permissionErrors)")
-            }
         }
-        .padding(16)
-        .cleanerSurface()
     }
 }
 
@@ -502,10 +598,12 @@ private struct ScanIssuesView: View {
 
 private struct ScanSettingsView: View {
     @ObservedObject var store: ScanReviewStore
-    let collapseAdvancedSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Label("Advanced", systemImage: "slider.horizontal.3")
+                .font(.headline)
+
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 GridRow {
                     Text("Duplicate minimum")
@@ -552,7 +650,6 @@ private struct ScanSettingsView: View {
 #if DEBUG
                 Button("Use QA Fixture") {
                     store.useFixtureSettings()
-                    collapseAdvancedSettings()
                 }
 #endif
                 Button("Reset Defaults") {
