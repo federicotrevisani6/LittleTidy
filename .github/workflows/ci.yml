@@ -94,7 +94,7 @@ jobs:
             <key>CFBundleShortVersionString</key><string>${VERSION}</string>
             <key>CFBundleVersion</key><string>${{ github.run_number }}</string>
             <key>CFBundlePackageType</key><string>APPL</string>
-            <key>LSMinimumSystemVersion</key><string>14.0</string>
+            <key>LSMinimumSystemVersion</key><string>26.0</string>
             <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
             <key>NSPrincipalClass</key><string>NSApplication</string>
             <key>NSHighResolutionCapable</key><true/>
@@ -160,9 +160,9 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
           if [ "$SIGNED" = "true" ]; then
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 14+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Everything is moved to the Trash only and reversible; system areas are excluded by default and deep uninstall is opt-in."
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Everything is moved to the Trash only and reversible; system areas are excluded by default and deep uninstall is opt-in."
           else
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 14+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Everything is moved to the Trash only and reversible."
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Everything is moved to the Trash only and reversible."
           fi
           gh release create "$GITHUB_REF_NAME" "dist/LittleTidy-${VERSION}-macos.zip" \
             --title "LittleTidy ${VERSION}" \
