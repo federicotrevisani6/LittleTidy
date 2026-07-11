@@ -65,9 +65,16 @@ final class ScanReviewStore: ObservableObject {
     @Published var cleanupReportFilter: CleanupReportFilter = .all
     @Published var manualReviewConfirmed = false
     @Published var bulkSelectionUndoMessage: String?
+    @Published var developerStorageInventory: DeveloperStorageInventory = .empty
+    @Published var isScanningDeveloperStorage = false
+    @Published var developerStorageErrorMessage: String?
+    @Published var selectedDeveloperStorageItemIDs: Set<String> = []
+    @Published var isCleaningDeveloperStorage = false
+    @Published var developerCleanupResult: DeveloperStorageCleanupResult?
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
+    private var developerStorageTask: Task<Void, Never>?
     private var previousSelectionSnapshot: [SelectionSnapshot]?
     private let trashPlanBuilder: TrashPlanBuilder
     private let trashExecutor: TrashExecutor
@@ -83,7 +90,8 @@ final class ScanReviewStore: ObservableObject {
         scanPreferencesStore: ScanPreferencesStore = .shared,
         cleanupHistoryStore: CleanupHistoryStore = .shared,
         trashPlanBuilder: TrashPlanBuilder = TrashPlanBuilder(),
-        trashExecutor: TrashExecutor = TrashExecutor()
+        trashExecutor: TrashExecutor = TrashExecutor(),
+        automaticallyScanDeveloperStorage: Bool = true
     ) {
         self.items = items
         self.folderBookmarkStore = folderBookmarkStore
@@ -109,15 +117,127 @@ final class ScanReviewStore: ObservableObject {
         self.largeFileThreshold = preferences.largeFileThreshold
         self.cleanupHistory = cleanupHistoryStore.load()
         refreshPermissionReadiness()
+        if automaticallyScanDeveloperStorage {
+            Task { [weak self] in
+                self?.refreshDeveloperStorage()
+            }
+        }
     }
 
     deinit {
         scanTask?.cancel()
         analysisTask?.cancel()
+        developerStorageTask?.cancel()
     }
 
     var selectedItems: [ReviewItem] {
         items.filter { isItemSelected($0) }
+    }
+
+    var recommendedDeveloperBytes: Int64 {
+        developerStorageInventory.bytes(for: .recommended)
+    }
+
+    var reviewDeveloperBytes: Int64 {
+        developerStorageInventory.bytes(for: .review)
+    }
+
+    var protectedDeveloperBytes: Int64 {
+        developerStorageInventory.bytes(for: .protected)
+    }
+
+    var unclassifiedDeveloperBytes: Int64 {
+        developerStorageInventory.bytes(for: .unclassified)
+    }
+
+    var totalDeveloperBytes: Int64 {
+        developerStorageInventory.items.reduce(0) { $0 + $1.bytes }
+    }
+
+    var selectedDeveloperStorageItems: [DeveloperStorageItem] {
+        developerStorageInventory.items.filter { selectedDeveloperStorageItemIDs.contains($0.id) }
+    }
+
+    var selectedDeveloperStorageBytes: Int64 {
+        selectedDeveloperStorageItems.reduce(0) { $0 + $1.bytes }
+    }
+
+    var selectedDeveloperStorageHasIrreversibleOperations: Bool {
+        selectedDeveloperStorageItems.contains {
+            $0.cleanupMechanism == .simctl
+                || $0.cleanupMechanism == .xcodeManaged
+                || $0.recoverability == .irreversible
+                || $0.recoverability == .reinstallable
+        }
+    }
+
+    func developerItems(for category: DeveloperStorageCategory) -> [DeveloperStorageItem] {
+        developerStorageInventory.items
+            .filter { $0.category == category }
+            .sorted { $0.bytes > $1.bytes }
+    }
+
+    func canSelectDeveloperStorageItem(_ item: DeveloperStorageItem) -> Bool {
+        guard item.recommendation == .recommended || item.recommendation == .review else { return false }
+        return item.cleanupMechanism == .trash
+            || (item.cleanupMechanism == .simctl && item.recommendation == .recommended)
+            || (item.cleanupMechanism == .xcodeManaged && item.category == .simulatorRuntimes && item.recommendation == .review)
+    }
+
+    func isDeveloperStorageItemSelected(_ item: DeveloperStorageItem) -> Bool {
+        selectedDeveloperStorageItemIDs.contains(item.id)
+    }
+
+    func toggleDeveloperStorageItem(_ item: DeveloperStorageItem) {
+        guard canSelectDeveloperStorageItem(item), !isCleaningDeveloperStorage else { return }
+        if selectedDeveloperStorageItemIDs.contains(item.id) {
+            selectedDeveloperStorageItemIDs.remove(item.id)
+        } else {
+            selectedDeveloperStorageItemIDs.insert(item.id)
+        }
+        developerCleanupResult = nil
+    }
+
+    func refreshDeveloperStorage() {
+        developerStorageTask?.cancel()
+        isScanningDeveloperStorage = true
+        developerStorageErrorMessage = nil
+
+        developerStorageTask = Task { [weak self] in
+            do {
+                let inventory = try await DeveloperStorageAnalyzer().analyze()
+                try Task.checkCancellation()
+                self?.developerStorageInventory = inventory
+                self?.selectedDeveloperStorageItemIDs = Set(
+                    inventory.items
+                        .filter { $0.recommendation == .recommended }
+                        .filter { $0.cleanupMechanism == .trash || $0.cleanupMechanism == .simctl }
+                        .map(\.id)
+                )
+                self?.isScanningDeveloperStorage = false
+                self?.developerStorageErrorMessage = nil
+            } catch is CancellationError {
+                self?.isScanningDeveloperStorage = false
+            } catch {
+                self?.isScanningDeveloperStorage = false
+                self?.developerStorageErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func executeDeveloperStorageCleanup() {
+        let selected = selectedDeveloperStorageItems
+        guard !selected.isEmpty, !isCleaningDeveloperStorage else { return }
+        isCleaningDeveloperStorage = true
+        developerCleanupResult = nil
+
+        Task { [weak self] in
+            let result = await DeveloperStorageCleanupExecutor().execute(items: selected)
+            self?.developerCleanupResult = result
+            self?.isCleaningDeveloperStorage = false
+            self?.selectedDeveloperStorageItemIDs = []
+            self?.refreshDeveloperStorage()
+        }
     }
 
     var selectedBytes: Int64 {

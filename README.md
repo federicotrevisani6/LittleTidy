@@ -1,15 +1,18 @@
 # LittleTidy
 
-A safe, review-first disk maintenance utility for macOS. LittleTidy helps you
-reclaim disk space by finding **duplicate files**, **large files**, and
-**unused apps** — and it never deletes anything outright. Every candidate is
-shown with a reason, size, and confidence level, and confirmed items are moved
-to the **Trash**, so nothing is irreversible.
+A safe, review-first System Data and disk maintenance utility for macOS.
+LittleTidy explains storage hidden by macOS, with a specialist view of
+**Xcode**, **Simulator**, **XCTest**, **Device Support**, and **Archives**. It
+also finds duplicate files, large files, unused apps, and caches.
 
 ## Principles
 
-- **Reversible by design** — items are moved to the Trash, never permanently deleted.
-- **Nothing auto-selected** — you always choose what gets removed.
+- **Reversible where possible** — normal files move to the Trash. Simulator
+  operations use Apple's supported `simctl` mechanism and are identified as
+  irreversible before confirmation.
+- **Conservative recommendations** — only high-confidence rebuildable or
+  unavailable data is preselected; review, protected, and unclassified totals
+  remain separate.
 - **Scoped access** — scans only user-approved folders; system locations
   (`/System`, `/Library`, `/usr`, …) are excluded unless you explicitly opt in.
 - **Transparent** — each candidate carries a reason, path, size, and confidence.
@@ -17,6 +20,15 @@ to the **Trash**, so nothing is irreversible.
 
 ## Features
 
+- **Developer Storage diagnosis** for Simulator devices and runtimes,
+  XCTestDevices, DerivedData, Device Support, and Xcode archives. Results are
+  split into Recommended, Review, Protected, and Unclassified instead of
+  presenting all detected storage as safe cleanup.
+- **Active-work protection** keeps booted Simulator devices and valuable Xcode
+  archives out of automatic cleanup.
+- **Mechanism-aware cleanup** moves rebuildable directories to the Trash and
+  removes only unavailable Simulator devices through `simctl`, after refreshing
+  their state immediately before execution.
 - **Duplicate detection** via staged comparison: group by size → 64 KB
   quick fingerprint (head/middle/tail) → full SHA-256 confirmation. A
   recommended copy to keep is suggested per group, and the group can never be
@@ -51,7 +63,7 @@ in isolation.
 
 | Target | Description |
 |---|---|
-| `LittleTidyCore` | Scanning engine, analyzers (duplicate / large file / app usage), trash plan builder & executor. Pure logic, fully unit-tested. |
+| `LittleTidyCore` | Scanning engine, developer-storage inventory and policy, analyzers, command client, and mechanism-specific cleanup executors. Pure logic, fully unit-tested. |
 | `LittleTidy` | SwiftUI app (sidebar + detail review UI, cleanup plan, settings). |
 | `LittleTidyQA` | Command-line harness for exercising the engine against QA fixtures. |
 
@@ -62,6 +74,10 @@ Scan roots → directory enumerator → file metadata index
                                        └── app usage analyzer
                                               ↓
                                        review model → trash plan → executor
+
+Developer roots + simctl → inventory → recommendation policy
+                                      ├── Trash-restorable cleanup
+                                      └── revalidated simctl cleanup
 ```
 
 ## Requirements
@@ -127,10 +143,11 @@ outputs/             # logic & UI design specs
 
 ## Status
 
-Active development. The current version keeps the v1 safety model throughout:
-Trash-only removal, no system areas by default, and opt-in deep uninstall. See
-[outputs/mac-cleaner-logic-spec.md](outputs/mac-cleaner-logic-spec.md) for the
-full design and background.
+Active development. Developer Storage is intentionally conservative: archives,
+active devices, and unclassified XCTest data are diagnosis-first; Simulator
+runtimes remain review-only and are revalidated before supported removal.
+See [outputs/littletidy-system-data-master-plan.md](outputs/littletidy-system-data-master-plan.md)
+for the product, safety, engineering, testing, and release plan.
 
 ## License
 

@@ -160,9 +160,9 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
           if [ "$SIGNED" = "true" ]; then
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Everything is moved to the Trash only and reversible; system areas are excluded by default and deep uninstall is opt-in."
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Developer Storage explains Xcode, Simulator, XCTest, Device Support, and Archive usage. Rebuildable files move to the Trash; explicitly reviewed Simulator devices and runtimes use Apple's supported simctl operations and may be irreversible."
           else
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Everything is moved to the Trash only and reversible."
+            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Developer Storage is review-first; Simulator operations are clearly identified as irreversible before confirmation."
           fi
           gh release create "$GITHUB_REF_NAME" "dist/LittleTidy-${VERSION}-macos.zip" \
             --title "LittleTidy ${VERSION}" \

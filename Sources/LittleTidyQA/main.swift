@@ -50,6 +50,52 @@ guard result.unusedApps.contains(where: { $0.record.bundleIdentifier == "com.fed
     throw QAError.unexpected("Expected OldFixtureApp to appear as unused.")
 }
 
+let simulatorDevicePath = fixtureRoot.appendingPathComponent("Library/Developer/CoreSimulator/Devices/FIXTURE-DEVICE/data", isDirectory: true)
+let simulatorRuntimePath = fixtureRoot.appendingPathComponent("Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.4.simruntime", isDirectory: true)
+let simulatorJSON = Data(
+    """
+    {
+      "devices": {
+        "com.apple.CoreSimulator.SimRuntime.iOS-18-4": [
+          {
+            "name": "QA iPhone",
+            "udid": "FIXTURE-DEVICE",
+            "state": "Shutdown",
+            "isAvailable": true,
+            "dataPath": "\(simulatorDevicePath.path)"
+          }
+        ]
+      },
+      "runtimes": [
+        {
+          "identifier": "com.apple.CoreSimulator.SimRuntime.iOS-18-4",
+          "name": "iOS 18.4",
+          "version": "18.4",
+          "isAvailable": true,
+          "bundlePath": "\(simulatorRuntimePath.path)"
+        }
+      ]
+    }
+    """.utf8
+)
+let developerInventory = try await DeveloperStorageAnalyzer(
+    homeDirectory: fixtureRoot,
+    commandRunner: QACommandRunner(output: simulatorJSON)
+).analyze()
+print("developerItems=\(developerInventory.items.count)")
+print("developerBytes=\(developerInventory.items.reduce(Int64(0)) { $0 + $1.bytes })")
+
+for requiredCategory in [
+    DeveloperStorageCategory.derivedData,
+    .deviceSupport,
+    .archives,
+    .xctestDevices,
+    .simulatorDevices,
+    .simulatorRuntimes
+] where !developerInventory.items.contains(where: { $0.category == requiredCategory }) {
+    throw QAError.unexpected("Expected developer storage category: \(requiredCategory.rawValue)")
+}
+
 enum QAError: LocalizedError {
     case unexpected(String)
 
@@ -57,5 +103,13 @@ enum QAError: LocalizedError {
         switch self {
         case .unexpected(let message): message
         }
+    }
+}
+
+private struct QACommandRunner: DeveloperToolCommandRunning {
+    let output: Data
+
+    func run(executable: URL, arguments: [String]) async throws -> DeveloperToolCommandResult {
+        DeveloperToolCommandResult(standardOutput: output)
     }
 }

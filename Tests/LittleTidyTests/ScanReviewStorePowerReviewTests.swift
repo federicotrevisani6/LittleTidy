@@ -9,7 +9,7 @@ struct ScanReviewStorePowerReviewTests {
     func reviewFiltersCombineScopeAndSearch() {
         let duplicate = reviewItem(title: "Invoice copy", category: .duplicate, confidence: .high, plannedURL: "/tmp/invoice-a.pdf")
         let largeFile = reviewItem(title: "Archive.zip", category: .largeFile, confidence: .medium, plannedURL: "/tmp/archive.zip")
-        let store = ScanReviewStore(items: [duplicate, largeFile], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [duplicate, largeFile])
 
         store.reviewFilterScope = .needsReview
         store.reviewSearchText = "archive"
@@ -23,7 +23,7 @@ struct ScanReviewStorePowerReviewTests {
         let duplicate = reviewItem(title: "Duplicate", category: .duplicate, confidence: .high, plannedURL: "/tmp/duplicate")
         let largeFile = reviewItem(title: "Manual Review", category: .largeFile, confidence: .medium, plannedURL: "/tmp/manual")
         let cache = reviewItem(title: "Cache", category: .cache, confidence: .high, plannedURL: "/tmp/cache")
-        let store = ScanReviewStore(items: [duplicate, largeFile, cache], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [duplicate, largeFile, cache])
 
         store.selectVisibleReviewedItems(store.items)
 
@@ -34,7 +34,7 @@ struct ScanReviewStorePowerReviewTests {
     @Test
     func undoRestoresVisibleBulkSelection() {
         let duplicate = reviewItem(title: "Duplicate", category: .duplicate, confidence: .high, plannedURL: "/tmp/duplicate")
-        let store = ScanReviewStore(items: [duplicate], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [duplicate])
 
         store.selectVisibleReviewedItems(store.items)
         #expect(store.selectedItems.count == 1)
@@ -46,7 +46,7 @@ struct ScanReviewStorePowerReviewTests {
     @Test
     func manualReviewRequiredForMediumSelection() {
         let item = reviewItem(title: "Questionable", category: .largeFile, confidence: .medium, plannedURL: "/tmp/questionable")
-        let store = ScanReviewStore(items: [item], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [item])
 
         store.toggleSelection(for: item)
 
@@ -66,7 +66,7 @@ struct ScanReviewStorePowerReviewTests {
                 RelatedAppData(url: relatedURL, sizeBytes: 5, kind: "Application Support")
             ]
         )
-        let store = ScanReviewStore(items: [item], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [item])
 
         store.toggleSelection(for: item)
         #expect(store.selectedBytes == 10)
@@ -77,7 +77,7 @@ struct ScanReviewStorePowerReviewTests {
 
     @Test
     func cleanupReportFilterReturnsMatchingStatuses() {
-        let store = ScanReviewStore(items: [], scanRoots: [URL(fileURLWithPath: "/tmp")], appRoots: [])
+        let store = makeStore(items: [])
         store.cleanupReportItems = [
             CleanupReportItem(sourceURL: URL(fileURLWithPath: "/tmp/a"), destinationURL: nil, status: .failed, message: "No access", reason: "Manual", category: .largeFile, bytes: 1),
             CleanupReportItem(sourceURL: URL(fileURLWithPath: "/tmp/b"), destinationURL: URL(fileURLWithPath: "/tmp/.Trash/b"), status: .moved, message: "Moved to Trash", reason: "Duplicate", category: .duplicate, bytes: 2)
@@ -113,6 +113,21 @@ struct ScanReviewStorePowerReviewTests {
             duplicateCopies: [],
             relatedData: relatedData,
             isSelected: false
+        )
+    }
+
+    private func makeStore(items: [ReviewItem]) -> ScanReviewStore {
+        let suiteName = "LittleTidyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return ScanReviewStore(
+            items: items,
+            scanRoots: [URL(fileURLWithPath: "/tmp")],
+            appRoots: [],
+            folderBookmarkStore: FolderBookmarkStore(userDefaults: defaults),
+            scanPreferencesStore: ScanPreferencesStore(userDefaults: defaults),
+            cleanupHistoryStore: CleanupHistoryStore(userDefaults: defaults),
+            automaticallyScanDeveloperStorage: false
         )
     }
 }

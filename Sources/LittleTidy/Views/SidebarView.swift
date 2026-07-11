@@ -36,6 +36,8 @@ struct SidebarView: View {
         switch section {
         case .overview:
             store.isScanning ? "Scanning" : "Ready"
+        case .developerStorage:
+            store.isScanningDeveloperStorage ? "Scanning" : ByteCountFormatter.cleanerString(from: store.totalDeveloperBytes)
         case .duplicates:
             ByteCountFormatter.cleanerString(from: store.reclaimableBytes(for: .duplicate))
         case .largeFiles:

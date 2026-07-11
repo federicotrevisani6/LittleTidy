@@ -9,7 +9,13 @@ mkdir -p \
   "$FIXTURE_DIR/Downloads" \
   "$FIXTURE_DIR/Documents" \
   "$FIXTURE_DIR/Movies" \
-  "$FIXTURE_DIR/Applications/OldFixtureApp.app/Contents"
+  "$FIXTURE_DIR/Applications/OldFixtureApp.app/Contents" \
+  "$FIXTURE_DIR/Library/Developer/Xcode/DerivedData/FixtureProject" \
+  "$FIXTURE_DIR/Library/Developer/Xcode/iOS DeviceSupport/18.4" \
+  "$FIXTURE_DIR/Library/Developer/Xcode/Archives/2026-07-11/Fixture 11-07-26.xcarchive" \
+  "$FIXTURE_DIR/Library/Developer/XCTestDevices" \
+  "$FIXTURE_DIR/Library/Developer/CoreSimulator/Devices/FIXTURE-DEVICE/data" \
+  "$FIXTURE_DIR/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.4.simruntime"
 
 python3 - <<'PY' "$FIXTURE_DIR"
 import os
@@ -43,6 +49,17 @@ info = {
 with (contents / "Info.plist").open("wb") as f:
     plistlib.dump(info, f)
 (contents / "OldFixtureApp").write_bytes(b"fixture app executable\n")
+
+developer_payloads = [
+    root / "Library/Developer/Xcode/DerivedData/FixtureProject/build.o",
+    root / "Library/Developer/Xcode/iOS DeviceSupport/18.4/symbols.bin",
+    root / "Library/Developer/Xcode/Archives/2026-07-11/Fixture 11-07-26.xcarchive/Info.plist",
+    root / "Library/Developer/XCTestDevices/test-device.bin",
+    root / "Library/Developer/CoreSimulator/Devices/FIXTURE-DEVICE/data/device.bin",
+    root / "Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.4.simruntime/runtime.bin",
+]
+for index, path in enumerate(developer_payloads, start=1):
+    path.write_bytes(bytes([index]) * (256 * 1024))
 
 old_timestamp = 946684800
 for path in [app, contents, contents / "Info.plist", contents / "OldFixtureApp"]:

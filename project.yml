@@ -10,8 +10,8 @@ settings:
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 3VU7K9SUV8
     ENABLE_HARDENED_RUNTIME: YES
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "4"
 targets:
   LittleTidyCore:
     type: framework

@@ -23,6 +23,11 @@ Fixture path:
 - `Movies/large-video-fixture.mov`
 - `Downloads/installer-fixture.dmg`
 - `Applications/OldFixtureApp.app`
+- `Library/Developer/Xcode/DerivedData/FixtureProject`
+- `Library/Developer/Xcode/iOS DeviceSupport/18.4`
+- `Library/Developer/Xcode/Archives/2026-07-11/Fixture 11-07-26.xcarchive`
+- `Library/Developer/XCTestDevices`
+- fixture Simulator device and runtime directories
 
 ## App QA Steps
 
@@ -36,10 +41,12 @@ swift run LittleTidyQA
 Expected output:
 
 ```text
-scannedFiles=5
+scannedFiles=10
 duplicates=1
 largeFiles=5
 unusedApps=1
+developerItems=6
+developerBytes=<non-zero>
 ```
 
 1. Open the Xcode project:
@@ -50,7 +57,7 @@ unusedApps=1
 
 2. Run the `LittleTidy` scheme.
 
-3. Expand `Advanced Scan Settings`, then click `Use QA Fixture`.
+3. In a Debug build, expand `Scan Settings & Folders`, then click `Use QA Fixture`.
 
 4. Confirm the overview shows this file root:
 
@@ -120,6 +127,25 @@ unusedApps=1
 
 33. After cleanup, verify `Cleanup Report` lists each moved, skipped, or failed source path with its status.
 
+## Developer Storage QA
+
+1. Launch LittleTidy and open `Developer Storage` from the sidebar.
+2. Confirm the scan runs without blocking navigation or window interaction.
+3. Confirm the summary keeps `Recommended`, `Review`, `Protected`, and `Unclassified` totals separate.
+4. Confirm booted Simulator devices are `Protected` and cannot be selected.
+5. Confirm ordinary shutdown Simulator devices are `Review` and are not automatically selectable for deletion.
+6. Confirm DerivedData is `Recommended`, preselected, and explains that the next build may be slower.
+7. Confirm Archives are `Protected` and never preselected.
+8. Confirm XCTestDevices is `Unclassified` and diagnosis-only.
+9. Confirm each filesystem-backed row can be revealed in Finder.
+10. Select only generated QA developer data and open `Review & Clean`.
+11. Confirm the dialog states the exact item count, size, consequence, and whether operations are irreversible.
+12. Cancel and confirm nothing changes.
+13. For destructive QA, use only disposable fixtures and a simulator created specifically for the test; never use a real development device.
+14. After cleanup, confirm the inventory refreshes and reports removed, skipped, and failed operations accurately.
+
 ## Known QA Gaps
 
 - macOS does not expose a simple Full Disk Access boolean; `Access Readiness` surfaces selected-root readability and opens the Privacy settings pane.
+- Runtime removal is review-only and uses the installed Xcode's supported `simctl runtime delete` command after revalidating the runtime and its device dependencies.
+- XCTestDevices remains diagnosis-only unless ownership and activity can be proven.
