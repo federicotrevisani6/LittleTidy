@@ -2,6 +2,7 @@ import Foundation
 
 enum SidebarSection: String, CaseIterable, Identifiable {
     case overview
+    case developerStorage
     case duplicates
     case largeFiles
     case unusedApps
@@ -30,7 +31,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
         var sections: [SidebarSection] {
             switch self {
-            case .clean: [.overview]
+            case .clean: [.overview, .developerStorage]
             case .review: [.duplicates, .largeFiles, .unusedApps, .caches]
             case .explore: [.storage]
             }
@@ -40,6 +41,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview: "Home"
+        case .developerStorage: "Developer Storage"
         case .duplicates: "Duplicates"
         case .largeFiles: "Large Files"
         case .unusedApps: "Unused Apps"
@@ -52,6 +54,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .overview: "gauge.with.dots.needle.bottom.50percent"
+        case .developerStorage: "hammer"
         case .duplicates: "doc.on.doc"
         case .largeFiles: "internaldrive"
         case .unusedApps: "app.dashed"

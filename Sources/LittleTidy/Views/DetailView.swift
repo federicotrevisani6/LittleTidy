@@ -18,6 +18,8 @@ struct DetailView: View {
                 switch store.selectedSection {
                 case .overview:
                     OverviewView(store: store)
+                case .developerStorage:
+                    DeveloperStorageView(store: store)
                 case .duplicates:
                     ReviewListView(
                         title: "Duplicate Files",
