@@ -24,11 +24,15 @@ also finds duplicate files, large files, unused apps, and caches.
   XCTestDevices, DerivedData, Device Support, and Xcode archives. Results are
   split into Recommended, Review, Protected, and Unclassified instead of
   presenting all detected storage as safe cleanup.
-- **Active-work protection** keeps booted Simulator devices and valuable Xcode
-  archives out of automatic cleanup.
+- **Active-work protection** keeps booted Simulator devices out of cleanup and
+  blocks every developer-storage deletion while Xcode is open. Valuable Xcode
+  archives remain protected from automatic selection but can be explicitly
+  reviewed and moved to the Trash.
 - **Mechanism-aware cleanup** moves rebuildable directories to the Trash and
-  removes only unavailable Simulator devices through `simctl`, after refreshing
-  their state immediately before execution.
+  removes only explicitly selected inactive Simulator devices through `simctl`,
+  after refreshing their state immediately before execution.
+- **Native macOS selection controls** provide reliable, keyboard-accessible
+  checkboxes throughout review lists and developer storage.
 - **Duplicate detection** via staged comparison: group by size → 64 KB
   quick fingerprint (head/middle/tail) → full SHA-256 confirmation. A
   recommended copy to keep is suggested per group, and the group can never be

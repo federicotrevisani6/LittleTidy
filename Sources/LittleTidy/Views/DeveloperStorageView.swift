@@ -25,12 +25,17 @@ struct DeveloperStorageView: View {
                 unclassifiedBytes: store.unclassifiedDeveloperBytes
             )
 
+            if store.isXcodeRunning {
+                DeveloperStorageXcodeRunningBanner()
+            }
+
             if !store.selectedDeveloperStorageItems.isEmpty {
                 DeveloperStorageCleanupBar(
                     selectedCount: store.selectedDeveloperStorageItems.count,
                     selectedBytes: store.selectedDeveloperStorageBytes,
                     hasIrreversibleOperations: store.selectedDeveloperStorageHasIrreversibleOperations,
-                    isCleaning: store.isCleaningDeveloperStorage
+                    isCleaning: store.isCleaningDeveloperStorage,
+                    isXcodeRunning: store.isXcodeRunning
                 ) {
                     showingCleanupConfirmation = true
                 }
@@ -51,7 +56,7 @@ struct DeveloperStorageView: View {
                             items: items,
                             selectedIDs: store.selectedDeveloperStorageItemIDs,
                             canSelect: store.canSelectDeveloperStorageItem,
-                            toggle: store.toggleDeveloperStorageItem
+                            setSelection: store.setDeveloperStorageItemSelection
                         )
                     }
                 }
@@ -76,6 +81,13 @@ struct DeveloperStorageView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("\(store.selectedDeveloperStorageItems.count) items · \(ByteCountFormatter.cleanerString(from: store.selectedDeveloperStorageBytes)). Rebuildable data may slow the next build; unavailable Simulator devices are removed with simctl.")
+        }
+        .onAppear(perform: store.refreshXcodeRunningState)
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
+            store.refreshXcodeRunningState()
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in
+            store.refreshXcodeRunningState()
         }
     }
 }
@@ -183,7 +195,7 @@ private struct DeveloperStorageCategorySection: View {
     let items: [DeveloperStorageItem]
     let selectedIDs: Set<String>
     let canSelect: (DeveloperStorageItem) -> Bool
-    let toggle: (DeveloperStorageItem) -> Void
+    let setSelection: (DeveloperStorageItem, Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -202,7 +214,7 @@ private struct DeveloperStorageCategorySection: View {
                         item: item,
                         isSelected: selectedIDs.contains(item.id),
                         isSelectable: canSelect(item),
-                        toggle: { toggle(item) }
+                        setSelection: { setSelection(item, $0) }
                     )
                     if item.id != items.last?.id {
                         Divider().padding(.leading, 46)
@@ -218,18 +230,28 @@ private struct DeveloperStorageItemRow: View {
     let item: DeveloperStorageItem
     let isSelected: Bool
     let isSelectable: Bool
-    let toggle: () -> Void
+    let setSelection: (Bool) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: toggle) {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            if isSelectable {
+                Toggle("Select \(item.name)", isOn: Binding(
+                    get: { isSelected },
+                    set: { newValue in setSelection(newValue) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.checkbox)
+                .controlSize(.regular)
+                .accessibilityLabel(isSelected ? "Deselect \(item.name)" : "Select \(item.name)")
+                .accessibilityHint("Adds or removes this item from developer storage cleanup.")
+                .help(isSelected ? "Remove from cleanup selection" : "Add to cleanup selection")
+            } else {
+                Image(systemName: item.activity == .active ? "lock.fill" : "nosign")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                    .accessibilityLabel(item.activity == .active ? "Protected while active" : "No supported cleanup action")
+                    .help(item.activity == .active ? "Quit or shut down this item before selecting it." : "LittleTidy has no verified cleanup action for this item.")
             }
-            .buttonStyle(.borderless)
-            .disabled(!isSelectable)
-            .opacity(isSelectable ? 1 : 0.35)
-            .accessibilityLabel(isSelected ? "Deselect \(item.name)" : "Select \(item.name)")
 
             Image(systemName: recommendationIcon)
                 .foregroundStyle(recommendationColor)
@@ -312,6 +334,7 @@ private struct DeveloperStorageCleanupBar: View {
     let selectedBytes: Int64
     let hasIrreversibleOperations: Bool
     let isCleaning: Bool
+    let isXcodeRunning: Bool
     let clean: () -> Void
 
     var body: some View {
@@ -321,7 +344,7 @@ private struct DeveloperStorageCleanupBar: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(selectedCount) selected · \(ByteCountFormatter.cleanerString(from: selectedBytes))")
                     .font(.subheadline.weight(.semibold))
-                Text(hasIrreversibleOperations ? "Includes Simulator operations that cannot be undone." : "Selected items will move to the Trash.")
+                Text(cleanupDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -330,10 +353,35 @@ private struct DeveloperStorageCleanupBar: View {
                 Label(isCleaning ? "Cleaning…" : "Review & Clean", systemImage: "arrow.right.circle.fill")
             }
             .buttonStyle(.glassProminent)
-            .disabled(isCleaning)
+            .disabled(isCleaning || isXcodeRunning)
+            .help(isXcodeRunning ? "Quit Xcode before cleaning developer storage." : "Review the selected cleanup actions.")
         }
         .padding(14)
         .cleanerSubtleSurface()
+    }
+
+    private var cleanupDescription: String {
+        if isXcodeRunning {
+            return "Quit Xcode to enable cleanup. No developer data can be removed while it is open."
+        }
+        return hasIrreversibleOperations
+            ? "Includes Simulator operations that cannot be undone."
+            : "Selected items will move to the Trash."
+    }
+}
+
+private struct DeveloperStorageXcodeRunningBanner: View {
+    var body: some View {
+        Label(
+            "Xcode is open. Quit Xcode before cleaning developer storage; selection remains available for review.",
+            systemImage: "lock.shield.fill"
+        )
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(Color.cleanerWarning)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cleanerSubtleSurface()
+        .accessibilityLabel("Developer storage cleanup locked because Xcode is open")
     }
 }
 
@@ -342,14 +390,21 @@ private struct DeveloperStorageCleanupResultBanner: View {
 
     var body: some View {
         let removed = result.items.filter { $0.status == .removed }.count
+        let skipped = result.items.filter { $0.status == .skipped }.count
         let failed = result.items.filter { $0.status == .failed }.count
+        let hasWarnings = skipped > 0 || failed > 0
         HStack(spacing: 10) {
             Label(
                 "Cleanup complete: \(removed) removed · \(ByteCountFormatter.cleanerString(from: result.removedBytes))",
-                systemImage: failed == 0 ? "checkmark.circle" : "exclamationmark.triangle"
+                systemImage: hasWarnings ? "exclamationmark.triangle" : "checkmark.circle"
             )
-            .foregroundStyle(failed == 0 ? Color.cleanerSuccess : Color.cleanerWarning)
+            .foregroundStyle(hasWarnings ? Color.cleanerWarning : Color.cleanerSuccess)
             Spacer()
+            if skipped > 0 {
+                Text("\(skipped) skipped")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.cleanerWarning)
+            }
             if failed > 0 {
                 Text("\(failed) failed")
                     .font(.caption.weight(.semibold))
