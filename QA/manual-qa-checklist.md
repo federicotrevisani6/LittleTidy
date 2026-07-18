@@ -133,16 +133,18 @@ developerBytes=<non-zero>
 2. Confirm the scan runs without blocking navigation or window interaction.
 3. Confirm the summary keeps `Recommended`, `Review`, `Protected`, and `Unclassified` totals separate.
 4. Confirm booted Simulator devices are `Protected` and cannot be selected.
-5. Confirm ordinary shutdown Simulator devices are `Review` and are not automatically selectable for deletion.
+5. Confirm ordinary shutdown Simulator devices are `Review`, are not preselected, and can be explicitly selected with a native macOS checkbox.
 6. Confirm DerivedData is `Recommended`, preselected, and explains that the next build may be slower.
-7. Confirm Archives are `Protected` and never preselected.
+7. Confirm Archives are `Protected`, never preselected, and can be explicitly selected for Trash-restorable cleanup.
 8. Confirm XCTestDevices is `Unclassified` and diagnosis-only.
 9. Confirm each filesystem-backed row can be revealed in Finder.
 10. Select only generated QA developer data and open `Review & Clean`.
 11. Confirm the dialog states the exact item count, size, consequence, and whether operations are irreversible.
 12. Cancel and confirm nothing changes.
 13. For destructive QA, use only disposable fixtures and a simulator created specifically for the test; never use a real development device.
-14. After cleanup, confirm the inventory refreshes and reports removed, skipped, and failed operations accurately.
+14. With Xcode open, confirm the warning banner appears and `Review & Clean` is disabled even when items are selected.
+15. Confirm the cleanup executor also skips every selected item if Xcode opens after confirmation but before execution.
+16. After cleanup, confirm the inventory refreshes and reports removed, skipped, and failed operations accurately.
 
 ## Known QA Gaps
 

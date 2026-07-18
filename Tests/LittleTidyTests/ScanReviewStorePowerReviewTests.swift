@@ -54,6 +54,38 @@ struct ScanReviewStorePowerReviewTests {
     }
 
     @Test
+    func explicitSelectionSetterIsIdempotent() {
+        let item = reviewItem(title: "Selectable", category: .largeFile, confidence: .high, plannedURL: "/tmp/selectable")
+        let store = makeStore(items: [item])
+
+        store.setSelection(for: item, isSelected: true)
+        store.setSelection(for: item, isSelected: true)
+        #expect(store.selectedItems.count == 1)
+
+        store.setSelection(for: item, isSelected: false)
+        store.setSelection(for: item, isSelected: false)
+        #expect(store.selectedItems.isEmpty)
+    }
+
+    @Test
+    func developerSelectionAllowsSupportedManualActionsOnly() {
+        let store = makeStore(items: [])
+        let archive = developerItem(category: .archives, activity: .unknown, mechanism: .trash, recommendation: .protected)
+        let shutdownSimulator = developerItem(category: .simulatorDevices, activity: .unknown, mechanism: .simctl, recommendation: .review)
+        let bootedSimulator = developerItem(category: .simulatorDevices, activity: .active, mechanism: .simctl, recommendation: .protected)
+        let unknownData = developerItem(category: .xctestDevices, activity: .unknown, mechanism: .unsupported, recommendation: .unclassified)
+
+        #expect(store.canSelectDeveloperStorageItem(archive))
+        #expect(store.canSelectDeveloperStorageItem(shutdownSimulator))
+        #expect(!store.canSelectDeveloperStorageItem(bootedSimulator))
+        #expect(!store.canSelectDeveloperStorageItem(unknownData))
+
+        store.setDeveloperStorageItemSelection(archive, isSelected: true)
+        store.setDeveloperStorageItemSelection(archive, isSelected: true)
+        #expect(store.selectedDeveloperStorageItemIDs == [archive.id])
+    }
+
+    @Test
     func relatedDataContributesOnlyWhenEnabled() {
         let relatedURL = URL(fileURLWithPath: "/tmp/Library/Application Support/demo")
         let item = reviewItem(
@@ -128,6 +160,29 @@ struct ScanReviewStorePowerReviewTests {
             scanPreferencesStore: ScanPreferencesStore(userDefaults: defaults),
             cleanupHistoryStore: CleanupHistoryStore(userDefaults: defaults),
             automaticallyScanDeveloperStorage: false
+        )
+    }
+
+    private func developerItem(
+        category: DeveloperStorageCategory,
+        activity: StorageActivityState,
+        mechanism: DeveloperCleanupMechanism,
+        recommendation: StorageRecommendation
+    ) -> DeveloperStorageItem {
+        DeveloperStorageItem(
+            id: "\(category.rawValue)-\(activity.rawValue)",
+            category: category,
+            name: category.displayName,
+            detail: "Fixture",
+            url: mechanism == .trash ? URL(fileURLWithPath: "/tmp/\(category.rawValue)") : nil,
+            bytes: 1,
+            activity: activity,
+            recoverability: mechanism == .trash ? .trashRestorable : .irreversible,
+            cleanupMechanism: mechanism,
+            consequence: .dataLossRisk,
+            recommendation: recommendation,
+            recommendationReason: "Fixture",
+            externalIdentifier: mechanism == .simctl ? "DEVICE" : nil
         )
     }
 }

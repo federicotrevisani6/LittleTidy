@@ -169,10 +169,25 @@ struct DeveloperStorageTests {
             decision: decision
         )
 
-        let result = await DeveloperStorageCleanupExecutor().execute(items: [item])
+        let result = await DeveloperStorageCleanupExecutor(activityChecker: FixedToolActivityChecker(isRunning: false)).execute(items: [item])
 
         #expect(result.items.first?.status == .removed)
         #expect(!FileManager.default.fileExists(atPath: derivedData.path))
+    }
+
+    @Test("cleanup moves a manually selected protected archive to Trash")
+    func trashesExplicitlySelectedArchive() async throws {
+        let root = try TemporaryDirectory().url
+        let archive = root.appendingPathComponent("App.xcarchive", isDirectory: true)
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        try Data(repeating: 1, count: 1_024).write(to: archive.appendingPathComponent("Info.plist"))
+        let decision = DeveloperStoragePolicy().decision(for: .archives)
+        let item = makeItem(id: "archive", category: .archives, url: archive, decision: decision)
+
+        let result = await DeveloperStorageCleanupExecutor(activityChecker: FixedToolActivityChecker(isRunning: false)).execute(items: [item])
+
+        #expect(result.items.first?.status == .removed)
+        #expect(!FileManager.default.fileExists(atPath: archive.path))
     }
 
     @Test("cleanup revalidates unavailable simulator before deleting with simctl")
@@ -215,12 +230,84 @@ struct DeveloperStorageTests {
             isAvailable: false
         )
 
-        let result = await DeveloperStorageCleanupExecutor(commandRunner: runner).execute(items: [item])
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: FixedToolActivityChecker(isRunning: false)
+        ).execute(items: [item])
         let calls = await runner.calls
 
         #expect(result.items.first?.status == .removed)
         #expect(calls.count == 2)
         #expect(calls.last?.arguments == ["simctl", "delete", "DEVICE-OLD"])
+    }
+
+    @Test("cleanup allows an explicitly reviewed shutdown simulator")
+    func deletesReviewedShutdownSimulator() async throws {
+        let deviceJSON = Data(
+            """
+            {
+              "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-18-4": [
+                  {
+                    "name": "Reviewed iPhone",
+                    "udid": "DEVICE-REVIEW",
+                    "state": "Shutdown",
+                    "isAvailable": true
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let runner = ScriptedCommandRunner(results: [
+            DeveloperToolCommandResult(standardOutput: deviceJSON),
+            DeveloperToolCommandResult(standardOutput: Data())
+        ])
+        let decision = DeveloperStoragePolicy().decision(for: .simulatorDevices)
+        let item = simulatorItem(id: "DEVICE-REVIEW", decision: decision)
+
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: FixedToolActivityChecker(isRunning: false)
+        ).execute(items: [item])
+        let calls = await runner.calls
+
+        #expect(result.items.first?.status == .removed)
+        #expect(calls.last?.arguments == ["simctl", "delete", "DEVICE-REVIEW"])
+    }
+
+    @Test("cleanup blocks a reviewed simulator that became booted")
+    func blocksReviewedSimulatorAfterBoot() async throws {
+        let deviceJSON = Data(
+            """
+            {
+              "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-18-4": [
+                  {
+                    "name": "Reviewed iPhone",
+                    "udid": "DEVICE-REVIEW",
+                    "state": "Booted",
+                    "isAvailable": true
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let runner = ScriptedCommandRunner(results: [
+            DeveloperToolCommandResult(standardOutput: deviceJSON)
+        ])
+        let decision = DeveloperStoragePolicy().decision(for: .simulatorDevices)
+        let item = simulatorItem(id: "DEVICE-REVIEW", decision: decision)
+
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: FixedToolActivityChecker(isRunning: false)
+        ).execute(items: [item])
+        let calls = await runner.calls
+
+        #expect(result.items.first?.status == .skipped)
+        #expect(calls.count == 1)
     }
 
     @Test("runtime cleanup revalidates runtime and dependencies before supported deletion")
@@ -264,7 +351,10 @@ struct DeveloperStorageTests {
             isAvailable: true
         )
 
-        let result = await DeveloperStorageCleanupExecutor(commandRunner: runner).execute(items: [item])
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: FixedToolActivityChecker(isRunning: false)
+        ).execute(items: [item])
         let calls = await runner.calls
 
         #expect(result.items.first?.status == .removed)
@@ -292,6 +382,64 @@ struct DeveloperStorageTests {
             recommendationReason: decision.reason,
             isAvailable: true
         )
+    }
+
+    private func simulatorItem(id: String, decision: DeveloperStorageDecision) -> DeveloperStorageItem {
+        DeveloperStorageItem(
+            id: "simulator-device:\(id)",
+            category: .simulatorDevices,
+            name: "Reviewed iPhone",
+            detail: "Shutdown",
+            url: nil,
+            bytes: 2_000,
+            activity: decision.activity,
+            recoverability: decision.recoverability,
+            cleanupMechanism: decision.mechanism,
+            consequence: decision.consequence,
+            recommendation: decision.recommendation,
+            recommendationReason: decision.reason,
+            externalIdentifier: id,
+            isAvailable: true
+        )
+    }
+
+    @Test("cleanup blocks every developer storage operation while Xcode is running")
+    func blocksCleanupWhileXcodeRuns() async throws {
+        let root = try TemporaryDirectory().url
+        let derivedData = root.appendingPathComponent("DerivedData", isDirectory: true)
+        try FileManager.default.createDirectory(at: derivedData, withIntermediateDirectories: true)
+        let decision = DeveloperStoragePolicy().decision(for: .derivedData)
+        let item = makeItem(id: "derived", category: .derivedData, url: derivedData, decision: decision)
+
+        let result = await DeveloperStorageCleanupExecutor(
+            activityChecker: FixedToolActivityChecker(isRunning: true)
+        ).execute(items: [item])
+
+        #expect(result.items.first?.status == .skipped)
+        #expect(result.items.first?.message.contains("Quit Xcode") == true)
+        #expect(FileManager.default.fileExists(atPath: derivedData.path))
+    }
+
+    @Test("cleanup stops remaining operations when Xcode opens during a batch")
+    func stopsBatchWhenXcodeOpens() async throws {
+        let root = try TemporaryDirectory().url
+        let first = root.appendingPathComponent("First", isDirectory: true)
+        let second = root.appendingPathComponent("Second", isDirectory: true)
+        try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        let decision = DeveloperStoragePolicy().decision(for: .derivedData)
+        let items = [
+            makeItem(id: "first", category: .derivedData, url: first, decision: decision),
+            makeItem(id: "second", category: .derivedData, url: second, decision: decision)
+        ]
+
+        let result = await DeveloperStorageCleanupExecutor(
+            activityChecker: SequencedToolActivityChecker(states: [false, true])
+        ).execute(items: items)
+
+        #expect(result.items.map(\.status) == [.removed, .skipped])
+        #expect(!FileManager.default.fileExists(atPath: first.path))
+        #expect(FileManager.default.fileExists(atPath: second.path))
     }
 }
 
@@ -322,5 +470,25 @@ private actor ScriptedCommandRunner: DeveloperToolCommandRunning {
             throw DeveloperToolCommandError.unavailable(executable.path)
         }
         return results.removeFirst()
+    }
+}
+
+private struct FixedToolActivityChecker: DeveloperToolActivityChecking {
+    let isRunning: Bool
+
+    func isXcodeRunning() async -> Bool {
+        isRunning
+    }
+}
+
+private actor SequencedToolActivityChecker: DeveloperToolActivityChecking {
+    private var states: [Bool]
+
+    init(states: [Bool]) {
+        self.states = states
+    }
+
+    func isXcodeRunning() async -> Bool {
+        states.isEmpty ? true : states.removeFirst()
     }
 }

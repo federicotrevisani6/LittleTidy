@@ -37,20 +37,33 @@ public struct DeveloperStorageCleanupResult: Codable, Equatable, Sendable {
 public actor DeveloperStorageCleanupExecutor {
     private let fileManager: FileManager
     private let commandRunner: any DeveloperToolCommandRunning
+    private let activityChecker: any DeveloperToolActivityChecking
 
     public init(
         fileManager: FileManager = .default,
-        commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient()
+        commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient(),
+        activityChecker: (any DeveloperToolActivityChecking)? = nil
     ) {
         self.fileManager = fileManager
         self.commandRunner = commandRunner
+        self.activityChecker = activityChecker ?? DeveloperToolActivityChecker()
     }
 
     public func execute(items: [DeveloperStorageItem]) async -> DeveloperStorageCleanupResult {
         var results: [DeveloperStorageCleanupResultItem] = []
 
-        for item in items {
+        for (index, item) in items.enumerated() {
             if Task.isCancelled { break }
+            if await activityChecker.isXcodeRunning() {
+                results.append(contentsOf: items[index...].map { pendingItem in
+                    result(
+                        pendingItem,
+                        status: .skipped,
+                        message: "Quit Xcode before cleaning developer storage. No data was removed for this item."
+                    )
+                })
+                break
+            }
             switch item.cleanupMechanism {
             case .trash:
                 results.append(moveToTrash(item))
@@ -71,8 +84,10 @@ public actor DeveloperStorageCleanupExecutor {
     }
 
     private func moveToTrash(_ item: DeveloperStorageItem) -> DeveloperStorageCleanupResultItem {
-        guard item.recommendation == .recommended || item.recommendation == .review else {
-            return result(item, status: .skipped, message: "Protected or unclassified items cannot be cleaned automatically.")
+        guard item.cleanupMechanism == .trash,
+              item.activity != .active,
+              item.recommendation != .unclassified else {
+            return result(item, status: .skipped, message: "This item is active or has no verified Trash cleanup path.")
         }
         guard let url = item.url else {
             return result(item, status: .failed, message: "The item has no filesystem location.")
@@ -92,10 +107,11 @@ public actor DeveloperStorageCleanupExecutor {
 
     private func deleteSimulatorDevice(_ item: DeveloperStorageItem) async -> DeveloperStorageCleanupResultItem {
         guard item.category == .simulatorDevices,
-              item.recommendation == .recommended,
-              item.activity == .unavailable,
+              item.cleanupMechanism == .simctl,
+              item.activity != .active,
+              (item.recommendation == .recommended || item.recommendation == .review),
               let udid = item.externalIdentifier else {
-            return result(item, status: .skipped, message: "Only unavailable simulator devices can be removed automatically.")
+            return result(item, status: .skipped, message: "Only explicitly selected, inactive simulator devices can be removed.")
         }
 
         do {
@@ -107,8 +123,7 @@ public actor DeveloperStorageCleanupExecutor {
             guard let currentDevice = inventory.devices.first(where: { $0.udid == udid }) else {
                 return result(item, status: .skipped, message: "The simulator device no longer exists.")
             }
-            guard !currentDevice.isAvailable,
-                  currentDevice.state.localizedCaseInsensitiveCompare("Booted") != .orderedSame else {
+            guard currentDevice.state.localizedCaseInsensitiveCompare("Booted") != .orderedSame else {
                 return result(item, status: .skipped, message: "The simulator state changed and is no longer safe to remove.")
             }
 

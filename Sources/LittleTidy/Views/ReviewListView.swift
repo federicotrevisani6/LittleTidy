@@ -93,7 +93,7 @@ struct ReviewListView: View {
                                 item: item,
                                 isSelected: item.isSelected,
                                 isExpanded: expandedIDs.contains(item.id),
-                                toggle: { store.toggleSelection(for: item) },
+                                setSelection: { store.setSelection(for: item, isSelected: $0) },
                                 toggleExpansion: { toggleExpansion(for: item) }
                             )
 
@@ -371,13 +371,18 @@ private struct ReviewRow: View {
     let item: ReviewItem
     let isSelected: Bool
     let isExpanded: Bool
-    let toggle: () -> Void
+    let setSelection: (Bool) -> Void
     let toggleExpansion: () -> Void
 
     var body: some View {
         HStack(spacing: 16) {
-            Toggle("", isOn: Binding(get: { isSelected }, set: { _ in toggle() }))
+            Toggle("Select \(item.title)", isOn: Binding(
+                get: { isSelected },
+                set: { newValue in setSelection(newValue) }
+            ))
                 .labelsHidden()
+                .toggleStyle(.checkbox)
+                .controlSize(.regular)
                 .frame(width: 36, alignment: .center)
                 .accessibilityLabel(isSelected ? "Deselect \(item.title)" : "Select \(item.title)")
                 .accessibilityHint("Adds or removes this item from the cleanup plan.")
@@ -603,9 +608,11 @@ private struct DuplicateCopiesView: View {
                 HStack(spacing: 12) {
                     Toggle("", isOn: Binding(
                         get: { copy.isSelected },
-                        set: { _ in store.toggleDuplicateCopy(for: item, copy: copy) }
+                        set: { store.setDuplicateCopySelection(item: item, copy: copy, isSelected: $0) }
                     ))
                     .labelsHidden()
+                    .toggleStyle(.checkbox)
+                    .controlSize(.regular)
                     .disabled(copy.isRecommendedKeep)
                     .accessibilityLabel(copy.isRecommendedKeep ? "Keep \(copy.url.lastPathComponent)" : (copy.isSelected ? "Deselect \(copy.url.lastPathComponent)" : "Select \(copy.url.lastPathComponent)"))
 

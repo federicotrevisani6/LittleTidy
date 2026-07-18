@@ -71,6 +71,7 @@ final class ScanReviewStore: ObservableObject {
     @Published var selectedDeveloperStorageItemIDs: Set<String> = []
     @Published var isCleaningDeveloperStorage = false
     @Published var developerCleanupResult: DeveloperStorageCleanupResult?
+    @Published private(set) var isXcodeRunning = false
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
@@ -116,6 +117,7 @@ final class ScanReviewStore: ObservableObject {
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
         self.cleanupHistory = cleanupHistoryStore.load()
+        refreshXcodeRunningState()
         refreshPermissionReadiness()
         if automaticallyScanDeveloperStorage {
             Task { [weak self] in
@@ -178,10 +180,17 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func canSelectDeveloperStorageItem(_ item: DeveloperStorageItem) -> Bool {
-        guard item.recommendation == .recommended || item.recommendation == .review else { return false }
-        return item.cleanupMechanism == .trash
-            || (item.cleanupMechanism == .simctl && item.recommendation == .recommended)
-            || (item.cleanupMechanism == .xcodeManaged && item.category == .simulatorRuntimes && item.recommendation == .review)
+        guard item.activity != .active, item.recommendation != .unclassified else { return false }
+        switch item.cleanupMechanism {
+        case .trash:
+            return true
+        case .simctl:
+            return item.category == .simulatorDevices
+        case .xcodeManaged:
+            return item.category == .simulatorRuntimes && item.recommendation == .review
+        case .manual, .unsupported:
+            return false
+        }
     }
 
     func isDeveloperStorageItemSelected(_ item: DeveloperStorageItem) -> Bool {
@@ -189,11 +198,15 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func toggleDeveloperStorageItem(_ item: DeveloperStorageItem) {
+        setDeveloperStorageItemSelection(item, isSelected: !isDeveloperStorageItemSelected(item))
+    }
+
+    func setDeveloperStorageItemSelection(_ item: DeveloperStorageItem, isSelected: Bool) {
         guard canSelectDeveloperStorageItem(item), !isCleaningDeveloperStorage else { return }
-        if selectedDeveloperStorageItemIDs.contains(item.id) {
-            selectedDeveloperStorageItemIDs.remove(item.id)
-        } else {
+        if isSelected {
             selectedDeveloperStorageItemIDs.insert(item.id)
+        } else {
+            selectedDeveloperStorageItemIDs.remove(item.id)
         }
         developerCleanupResult = nil
     }
@@ -228,6 +241,11 @@ final class ScanReviewStore: ObservableObject {
     func executeDeveloperStorageCleanup() {
         let selected = selectedDeveloperStorageItems
         guard !selected.isEmpty, !isCleaningDeveloperStorage else { return }
+        refreshXcodeRunningState()
+        guard !isXcodeRunning else {
+            developerStorageErrorMessage = "Quit Xcode before cleaning developer storage. Nothing has been removed."
+            return
+        }
         isCleaningDeveloperStorage = true
         developerCleanupResult = nil
 
@@ -238,6 +256,12 @@ final class ScanReviewStore: ObservableObject {
             self?.selectedDeveloperStorageItemIDs = []
             self?.refreshDeveloperStorage()
         }
+    }
+
+    func refreshXcodeRunningState() {
+        isXcodeRunning = !NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.dt.Xcode"
+        ).isEmpty
     }
 
     var selectedBytes: Int64 {
@@ -379,19 +403,22 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func toggleSelection(for item: ReviewItem) {
+        setSelection(for: item, isSelected: !isItemSelected(item))
+    }
+
+    func setSelection(for item: ReviewItem, isSelected: Bool) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else {
             return
         }
         if items[index].duplicateCopies.isEmpty {
-            items[index].isSelected.toggle()
+            items[index].isSelected = isSelected
         } else {
-            let shouldSelect = !items[index].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
             for copyIndex in items[index].duplicateCopies.indices {
                 if !items[index].duplicateCopies[copyIndex].isRecommendedKeep {
-                    items[index].duplicateCopies[copyIndex].isSelected = shouldSelect
+                    items[index].duplicateCopies[copyIndex].isSelected = isSelected
                 }
             }
-            items[index].isSelected = shouldSelect
+            items[index].isSelected = isSelected
         }
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
@@ -401,13 +428,17 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func toggleDuplicateCopy(for item: ReviewItem, copy: DuplicateCopyReview) {
+        setDuplicateCopySelection(item: item, copy: copy, isSelected: !copy.isSelected)
+    }
+
+    func setDuplicateCopySelection(item: ReviewItem, copy: DuplicateCopyReview, isSelected: Bool) {
         guard let itemIndex = items.firstIndex(where: { $0.id == item.id }),
               let copyIndex = items[itemIndex].duplicateCopies.firstIndex(where: { $0.id == copy.id }),
               !items[itemIndex].duplicateCopies[copyIndex].isRecommendedKeep else {
             return
         }
 
-        items[itemIndex].duplicateCopies[copyIndex].isSelected.toggle()
+        items[itemIndex].duplicateCopies[copyIndex].isSelected = isSelected
         items[itemIndex].isSelected = items[itemIndex].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
         cleanupErrorMessage = nil
         cleanupResultMessage = nil
