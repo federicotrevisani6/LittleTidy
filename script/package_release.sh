@@ -84,14 +84,18 @@ codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 ditto -c -k --keepParent "$APP_PATH" "$NOTARY_ZIP"
 
 if [[ "$SKIP_NOTARIZATION" == "0" ]]; then
-  if [[ -z "$NOTARY_PROFILE" ]]; then
-    echo "Missing --notary-profile or NOTARY_PROFILE. Re-run with --skip-notarization for a signed-only artifact." >&2
+  if command -v asc >/dev/null 2>&1; then
+    echo "Submitting to Apple Notary API via asc CLI..."
+    asc notarization submit --file "$NOTARY_ZIP" --wait
+  elif [[ -n "$NOTARY_PROFILE" ]]; then
+    echo "Submitting to Apple Notary API via notarytool ($NOTARY_PROFILE)..."
+    xcrun notarytool submit "$NOTARY_ZIP" \
+      --keychain-profile "$NOTARY_PROFILE" \
+      --wait
+  else
+    echo "Missing asc CLI credentials or --notary-profile. Re-run with --skip-notarization for a signed-only artifact." >&2
     exit 1
   fi
-
-  xcrun notarytool submit "$NOTARY_ZIP" \
-    --keychain-profile "$NOTARY_PROFILE" \
-    --wait
 
   xcrun stapler staple "$APP_PATH"
   xcrun stapler validate "$APP_PATH"

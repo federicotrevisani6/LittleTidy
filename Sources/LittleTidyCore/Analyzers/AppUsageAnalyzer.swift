@@ -113,7 +113,7 @@ public struct AppUsageAnalyzer {
     /// only, in the standard user Library locations. Group Containers (keyed by
     /// team identifier) and display-name matches are intentionally excluded to
     /// avoid removing data that belongs to another app.
-    func relatedAppData(bundleIdentifier: String?) -> [RelatedAppData] {
+    public func relatedAppData(bundleIdentifier: String?) -> [RelatedAppData] {
         guard let bundleID = bundleIdentifier, !bundleID.isEmpty else {
             return []
         }

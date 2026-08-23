@@ -45,6 +45,13 @@ final class ScanReviewStore: ObservableObject {
             cleanupReportItems = []
         }
     }
+    @Published var enableTrashWatcher = true {
+        didSet {
+            persistScanPreferences()
+            updateTrashWatcherState()
+        }
+    }
+    @Published var pendingUninstallEvent: AppUninstallEvent?
     @Published var minimumDuplicateSize: Int64 = 1_000_000 {
         didSet { persistScanPreferences() }
     }
@@ -82,6 +89,7 @@ final class ScanReviewStore: ObservableObject {
     private let folderBookmarkStore: FolderBookmarkStore
     private let scanPreferencesStore: ScanPreferencesStore
     private let cleanupHistoryStore: CleanupHistoryStore
+    private let trashWatcher: AppTrashWatcher
 
     init(
         items: [ReviewItem] = [],
@@ -92,7 +100,8 @@ final class ScanReviewStore: ObservableObject {
         cleanupHistoryStore: CleanupHistoryStore = .shared,
         trashPlanBuilder: TrashPlanBuilder = TrashPlanBuilder(),
         trashExecutor: TrashExecutor = TrashExecutor(),
-        automaticallyScanDeveloperStorage: Bool = true
+        automaticallyScanDeveloperStorage: Bool = true,
+        trashWatcher: AppTrashWatcher = AppTrashWatcher()
     ) {
         self.items = items
         self.folderBookmarkStore = folderBookmarkStore
@@ -109,16 +118,21 @@ final class ScanReviewStore: ObservableObject {
         self.trashPlanBuilder = trashPlanBuilder
         self.trashExecutor = trashExecutor
 
+        self.trashWatcher = trashWatcher
+
         let preferences = scanPreferencesStore.load()
         self.includeHiddenFiles = preferences.includeHiddenFiles
         self.includeSystemFolders = preferences.includeSystemFolders
         self.includeCaches = preferences.includeCaches
         self.includeRelatedAppData = preferences.includeRelatedAppData
+        self.enableTrashWatcher = preferences.enableTrashWatcher
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
         self.cleanupHistory = cleanupHistoryStore.load()
         refreshXcodeRunningState()
         refreshPermissionReadiness()
+        updateTrashWatcherState()
+        setupNotificationHandling()
         if automaticallyScanDeveloperStorage {
             Task { [weak self] in
                 self?.refreshDeveloperStorage()
@@ -130,6 +144,7 @@ final class ScanReviewStore: ObservableObject {
         scanTask?.cancel()
         analysisTask?.cancel()
         developerStorageTask?.cancel()
+        trashWatcher.stop()
     }
 
     var selectedItems: [ReviewItem] {
@@ -262,6 +277,76 @@ final class ScanReviewStore: ObservableObject {
         isXcodeRunning = !NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.apple.dt.Xcode"
         ).isEmpty
+    }
+
+    func updateTrashWatcherState() {
+        if enableTrashWatcher {
+            trashWatcher.start { [weak self] event in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.pendingUninstallEvent = event
+                    AppUninstallNotificationManager.shared.postNotification(for: event)
+                }
+            }
+            AppUninstallNotificationManager.shared.requestAuthorizationIfNeeded()
+        } else {
+            trashWatcher.stop()
+        }
+    }
+
+    private func setupNotificationHandling() {
+        AppUninstallNotificationManager.shared.onOpenLeftoverReview = { [weak self] bundleID in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.pendingUninstallEvent?.bundleIdentifier != bundleID {
+                    let trashURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
+                    let leftovers = AppUsageAnalyzer(homeDirectory: FileManager.default.homeDirectoryForCurrentUser).relatedAppData(bundleIdentifier: bundleID)
+                    if !leftovers.isEmpty {
+                        self.pendingUninstallEvent = AppUninstallEvent(
+                            appURL: trashURL,
+                            bundleIdentifier: bundleID,
+                            displayName: bundleID.components(separatedBy: ".").last ?? bundleID,
+                            version: nil,
+                            appSizeBytes: 0,
+                            leftovers: leftovers
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    func executeLeftoverCleanup(for event: AppUninstallEvent, selectedLeftovers: [RelatedAppData]) {
+        guard !selectedLeftovers.isEmpty else {
+            pendingUninstallEvent = nil
+            return
+        }
+
+        let plan = TrashPlan(items: selectedLeftovers.map { leftover in
+            TrashPlanItem(
+                sourceURL: leftover.url,
+                bytes: leftover.sizeBytes,
+                category: .unusedApp,
+                reason: "Residuo di \(event.displayName) disinstallata"
+            )
+        })
+
+        isCleaning = true
+        Task { [weak self] in
+            guard let self else { return }
+            let trashExecutor = self.trashExecutor
+            let result = await Task.detached(priority: .userInitiated) {
+                trashExecutor.execute(plan)
+            }.value
+
+            self.isCleaning = false
+            self.pendingUninstallEvent = nil
+            let newReportItems = self.cleanupReportItems(from: result, plan: plan)
+            self.cleanupReportItems.append(contentsOf: newReportItems)
+            self.recordCleanupHistory(from: newReportItems)
+            self.cleanupResultMessage = "Rimossi \(result.trashed.count) file residui per \(event.displayName)."
+            self.statusMessage = "Pulizia residui completata"
+        }
     }
 
     var selectedBytes: Int64 {
@@ -591,6 +676,7 @@ final class ScanReviewStore: ObservableObject {
         includeSystemFolders = false
         includeCaches = true
         includeRelatedAppData = false
+        enableTrashWatcher = true
         statusMessage = "Default scan settings restored"
     }
 
@@ -1400,6 +1486,7 @@ final class ScanReviewStore: ObservableObject {
             includeSystemFolders: includeSystemFolders,
             includeCaches: includeCaches,
             includeRelatedAppData: includeRelatedAppData,
+            enableTrashWatcher: enableTrashWatcher,
             minimumDuplicateSize: minimumDuplicateSize,
             largeFileThreshold: largeFileThreshold
         ))

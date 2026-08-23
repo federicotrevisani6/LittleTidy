@@ -5,6 +5,7 @@ struct ScanPreferences: Equatable {
     var includeSystemFolders: Bool
     var includeCaches: Bool
     var includeRelatedAppData: Bool
+    var enableTrashWatcher: Bool
     var minimumDuplicateSize: Int64
     var largeFileThreshold: Int64
 
@@ -13,6 +14,7 @@ struct ScanPreferences: Equatable {
         includeSystemFolders: false,
         includeCaches: true,
         includeRelatedAppData: false,
+        enableTrashWatcher: true,
         minimumDuplicateSize: 1_000_000,
         largeFileThreshold: 500_000_000
     )
@@ -34,6 +36,7 @@ struct ScanPreferencesStore {
             includeSystemFolders: userDefaults.object(forKey: Keys.includeSystemFolders) as? Bool ?? ScanPreferences.default.includeSystemFolders,
             includeCaches: userDefaults.object(forKey: Keys.includeCaches) as? Bool ?? ScanPreferences.default.includeCaches,
             includeRelatedAppData: userDefaults.object(forKey: Keys.includeRelatedAppData) as? Bool ?? ScanPreferences.default.includeRelatedAppData,
+            enableTrashWatcher: userDefaults.object(forKey: Keys.enableTrashWatcher) as? Bool ?? ScanPreferences.default.enableTrashWatcher,
             minimumDuplicateSize: int64(forKey: Keys.minimumDuplicateSize, fallback: ScanPreferences.default.minimumDuplicateSize),
             largeFileThreshold: int64(forKey: Keys.largeFileThreshold, fallback: ScanPreferences.default.largeFileThreshold)
         )
@@ -44,6 +47,7 @@ struct ScanPreferencesStore {
         userDefaults.set(preferences.includeSystemFolders, forKey: Keys.includeSystemFolders)
         userDefaults.set(preferences.includeCaches, forKey: Keys.includeCaches)
         userDefaults.set(preferences.includeRelatedAppData, forKey: Keys.includeRelatedAppData)
+        userDefaults.set(preferences.enableTrashWatcher, forKey: Keys.enableTrashWatcher)
         userDefaults.set(preferences.minimumDuplicateSize, forKey: Keys.minimumDuplicateSize)
         userDefaults.set(preferences.largeFileThreshold, forKey: Keys.largeFileThreshold)
     }
@@ -64,6 +68,7 @@ struct ScanPreferencesStore {
         static let includeSystemFolders = "LittleTidy.includeSystemFolders"
         static let includeCaches = "LittleTidy.includeCaches"
         static let includeRelatedAppData = "LittleTidy.includeRelatedAppData"
+        static let enableTrashWatcher = "LittleTidy.enableTrashWatcher"
         static let minimumDuplicateSize = "LittleTidy.minimumDuplicateSize"
         static let largeFileThreshold = "LittleTidy.largeFileThreshold"
     }

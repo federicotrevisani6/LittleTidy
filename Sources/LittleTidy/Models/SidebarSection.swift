@@ -2,37 +2,35 @@ import Foundation
 
 enum SidebarSection: String, CaseIterable, Identifiable {
     case overview
+    case storage
     case developerStorage
+    case unusedApps
     case duplicates
     case largeFiles
-    case unusedApps
     case caches
-    case storage
     case cleanupPlan
 
     var id: String { rawValue }
 
-    /// Sections shown in the sidebar, grouped. The cleanup plan is reached via
-    /// the cleanup cart bar rather than as a top-level sidebar peer.
     enum Group: String, CaseIterable, Identifiable {
         case clean
-        case review
+        case tools
         case explore
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .clean: "Clean"
-            case .review: "Review"
-            case .explore: "Explore"
+            case .clean: "Pulizia Rapida"
+            case .tools: "Strumenti"
+            case .explore: "Analisi Disco"
             }
         }
 
         var sections: [SidebarSection] {
             switch self {
-            case .clean: [.overview, .developerStorage]
-            case .review: [.duplicates, .largeFiles, .unusedApps, .caches]
+            case .clean: [.overview]
+            case .tools: [.developerStorage, .unusedApps, .duplicates, .largeFiles, .caches]
             case .explore: [.storage]
             }
         }
@@ -40,27 +38,27 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .overview: "Home"
-        case .developerStorage: "Developer Storage"
-        case .duplicates: "Duplicates"
-        case .largeFiles: "Large Files"
-        case .unusedApps: "Unused Apps"
-        case .caches: "Caches"
-        case .storage: "Storage Map"
-        case .cleanupPlan: "Cleanup Plan"
+        case .overview: "Smart Clean"
+        case .developerStorage: "Xcode & Developer"
+        case .duplicates: "File Duplicati"
+        case .largeFiles: "Grandi File"
+        case .unusedApps: "App & Residui"
+        case .caches: "Cache di Sistema"
+        case .storage: "Mappa Spazio"
+        case .cleanupPlan: "Piano di Pulizia"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .overview: "gauge.with.dots.needle.bottom.50percent"
-        case .developerStorage: "hammer"
-        case .duplicates: "doc.on.doc"
-        case .largeFiles: "internaldrive"
-        case .unusedApps: "app.dashed"
-        case .caches: "shippingbox"
-        case .storage: "square.grid.2x2"
-        case .cleanupPlan: "trash"
+        case .overview: "sparkles"
+        case .developerStorage: "hammer.fill"
+        case .duplicates: "doc.on.doc.fill"
+        case .largeFiles: "internaldrive.fill"
+        case .unusedApps: "app.badge.checkmark"
+        case .caches: "shippingbox.fill"
+        case .storage: "chart.pie.fill"
+        case .cleanupPlan: "trash.fill"
         }
     }
 }
