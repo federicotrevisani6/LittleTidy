@@ -39,12 +39,12 @@ struct AppLeftoverPromptView: View {
                     .frame(width: 48, height: 48)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(event.displayName) è stata disinstallata")
+                    Text("\(event.displayName) was uninstalled")
                         .font(.title2.weight(.bold))
                     Text("Bundle ID: \(event.bundleIdentifier)\(event.version.map { " · v\($0)" } ?? "")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("Sono stati individuati file residui in Library associati a questa applicazione. Puoi esaminarli e spostarli nel Cestino.")
+                    Text("Leftover files associated with this application were found in Library. You can review and move them to Trash.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.top, 2)
@@ -54,10 +54,10 @@ struct AppLeftoverPromptView: View {
             .cleanerSurface()
 
             HStack {
-                Text("\(selectedLeftovers.count) di \(event.leftovers.count) elementi selezionati")
+                Text("\(selectedLeftovers.count) of \(event.leftovers.count) items selected")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text("Spazio liberabile: \(ByteCountFormatter.cleanerString(from: selectedBytes))")
+                Text("Reclaimable: \(ByteCountFormatter.cleanerString(from: selectedBytes))")
                     .font(.headline)
                     .foregroundStyle(Color.cleanerSuccess)
             }
@@ -89,7 +89,7 @@ struct AppLeftoverPromptView: View {
             .frame(maxHeight: 280)
 
             HStack {
-                Button("Conserva tutto", action: onDismiss)
+                Button("Keep All", action: onDismiss)
                     .keyboardShortcut(.cancelAction)
 
                 Spacer()
@@ -97,9 +97,9 @@ struct AppLeftoverPromptView: View {
                 Button {
                     onConfirmClean(selectedLeftovers)
                 } label: {
-                    Label("Sposta \(ByteCountFormatter.cleanerString(from: selectedBytes)) nel Cestino", systemImage: "trash")
+                    Label("Move \(ByteCountFormatter.cleanerString(from: selectedBytes)) to Trash", systemImage: "trash")
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.borderedProminent)
                 .disabled(selectedLeftovers.isEmpty)
                 .keyboardShortcut(.defaultAction)
             }
@@ -124,7 +124,7 @@ private struct LeftoverItemRow: View {
             .labelsHidden()
             .toggleStyle(.checkbox)
             .controlSize(.regular)
-            .accessibilityLabel("Seleziona \(leftover.kind)")
+            .accessibilityLabel("Select \(leftover.kind)")
 
             Image(systemName: iconName(for: leftover.kind))
                 .foregroundStyle(.secondary)
@@ -159,7 +159,7 @@ private struct LeftoverItemRow: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Rivela nel Finder")
+            .help("Reveal in Finder")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

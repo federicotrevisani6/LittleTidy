@@ -35,6 +35,35 @@ struct DuplicateAnalyzerTests {
         #expect(groups[0].recommendedKeep?.url == duplicateB)
     }
 
+    @Test("respects duplicate keep strategies (oldest, newest, prefer non-downloads, shortest path)")
+    func respectsDuplicateKeepStrategies() throws {
+        let directory = try TemporaryDirectory()
+        let downloads = directory.url.appendingPathComponent("Downloads/sub/deep", isDirectory: true)
+        let documents = directory.url.appendingPathComponent("Docs", isDirectory: true)
+        try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+
+        let oldFile = downloads.appendingPathComponent("old.bin")
+        let newFile = documents.appendingPathComponent("new.bin")
+        let data = Data(repeating: 5, count: 1_100_000)
+        try data.write(to: oldFile)
+        try data.write(to: newFile)
+
+        let oldRecord = FileRecord(url: oldFile, fileSize: 1_100_000, creationDate: Date(timeIntervalSince1970: 100_000), modificationDate: Date(timeIntervalSince1970: 100_000))
+        let newRecord = FileRecord(url: newFile, fileSize: 1_100_000, creationDate: Date(timeIntervalSince1970: 500_000), modificationDate: Date(timeIntervalSince1970: 500_000))
+
+        let analyzer = DuplicateAnalyzer()
+        let keepOldest = analyzer.chooseRecommendedKeep(from: [oldRecord, newRecord], strategy: .oldest)
+        let keepNewest = analyzer.chooseRecommendedKeep(from: [oldRecord, newRecord], strategy: .newest)
+        let keepNonDownloads = analyzer.chooseRecommendedKeep(from: [oldRecord, newRecord], strategy: .preferNonDownloads)
+        let keepShortest = analyzer.chooseRecommendedKeep(from: [oldRecord, newRecord], strategy: .shortestPath)
+
+        #expect(keepOldest?.url == oldFile)
+        #expect(keepNewest?.url == newFile)
+        #expect(keepNonDownloads?.url == newFile)
+        #expect(keepShortest?.url == newFile)
+    }
+
     @Test("does not report matching quick fingerprints when full hashes differ")
     func rejectsHashMismatches() throws {
         let directory = try TemporaryDirectory()

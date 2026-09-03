@@ -8,7 +8,7 @@ struct CleanupPlanView: View {
     var body: some View {
         let validation = store.cleanupPlanValidation
 
-        GlassEffectContainer {
+        ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 CleanupPlanSummaryPanel(
                     store: store,
@@ -36,33 +36,39 @@ struct CleanupPlanView: View {
                     .padding(22)
                 }
 
-            if let cleanupErrorMessage = store.cleanupErrorMessage {
-                Label(cleanupErrorMessage, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(Color.cleanerWarning)
-                    .padding(12)
-                    .cleanerSubtleSurface()
+                if let cleanupErrorMessage = store.cleanupErrorMessage {
+                    Label(cleanupErrorMessage, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(Color.cleanerWarning)
+                        .padding(12)
+                        .cleanerSubtleSurface()
+                }
+
+                if let cleanupResultMessage = store.cleanupResultMessage {
+                    Label(cleanupResultMessage, systemImage: "checkmark.circle")
+                        .foregroundStyle(Color.cleanerSuccess)
+                        .padding(12)
+                        .cleanerSubtleSurface()
+                }
+
+                CleanupReportView(store: store, items: store.filteredCleanupReportItems())
+
+                CleanupCategoryGroupsView(items: store.selectedItems, store: store)
+
+                CleanupHistoryView(store: store)
             }
-
-            if let cleanupResultMessage = store.cleanupResultMessage {
-                Label(cleanupResultMessage, systemImage: "checkmark.circle")
-                    .foregroundStyle(Color.cleanerSuccess)
-                    .padding(12)
-                    .cleanerSubtleSurface()
-            }
-
-            CleanupReportView(store: store, items: store.filteredCleanupReportItems())
-
-            CleanupCategoryGroupsView(items: store.selectedItems, store: store)
-
-            CleanupHistoryView(store: store)
-            }
+            .padding(24)
         }
     }
 
     private var cleanupConfirmationMessage: String {
+        let isPermanent = store.deletionMode.isPermanent
         var lines = [
-            "\(store.selectedFilesystemEntryCount) files & folders, \(ByteCountFormatter.cleanerString(from: store.selectedBytes)), will be moved to Trash.",
-            "This does not permanently delete them.",
+            isPermanent
+                ? "\(store.selectedFilesystemEntryCount) files & folders (\(ByteCountFormatter.cleanerString(from: store.selectedBytes))) will be PERMANENTLY deleted, skipping Trash."
+                : "\(store.selectedFilesystemEntryCount) files & folders (\(ByteCountFormatter.cleanerString(from: store.selectedBytes))) will be moved to Trash.",
+            isPermanent
+                ? "WARNING: This operation is permanent and cannot be undone."
+                : "This does not permanently delete them.",
             "System folders are excluded."
         ]
 
@@ -93,15 +99,17 @@ private struct CleanupConfirmationSheet: View {
     let cancel: () -> Void
 
     var body: some View {
+        let isPermanent = store.deletionMode.isPermanent
+
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "trash")
+                Image(systemName: isPermanent ? "exclamationmark.triangle.fill" : "trash")
                     .font(.title2)
-                    .foregroundStyle(Color.cleanerWarning)
+                    .foregroundStyle(isPermanent ? Color.cleanerDanger : Color.cleanerWarning)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Move selected items to Trash?")
+                    Text(isPermanent ? "Permanently Delete Selected Items?" : "Move Selected Items to Trash?")
                         .font(.title2.weight(.semibold))
-                    Text("LittleTidy moves files to Trash only. You can still recover them from Finder.")
+                    Text(isPermanent ? "Files will be erased immediately, skipping the Trash. This cannot be undone." : "LittleTidy moves files to Trash. You can still recover them from Finder.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -132,10 +140,13 @@ private struct CleanupConfirmationSheet: View {
                 Spacer()
                 Button("Cancel", action: cancel)
                 Button(role: .destructive, action: confirm) {
-                    Label("Move to Trash", systemImage: "trash")
+                    Label(
+                        isPermanent ? "Permanently Delete" : "Move to Trash",
+                        systemImage: isPermanent ? "flame.fill" : "trash"
+                    )
                 }
                 .disabled(store.selectedNeedsManualReview && !store.manualReviewConfirmed)
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -209,10 +220,13 @@ private struct CleanupPlanSummaryPanel: View {
                 }
                 Spacer()
                 Button(action: moveToTrash) {
-                    Label(store.isCleaning ? "Cleaning" : "Move Selected to Trash", systemImage: "trash")
+                    Label(
+                        store.isCleaning ? "Cleaning" : (store.deletionMode.isPermanent ? "Permanently Delete Selected" : "Move Selected to Trash"),
+                        systemImage: store.deletionMode.isPermanent ? "flame.fill" : "trash"
+                    )
                 }
                 .disabled(!validation.canMoveToTrash)
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.borderedProminent)
                 .accessibilityHint("Opens the final Trash confirmation before moving selected items.")
             }
 

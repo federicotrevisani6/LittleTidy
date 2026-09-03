@@ -29,7 +29,7 @@ public final class TrashExecutor: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    public func execute(_ plan: TrashPlan) -> TrashExecutionResult {
+    public func execute(_ plan: TrashPlan, deletionMode: DeletionMode = .moveToTrash) -> TrashExecutionResult {
         var trashed: [TrashedItem] = []
         var failed: [(url: URL, error: Error)] = []
         var skipped: [URL] = []
@@ -41,17 +41,46 @@ public final class TrashExecutor: @unchecked Sendable {
             }
 
             do {
-                var resultingURL: NSURL?
-                try fileManager.trashItem(at: item.sourceURL, resultingItemURL: &resultingURL)
-                trashed.append(TrashedItem(
-                    sourceURL: item.sourceURL,
-                    trashURL: (resultingURL as URL?) ?? item.sourceURL
-                ))
+                if deletionMode == .permanentDelete {
+                    try fileManager.removeItem(at: item.sourceURL)
+                    trashed.append(TrashedItem(
+                        sourceURL: item.sourceURL,
+                        trashURL: item.sourceURL
+                    ))
+                } else {
+                    var resultingURL: NSURL?
+                    try fileManager.trashItem(at: item.sourceURL, resultingItemURL: &resultingURL)
+                    trashed.append(TrashedItem(
+                        sourceURL: item.sourceURL,
+                        trashURL: (resultingURL as URL?) ?? item.sourceURL
+                    ))
+                }
             } catch {
                 failed.append((item.sourceURL, error))
             }
         }
 
         return TrashExecutionResult(trashed: trashed, failed: failed, skipped: skipped)
+    }
+
+    public func forceDelete(urls: [URL]) -> TrashExecutionResult {
+        var deleted: [TrashedItem] = []
+        var failed: [(url: URL, error: Error)] = []
+        var skipped: [URL] = []
+
+        for url in urls {
+            guard fileManager.fileExists(atPath: url.path) else {
+                skipped.append(url)
+                continue
+            }
+            do {
+                try fileManager.removeItem(at: url)
+                deleted.append(TrashedItem(sourceURL: url, trashURL: url))
+            } catch {
+                failed.append((url, error))
+            }
+        }
+
+        return TrashExecutionResult(trashed: deleted, failed: failed, skipped: skipped)
     }
 }

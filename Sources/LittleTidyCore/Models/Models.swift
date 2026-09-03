@@ -13,6 +13,22 @@ public enum CleanupCategory: String, Codable, Sendable {
     case cache
 }
 
+public enum DeletionMode: String, Codable, CaseIterable, Sendable {
+    case moveToTrash
+    case permanentDelete
+
+    public var title: String {
+        switch self {
+        case .moveToTrash: "Move to Trash"
+        case .permanentDelete: "Permanently Delete (Skip Trash)"
+        }
+    }
+
+    public var isPermanent: Bool {
+        self == .permanentDelete
+    }
+}
+
 public struct FileRecord: Hashable, Codable, Sendable {
     public let id: UUID
     public let url: URL

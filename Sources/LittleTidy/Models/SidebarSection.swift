@@ -13,52 +13,52 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     enum Group: String, CaseIterable, Identifiable {
-        case clean
-        case tools
-        case explore
+        case system
+        case cleanup
+        case review
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .clean: "Pulizia Rapida"
-            case .tools: "Strumenti"
-            case .explore: "Analisi Disco"
+            case .system: "System"
+            case .cleanup: "Cleanup"
+            case .review: "Review"
             }
         }
 
         var sections: [SidebarSection] {
             switch self {
-            case .clean: [.overview]
-            case .tools: [.developerStorage, .unusedApps, .duplicates, .largeFiles, .caches]
-            case .explore: [.storage]
+            case .system: [.overview, .storage]
+            case .cleanup: [.developerStorage, .caches, .duplicates, .largeFiles, .unusedApps]
+            case .review: [.cleanupPlan]
             }
         }
     }
 
     var title: String {
         switch self {
-        case .overview: "Smart Clean"
-        case .developerStorage: "Xcode & Developer"
-        case .duplicates: "File Duplicati"
-        case .largeFiles: "Grandi File"
-        case .unusedApps: "App & Residui"
-        case .caches: "Cache di Sistema"
-        case .storage: "Mappa Spazio"
-        case .cleanupPlan: "Piano di Pulizia"
+        case .overview: "Overview"
+        case .developerStorage: "Developer Storage"
+        case .duplicates: "Duplicate Files"
+        case .largeFiles: "Large Files"
+        case .unusedApps: "Applications"
+        case .caches: "Application Caches"
+        case .storage: "Storage Map"
+        case .cleanupPlan: "Cleanup Plan"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .overview: "sparkles"
-        case .developerStorage: "hammer.fill"
-        case .duplicates: "doc.on.doc.fill"
-        case .largeFiles: "internaldrive.fill"
-        case .unusedApps: "app.badge.checkmark"
-        case .caches: "shippingbox.fill"
-        case .storage: "chart.pie.fill"
-        case .cleanupPlan: "trash.fill"
+        case .overview: "gauge.with.needle"
+        case .developerStorage: "hammer"
+        case .duplicates: "doc.on.doc"
+        case .largeFiles: "internaldrive"
+        case .unusedApps: "app.badge"
+        case .caches: "shippingbox"
+        case .storage: "chart.pie"
+        case .cleanupPlan: "trash"
         }
     }
 }

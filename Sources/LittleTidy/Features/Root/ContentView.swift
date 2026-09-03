@@ -1,54 +1,88 @@
 import LittleTidyCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var store = ScanReviewStore()
+    @State private var isDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
             SidebarView(store: store)
         } detail: {
-            ZStack(alignment: .bottom) {
-                DetailView(store: store)
+            DetailView(store: store)
+                .searchable(text: $store.reviewSearchText, prompt: "Filter items…")
+                .toolbar {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        Menu {
+                            Button {
+                                store.chooseFolders()
+                            } label: {
+                                Label("Add Folders…", systemImage: "folder.badge.plus")
+                            }
+                            .keyboardShortcut("o", modifiers: [.command])
 
-                FloatingSelectionIsland(store: store)
-                    .padding(.bottom, 20)
-            }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        store.startOrCancelScan()
-                    } label: {
-                        Label(
-                            store.isScanning ? "Annulla" : "Scansiona",
-                            systemImage: store.isScanning ? "xmark.circle" : "sparkles"
-                        )
-                    }
-                    .keyboardShortcut("r", modifiers: [.command])
-                }
+                            Button {
+                                store.chooseAppFolders()
+                            } label: {
+                                Label("Add Application Folders…", systemImage: "app.badge")
+                            }
 
-                ToolbarItem(placement: .automatic) {
-                    Menu {
-                        Button {
-                            store.chooseFolders()
+                            Divider()
+
+                            Button("Restore Default Locations") {
+                                store.resetScanSettings()
+                            }
                         } label: {
-                            Label("Cartelle File...", systemImage: "folder.badge.plus")
+                            Label("Locations", systemImage: "folder")
                         }
-                        .keyboardShortcut("o", modifiers: [.command])
+                        .disabled(store.isScanning)
+
+                        if !store.selectedItems.isEmpty && store.selectedSection != .cleanupPlan {
+                            Button {
+                                store.selectedSection = .cleanupPlan
+                            } label: {
+                                Label(
+                                    "Review & Clean (\(ByteCountFormatter.cleanerString(from: store.selectedBytes)))",
+                                    systemImage: "arrow.right.circle.fill"
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
 
                         Button {
-                            store.chooseAppFolders()
+                            store.startOrCancelScan()
                         } label: {
-                            Label("Cartelle Applicazioni...", systemImage: "app.badge")
+                            Label(
+                                store.isScanning ? "Cancel Scan" : "Scan",
+                                systemImage: store.isScanning ? "xmark.circle" : "arrow.triangle.2.circlepath"
+                            )
                         }
-                    } label: {
-                        Label("Cartelle", systemImage: "folder")
+                        .keyboardShortcut("r", modifiers: [.command])
                     }
-                    .disabled(store.isScanning)
                 }
-            }
         }
         .navigationSplitViewStyle(.balanced)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.accentColor, lineWidth: 3)
+                    .background(Color.accentColor.opacity(0.08))
+                    .overlay(
+                        VStack(spacing: 12) {
+                            Image(systemName: "arrow.down.doc.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(Color.accentColor)
+                            Text("Drop folder to scan or application to inspect leftovers")
+                                .font(.headline)
+                        }
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers: providers)
+        }
         .sheet(item: $store.pendingUninstallEvent) { event in
             AppLeftoverPromptView(
                 event: event,
@@ -61,64 +95,23 @@ struct ContentView: View {
             )
         }
     }
-}
 
-/// Modern floating capsule island shown at the bottom whenever files are selected.
-private struct FloatingSelectionIsland: View {
-    @ObservedObject var store: ScanReviewStore
-
-    private var isVisible: Bool {
-        !store.selectedItems.isEmpty && store.selectedSection != .cleanupPlan
-    }
-
-    var body: some View {
-        if isVisible {
-            HStack(spacing: 16) {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("\(store.selectedItems.count) element\(store.selectedItems.count == 1 ? "o" : "i") selezionat\(store.selectedItems.count == 1 ? "o" : "i")")
-                            .font(.subheadline.weight(.bold))
-                        Text("\(ByteCountFormatter.cleanerString(from: store.selectedBytes)) liberabili")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        Task { @MainActor in
+            var droppedURLs: [URL] = []
+            for provider in providers {
+                if let url = await withCheckedContinuation({ (continuation: CheckedContinuation<URL?, Never>) in
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                        continuation.resume(returning: url)
                     }
+                }) {
+                    droppedURLs.append(url)
                 }
-
-                Divider()
-                    .frame(height: 22)
-
-                Button {
-                    store.clearSelection()
-                } label: {
-                    Text("Deseleziona")
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-
-                Button {
-                    store.selectedSection = .cleanupPlan
-                } label: {
-                    Label("Rivedi e Pulisci", systemImage: "arrow.right.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.glassProminent)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isVisible)
+            if !droppedURLs.isEmpty {
+                store.handleDroppedURLs(droppedURLs)
+            }
         }
+        return true
     }
 }

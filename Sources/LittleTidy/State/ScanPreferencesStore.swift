@@ -1,4 +1,5 @@
 import Foundation
+import LittleTidyCore
 
 struct ScanPreferences: Equatable {
     var includeHiddenFiles: Bool
@@ -8,6 +9,8 @@ struct ScanPreferences: Equatable {
     var enableTrashWatcher: Bool
     var minimumDuplicateSize: Int64
     var largeFileThreshold: Int64
+    var allowPermanentDeletion: Bool
+    var deletionMode: DeletionMode
 
     static let `default` = ScanPreferences(
         includeHiddenFiles: false,
@@ -16,7 +19,9 @@ struct ScanPreferences: Equatable {
         includeRelatedAppData: false,
         enableTrashWatcher: true,
         minimumDuplicateSize: 1_000_000,
-        largeFileThreshold: 500_000_000
+        largeFileThreshold: 500_000_000,
+        allowPermanentDeletion: false,
+        deletionMode: .moveToTrash
     )
 }
 
@@ -31,14 +36,19 @@ struct ScanPreferencesStore {
     }
 
     func load() -> ScanPreferences {
-        ScanPreferences(
+        let savedDeletionModeString = userDefaults.string(forKey: Keys.deletionMode)
+        let deletionMode = savedDeletionModeString.flatMap(DeletionMode.init(rawValue:)) ?? ScanPreferences.default.deletionMode
+
+        return ScanPreferences(
             includeHiddenFiles: userDefaults.object(forKey: Keys.includeHiddenFiles) as? Bool ?? ScanPreferences.default.includeHiddenFiles,
             includeSystemFolders: userDefaults.object(forKey: Keys.includeSystemFolders) as? Bool ?? ScanPreferences.default.includeSystemFolders,
             includeCaches: userDefaults.object(forKey: Keys.includeCaches) as? Bool ?? ScanPreferences.default.includeCaches,
             includeRelatedAppData: userDefaults.object(forKey: Keys.includeRelatedAppData) as? Bool ?? ScanPreferences.default.includeRelatedAppData,
             enableTrashWatcher: userDefaults.object(forKey: Keys.enableTrashWatcher) as? Bool ?? ScanPreferences.default.enableTrashWatcher,
             minimumDuplicateSize: int64(forKey: Keys.minimumDuplicateSize, fallback: ScanPreferences.default.minimumDuplicateSize),
-            largeFileThreshold: int64(forKey: Keys.largeFileThreshold, fallback: ScanPreferences.default.largeFileThreshold)
+            largeFileThreshold: int64(forKey: Keys.largeFileThreshold, fallback: ScanPreferences.default.largeFileThreshold),
+            allowPermanentDeletion: userDefaults.object(forKey: Keys.allowPermanentDeletion) as? Bool ?? ScanPreferences.default.allowPermanentDeletion,
+            deletionMode: deletionMode
         )
     }
 
@@ -50,6 +60,8 @@ struct ScanPreferencesStore {
         userDefaults.set(preferences.enableTrashWatcher, forKey: Keys.enableTrashWatcher)
         userDefaults.set(preferences.minimumDuplicateSize, forKey: Keys.minimumDuplicateSize)
         userDefaults.set(preferences.largeFileThreshold, forKey: Keys.largeFileThreshold)
+        userDefaults.set(preferences.allowPermanentDeletion, forKey: Keys.allowPermanentDeletion)
+        userDefaults.set(preferences.deletionMode.rawValue, forKey: Keys.deletionMode)
     }
 
     func reset() {
@@ -71,5 +83,7 @@ struct ScanPreferencesStore {
         static let enableTrashWatcher = "LittleTidy.enableTrashWatcher"
         static let minimumDuplicateSize = "LittleTidy.minimumDuplicateSize"
         static let largeFileThreshold = "LittleTidy.largeFileThreshold"
+        static let allowPermanentDeletion = "LittleTidy.allowPermanentDeletion"
+        static let deletionMode = "LittleTidy.deletionMode"
     }
 }

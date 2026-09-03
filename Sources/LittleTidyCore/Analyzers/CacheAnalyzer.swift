@@ -85,7 +85,18 @@ public struct CacheAnalyzer {
             (".yarn/cache", "Yarn cache"),
             (".cache/yarn", "Yarn cache"),
             (".cache/pip", "pip cache"),
-            (".gradle/caches", "Gradle cache")
+            (".cache/uv", "uv cache"),
+            (".cargo/registry/cache", "Cargo registry cache"),
+            (".cargo/git/db", "Cargo git database"),
+            ("Library/pnpm/store", "pnpm store"),
+            (".local/share/pnpm/store", "pnpm store"),
+            (".bun/install/cache", "Bun cache"),
+            (".gradle/caches", "Gradle cache"),
+            (".m2/repository", "Maven local repository"),
+            (".conda/pkgs", "Conda package cache"),
+            ("miniconda3/pkgs", "Miniconda package cache"),
+            ("anaconda3/pkgs", "Anaconda package cache"),
+            ("go/pkg/mod/cache", "Go module cache")
         ]
         for tool in devToolCaches {
             try Task.checkCancellation()
@@ -172,7 +183,21 @@ public struct CacheAnalyzer {
         "ms-playwright": "Playwright",
         "com.google.Chrome": "Google Chrome",
         "Google": "Google",
+        "org.mozilla.firefox": "Firefox",
         "Firefox": "Firefox",
-        "com.microsoft.VSCode": "Visual Studio Code"
+        "com.microsoft.VSCode": "Visual Studio Code",
+        "com.github.GitHubClient": "GitHub Desktop",
+        "com.docker.docker": "Docker",
+        "com.brave.Browser": "Brave Browser",
+        "company.thebrowser.Browser": "Arc Browser",
+        "com.sublimetext.4": "Sublime Text",
+        "com.jetbrains.intellij": "IntelliJ IDEA",
+        "com.jetbrains.pycharm": "PyCharm",
+        "com.jetbrains.clion": "CLion",
+        "com.cursor.Cursor": "Cursor",
+        "com.tinyspeck.slackmacgap": "Slack",
+        "com.spotify.client": "Spotify",
+        "us.zoom.xos": "Zoom",
+        "com.postmanlabs.mac": "Postman"
     ]
 }

@@ -86,6 +86,33 @@ public struct DeveloperStoragePolicy: Sendable {
                 recommendation: .review,
                 reason: "Xcode may need to recreate support files when a matching device reconnects."
             )
+        case .packageCaches:
+            return DeveloperStorageDecision(
+                activity: .inactive,
+                recoverability: .recreatable,
+                mechanism: .trash,
+                consequence: .temporarySlowdown,
+                recommendation: .recommended,
+                reason: "Package manager caches will be re-downloaded automatically on the next project build or restore."
+            )
+        case .aiModelsAndAgents:
+            return DeveloperStorageDecision(
+                activity: .inactive,
+                recoverability: .recreatable,
+                mechanism: .trash,
+                consequence: .redownloadRequired,
+                recommendation: .review,
+                reason: "Local AI models, agent transcripts, and indexing caches can be regenerated or redownloaded."
+            )
+        case .androidEmulators:
+            return DeveloperStorageDecision(
+                activity: .inactive,
+                recoverability: .reinstallable,
+                mechanism: .trash,
+                consequence: .redownloadRequired,
+                recommendation: .review,
+                reason: "Android Virtual Device (AVD) images can be recreated via Android Studio Device Manager."
+            )
         case .archives:
             return DeveloperStorageDecision(
                 activity: .unknown,

@@ -11,23 +11,29 @@ struct CacheAnalyzerTests {
         let safariCache = home.appendingPathComponent("Library/Caches/com.apple.Safari", isDirectory: true)
         let derivedData = home.appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true)
         let npmCache = home.appendingPathComponent(".npm/_cacache", isDirectory: true)
+        let cargoCache = home.appendingPathComponent(".cargo/registry/cache", isDirectory: true)
+        let uvCache = home.appendingPathComponent(".cache/uv", isDirectory: true)
         let tinyCache = home.appendingPathComponent("Library/Caches/com.example.tiny", isDirectory: true)
-        for directory in [safariCache, derivedData, npmCache, tinyCache] {
+        for directory in [safariCache, derivedData, npmCache, cargoCache, uvCache, tinyCache] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
         try Data(repeating: 1, count: 2_000_000).write(to: safariCache.appendingPathComponent("blob.bin"))
         try Data(repeating: 2, count: 3_000_000).write(to: derivedData.appendingPathComponent("build.o"))
         try Data(repeating: 3, count: 1_500_000).write(to: npmCache.appendingPathComponent("pkg.tgz"))
-        try Data(repeating: 4, count: 10_000).write(to: tinyCache.appendingPathComponent("small.bin"))
+        try Data(repeating: 4, count: 2_500_000).write(to: cargoCache.appendingPathComponent("cargo.bin"))
+        try Data(repeating: 5, count: 1_200_000).write(to: uvCache.appendingPathComponent("uv.bin"))
+        try Data(repeating: 6, count: 10_000).write(to: tinyCache.appendingPathComponent("small.bin"))
 
         let candidates = try CacheAnalyzer(homeDirectory: home).findCaches(minimumSize: 1_000_000)
 
         // Sorted largest first; tiny cache below the threshold is excluded.
-        #expect(candidates.count == 3)
+        #expect(candidates.count == 5)
         #expect(candidates.first?.displayName == "Xcode DerivedData")
         #expect(candidates.contains { $0.displayName == "Safari" })
         #expect(candidates.contains { $0.displayName == "npm cache" })
+        #expect(candidates.contains { $0.displayName == "Cargo registry cache" })
+        #expect(candidates.contains { $0.displayName == "uv cache" })
         #expect(!candidates.contains { $0.url == tinyCache })
         #expect(candidates.allSatisfy { $0.sizeBytes >= 1_000_000 })
     }

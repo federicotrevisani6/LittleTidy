@@ -53,6 +53,133 @@ public actor DeveloperStorageAnalyzer {
             issues: &issues
         )
 
+        // Package Manager Caches
+        let userLibraryCaches = homeDirectory.appendingPathComponent("Library/Caches", isDirectory: true)
+        appendDirectory(
+            userLibraryCaches.appendingPathComponent("org.swift.swiftpm", isDirectory: true),
+            category: .packageCaches,
+            name: "SwiftPM Package Cache",
+            detail: "Cloned repositories and package manifests",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            homeDirectory.appendingPathComponent(".swiftpm/cache", isDirectory: true),
+            category: .packageCaches,
+            name: "SwiftPM Binary Cache",
+            detail: "Precompiled binary targets and artifacts",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            userLibraryCaches.appendingPathComponent("CocoaPods", isDirectory: true),
+            category: .packageCaches,
+            name: "CocoaPods Cache",
+            detail: "Cached pod specifications and downloads",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            userLibraryCaches.appendingPathComponent("Carthage", isDirectory: true),
+            category: .packageCaches,
+            name: "Carthage Cache",
+            detail: "Binary frameworks and dependency cache",
+            items: &items,
+            issues: &issues
+        )
+
+        // Android Virtual Devices
+        appendAndroidAVDChildren(
+            of: homeDirectory.appendingPathComponent(".android/avd", isDirectory: true),
+            items: &items,
+            issues: &issues
+        )
+
+        // AI Agents, LLMs & Local Models
+        let userAppSupport = homeDirectory.appendingPathComponent("Library/Application Support", isDirectory: true)
+        let dotCache = homeDirectory.appendingPathComponent(".cache", isDirectory: true)
+
+        appendDirectory(
+            homeDirectory.appendingPathComponent(".ollama/models", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Ollama Models & Blobs",
+            detail: "Local LLM weights and layers (~/.ollama/models)",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            dotCache.appendingPathComponent("huggingface/hub", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Hugging Face Hub Models",
+            detail: "Downloaded model weights and snapshot files",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            dotCache.appendingPathComponent("torch/hub", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "PyTorch Model Hub",
+            detail: "Pretrained weights and checkpoints",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            dotCache.appendingPathComponent("mlx", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "MLX Model Cache",
+            detail: "Apple Silicon optimized local model weights",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            userAppSupport.appendingPathComponent("LM Studio/models", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "LM Studio Models",
+            detail: "Downloaded GGUF models",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            userAppSupport.appendingPathComponent("jan/models", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Jan AI Local Models",
+            detail: "Downloaded local models and engine binaries",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            homeDirectory.appendingPathComponent(".claude", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Claude Code Agent Data",
+            detail: "Session transcripts, tool caches, and project history",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            userAppSupport.appendingPathComponent("Cursor/User/workspaceStorage", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Cursor AI Workspace Storage",
+            detail: "Codebase indexes, embeddings, and chat history",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            homeDirectory.appendingPathComponent(".continue/index", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Continue IDE Code Index",
+            detail: "Local vector database and codebase index",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            homeDirectory.appendingPathComponent(".gemini/cache", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "Gemini Agent Cache",
+            detail: "Downloaded models and execution cache",
+            items: &items,
+            issues: &issues
+        )
+
         let simulatorResult = await simulatorInventory()
         items.append(contentsOf: simulatorResult.items)
         issues.append(contentsOf: simulatorResult.issues)
@@ -238,6 +365,38 @@ public actor DeveloperStorageAnalyzer {
                         issues: &issues
                     ))
                 }
+            }
+        } catch {
+            issues.append(DeveloperStorageAccessIssue(path: root.path, message: error.localizedDescription))
+        }
+    }
+
+    private func appendAndroidAVDChildren(
+        of root: URL,
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) {
+        guard fileManager.fileExists(atPath: root.path) else { return }
+        do {
+            let children = try fileManager.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+            for child in children where child.pathExtension.lowercased() == "avd" {
+                try Task.checkCancellation()
+                let decision = policy.decision(for: .androidEmulators)
+                items.append(makeItem(
+                    id: "path:\(child.standardizedFileURL.path)",
+                    category: .androidEmulators,
+                    name: child.deletingPathExtension().lastPathComponent,
+                    detail: "Android Virtual Device (AVD)",
+                    url: child,
+                    externalIdentifier: nil,
+                    isAvailable: true,
+                    decision: decision,
+                    issues: &issues
+                ))
             }
         } catch {
             issues.append(DeveloperStorageAccessIssue(path: root.path, message: error.localizedDescription))

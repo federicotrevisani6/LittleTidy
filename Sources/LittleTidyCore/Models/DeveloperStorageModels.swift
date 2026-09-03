@@ -6,7 +6,10 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
     case xctestDevices
     case derivedData
     case deviceSupport
+    case packageCaches
+    case aiModelsAndAgents
     case archives
+    case androidEmulators
     case testArtifacts
     case otherDeveloperData
 
@@ -17,7 +20,10 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
         case .xctestDevices: "XCTest Devices"
         case .derivedData: "Derived Data"
         case .deviceSupport: "Device Support"
+        case .packageCaches: "Package Manager Caches"
+        case .aiModelsAndAgents: "AI Agents & Models"
         case .archives: "Archives & Symbols"
+        case .androidEmulators: "Android Emulators"
         case .testArtifacts: "Test Results"
         case .otherDeveloperData: "Other Developer Data"
         }

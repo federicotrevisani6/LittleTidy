@@ -18,25 +18,22 @@ struct ReviewListView: View {
     @State private var showingCacheSelectionConfirmation = false
 
     var body: some View {
-        GlassEffectContainer {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
+            if headerStyle == .large {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(title)
-                            .font(titleFont)
-                        Spacer()
-                        if headerStyle == .large {
-                            ReviewSelectionSummary(store: store)
-                            SortPicker(store: store)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(title)
+                                .font(.title2.weight(.semibold))
+                            Text(subtitle)
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
                         }
+                        Spacer()
+                        ReviewSelectionSummary(store: store)
+                        SortPicker(store: store)
                     }
-                    Text(subtitle)
-                        .foregroundStyle(.secondary)
-                        .font(headerStyle == .large ? .body : .subheadline)
-                }
 
-                if headerStyle == .large {
-                    ReviewFilterBar(store: store)
                     ReviewBatchToolbar(
                         store: store,
                         visibleItems: filteredItems,
@@ -45,16 +42,21 @@ struct ReviewListView: View {
                             showingCacheSelectionConfirmation = true
                         }
                     )
-                }
 
-                if headerStyle == .large, category == .cache {
-                    CacheReviewPanel(store: store, items: filteredItems) {
-                        showingCacheSelectionConfirmation = true
+                    if category == .cache {
+                        CacheReviewPanel(store: store, items: filteredItems) {
+                            showingCacheSelectionConfirmation = true
+                        }
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 10)
 
-                reviewList
+                Divider()
             }
+
+            reviewList
         }
         .confirmationDialog(
             "Select reviewed caches?",
@@ -82,15 +84,15 @@ struct ReviewListView: View {
                     systemImage: "line.3.horizontal.decrease.circle",
                     description: Text(emptyDescription)
                 )
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(24)
-                .cleanerSurface()
             } else {
-                VStack(spacing: 0) {
+                List {
                     ForEach(filteredItems) { item in
-                        VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 0) {
                             ReviewRow(
                                 item: item,
+                                store: store,
                                 isSelected: item.isSelected,
                                 isExpanded: expandedIDs.contains(item.id),
                                 setSelection: { store.setSelection(for: item, isSelected: $0) },
@@ -99,14 +101,14 @@ struct ReviewListView: View {
 
                             if expandedIDs.contains(item.id) {
                                 ReviewRowDetail(item: item, store: store)
+                                    .padding(.leading, 32)
+                                    .padding(.top, 4)
+                                    .padding(.bottom, 8)
                             }
-                        }
-                        if item.id != filteredItems.last?.id {
-                            Divider()
                         }
                     }
                 }
-                .cleanerSurface()
+                .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
     }
@@ -189,7 +191,8 @@ private struct CacheReviewPanel: View {
                 } label: {
                     Label("Select Caches", systemImage: "checkmark.circle")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
                 .disabled(!preview.hasItems)
             }
 
@@ -253,50 +256,6 @@ private struct SortPicker: View {
     }
 }
 
-private struct ReviewFilterBar: View {
-    @ObservedObject var store: ScanReviewStore
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            filterControls
-
-            VStack(alignment: .leading, spacing: 8) {
-                searchField
-                scopePicker
-            }
-        }
-    }
-
-    private var filterControls: some View {
-        HStack(spacing: 12) {
-            searchField
-            scopePicker
-        }
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Label("Search", systemImage: "magnifyingglass")
-                .labelStyle(.iconOnly)
-                .foregroundStyle(.secondary)
-            TextField("Search", text: $store.reviewSearchText)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 180, maxWidth: 320)
-        }
-    }
-
-    private var scopePicker: some View {
-        Picker("Filter", selection: $store.reviewFilterScope) {
-            ForEach(ReviewFilterScope.allCases) { scope in
-                Text(scope.title).tag(scope)
-            }
-        }
-        .pickerStyle(.segmented)
-        .controlSize(.small)
-        .frame(minWidth: 220, maxWidth: 260)
-    }
-}
-
 private struct ReviewBatchToolbar: View {
     @ObservedObject var store: ScanReviewStore
     let visibleItems: [ReviewItem]
@@ -316,21 +275,39 @@ private struct ReviewBatchToolbar: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            controls
-            VStack(alignment: .leading, spacing: 8) {
-                controls
-                summary
+        HStack(spacing: 12) {
+            Picker("Filter", selection: $store.reviewFilterScope) {
+                ForEach(ReviewFilterScope.allCases) { scope in
+                    Text(scope.title).tag(scope)
+                }
             }
-        }
-        .padding(12)
-        .cleanerSubtleSurface()
-    }
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .frame(maxWidth: 220)
 
-    private var controls: some View {
-        HStack(spacing: 10) {
             summary
+
             Spacer()
+
+            if category == .duplicate {
+                Menu {
+                    ForEach(DuplicateKeepStrategy.allCases, id: \.self) { strategy in
+                        Button {
+                            store.applyDuplicateKeepStrategy(strategy)
+                        } label: {
+                            HStack {
+                                Text(strategy.title)
+                                if store.duplicateKeepStrategy == strategy {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label(store.duplicateKeepStrategy.title, systemImage: "arrow.triangle.branch")
+                }
+            }
+
             Button {
                 if category == .cache {
                     selectReviewedCaches()
@@ -346,22 +323,23 @@ private struct ReviewBatchToolbar: View {
             Button {
                 store.deselectVisibleItems(visibleItems)
             } label: {
-                Label("Deselect Shown", systemImage: "minus.circle")
+                Label("Deselect All", systemImage: "minus.circle")
             }
             .disabled(visibleItems.isEmpty)
 
-            Button {
-                store.undoBulkSelection()
-            } label: {
-                Label("Undo", systemImage: "arrow.uturn.backward")
+            if store.bulkSelectionUndoMessage != nil {
+                Button {
+                    store.undoBulkSelection()
+                } label: {
+                    Label("Undo", systemImage: "arrow.uturn.backward")
+                }
             }
-            .disabled(store.bulkSelectionUndoMessage == nil)
         }
         .controlSize(.small)
     }
 
     private var summary: some View {
-        Text("\(visibleItems.count) shown · \(store.visibleSelectedCount(from: visibleItems)) selected · \(ByteCountFormatter.cleanerString(from: store.visibleSelectedBytes(from: visibleItems)))")
+        Text("\(visibleItems.count) items · \(store.visibleSelectedCount(from: visibleItems)) selected (\(ByteCountFormatter.cleanerString(from: store.visibleSelectedBytes(from: visibleItems))))")
             .font(.caption)
             .foregroundStyle(.secondary)
     }
@@ -369,67 +347,104 @@ private struct ReviewBatchToolbar: View {
 
 private struct ReviewRow: View {
     let item: ReviewItem
+    @ObservedObject var store: ScanReviewStore
     let isSelected: Bool
     let isExpanded: Bool
     let setSelection: (Bool) -> Void
     let toggleExpansion: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             Toggle("Select \(item.title)", isOn: Binding(
                 get: { isSelected },
                 set: { newValue in setSelection(newValue) }
             ))
-                .labelsHidden()
-                .toggleStyle(.checkbox)
-                .controlSize(.regular)
-                .frame(width: 36, alignment: .center)
-                .accessibilityLabel(isSelected ? "Deselect \(item.title)" : "Select \(item.title)")
-                .accessibilityHint("Adds or removes this item from the cleanup plan.")
-                .help(isSelected ? "Remove from cleanup plan" : "Add to cleanup plan")
+            .labelsHidden()
+            .toggleStyle(.checkbox)
+            .controlSize(.small)
+            .help(isSelected ? "Remove from cleanup plan" : "Add to cleanup plan")
 
-            Divider()
-                .frame(height: 32)
+            Image(systemName: iconName(for: item.category))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.headline)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(item.detail)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(item.title)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    SafetyChip(risk: ReviewRisk.risk(for: item.confidence))
+                }
+
+                Text(item.location)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                SafetyChip(risk: ReviewRisk.risk(for: item.confidence))
             }
             .layoutPriority(1)
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(ByteCountFormatter.cleanerString(from: item.bytes))
-                    .font(.headline)
-                Text(item.location)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .font(.body.monospacedDigit())
+
+                if !item.detail.isEmpty && item.detail != item.title {
+                    Text(item.detail)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
             }
-            .frame(minWidth: 120, alignment: .trailing)
+            .frame(minWidth: 100, alignment: .trailing)
 
             Button(action: toggleExpansion) {
-                Label(isExpanded ? "Hide details" : "Show details", systemImage: isExpanded ? "chevron.up" : "chevron.down")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 28, height: 28)
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: 20, height: 20)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .accessibilityLabel(isExpanded ? "Hide details for \(item.title)" : "Show details for \(item.title)")
+            .help(isExpanded ? "Hide details" : "Show details")
         }
-        .padding(14)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .onTapGesture(perform: toggleExpansion)
+        .contextMenu {
+            Button {
+                store.preview(item)
+            } label: {
+                Label("Quick Look", systemImage: "eye")
+            }
+            Button {
+                store.revealInFinder(item)
+            } label: {
+                Label("Reveal in Finder", systemImage: "magnifyingglass")
+            }
+            if let path = item.plannedURLs.first?.path ?? item.duplicateCopies.first?.url.path {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(path, forType: .string)
+                } label: {
+                    Label("Copy Path", systemImage: "doc.on.clipboard")
+                }
+            }
+            Divider()
+            Button(isSelected ? "Deselect" : "Select for Cleanup") {
+                setSelection(!isSelected)
+            }
+        }
+    }
+
+    private func iconName(for category: CleanupCategory) -> String {
+        switch category {
+        case .duplicate: return "doc.on.doc"
+        case .largeFile: return "internaldrive"
+        case .unusedApp: return "app.badge"
+        case .cache: return "shippingbox"
+        }
     }
 }
 

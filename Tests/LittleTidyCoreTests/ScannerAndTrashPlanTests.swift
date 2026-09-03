@@ -159,4 +159,47 @@ struct ScannerAndTrashPlanTests {
         #expect(result.trashed.first?.trashURL.path.contains(".Trash") == true)
         #expect(!FileManager.default.fileExists(atPath: file.path))
     }
+
+    @Test("trash executor supports permanent deletion mode skipping trash")
+    func trashExecutorSupportsPermanentDeletion() throws {
+        let directory = try TemporaryDirectory()
+        let file = directory.url.appendingPathComponent("permanent-delete.txt")
+        try "force delete me".write(to: file, atomically: true, encoding: .utf8)
+        let plan = TrashPlan(items: [
+            TrashPlanItem(sourceURL: file, bytes: 15, category: .largeFile, reason: "test")
+        ])
+
+        let result = TrashExecutor().execute(plan, deletionMode: .permanentDelete)
+
+        #expect(result.failed.isEmpty)
+        #expect(result.skipped.isEmpty)
+        #expect(result.trashed.count == 1)
+        #expect(result.trashed.first?.sourceURL == file)
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+    }
+
+    @Test("trash executor forceDelete directly erases files")
+    func trashExecutorForceDelete() throws {
+        let directory = try TemporaryDirectory()
+        let first = directory.url.appendingPathComponent("direct1.txt")
+        let second = directory.url.appendingPathComponent("direct2.txt")
+        try "direct 1".write(to: first, atomically: true, encoding: .utf8)
+        try "direct 2".write(to: second, atomically: true, encoding: .utf8)
+
+        let result = TrashExecutor().forceDelete(urls: [first, second])
+
+        #expect(result.failed.isEmpty)
+        #expect(result.skipped.isEmpty)
+        #expect(result.trashed.count == 2)
+        #expect(!FileManager.default.fileExists(atPath: first.path))
+        #expect(!FileManager.default.fileExists(atPath: second.path))
+    }
+
+    @Test("FullDiskAccess probe executes safely and returns boolean state")
+    func fullDiskAccessProbe() {
+        let isGranted = FullDiskAccess.isGranted
+        // The probe should execute safely without crashing in any environment
+        #expect(isGranted == true || isGranted == false)
+        #expect(FullDiskAccess.settingsURL.scheme == "x-apple.systempreferences")
+    }
 }

@@ -49,7 +49,7 @@ public actor DeveloperStorageCleanupExecutor {
         self.activityChecker = activityChecker ?? DeveloperToolActivityChecker()
     }
 
-    public func execute(items: [DeveloperStorageItem]) async -> DeveloperStorageCleanupResult {
+    public func execute(items: [DeveloperStorageItem], deletionMode: DeletionMode = .moveToTrash) async -> DeveloperStorageCleanupResult {
         var results: [DeveloperStorageCleanupResultItem] = []
 
         for (index, item) in items.enumerated() {
@@ -66,7 +66,7 @@ public actor DeveloperStorageCleanupExecutor {
             }
             switch item.cleanupMechanism {
             case .trash:
-                results.append(moveToTrash(item))
+                results.append(moveToTrash(item, deletionMode: deletionMode))
             case .simctl:
                 results.append(await deleteSimulatorDevice(item))
             case .xcodeManaged:
@@ -83,11 +83,11 @@ public actor DeveloperStorageCleanupExecutor {
         return DeveloperStorageCleanupResult(items: results)
     }
 
-    private func moveToTrash(_ item: DeveloperStorageItem) -> DeveloperStorageCleanupResultItem {
+    private func moveToTrash(_ item: DeveloperStorageItem, deletionMode: DeletionMode = .moveToTrash) -> DeveloperStorageCleanupResultItem {
         guard item.cleanupMechanism == .trash,
               item.activity != .active,
               item.recommendation != .unclassified else {
-            return result(item, status: .skipped, message: "This item is active or has no verified Trash cleanup path.")
+            return result(item, status: .skipped, message: "This item is active or has no verified cleanup path.")
         }
         guard let url = item.url else {
             return result(item, status: .failed, message: "The item has no filesystem location.")
@@ -97,9 +97,14 @@ public actor DeveloperStorageCleanupExecutor {
         }
 
         do {
-            var resultingURL: NSURL?
-            try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
-            return result(item, status: .removed, message: "Moved to Trash.")
+            if deletionMode == .permanentDelete {
+                try fileManager.removeItem(at: url)
+                return result(item, status: .removed, message: "Permanently deleted.")
+            } else {
+                var resultingURL: NSURL?
+                try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
+                return result(item, status: .removed, message: "Moved to Trash.")
+            }
         } catch {
             return result(item, status: .failed, message: error.localizedDescription)
         }

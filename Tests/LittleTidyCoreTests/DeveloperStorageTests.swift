@@ -138,6 +138,17 @@ struct DeveloperStorageTests {
             }
             """.utf8
         )
+        let spmCache = home.appendingPathComponent(".swiftpm/cache", isDirectory: true)
+        let androidAVD = home.appendingPathComponent(".android/avd/Pixel_8.avd", isDirectory: true)
+        let ollama = home.appendingPathComponent(".ollama/models", isDirectory: true)
+        let huggingface = home.appendingPathComponent(".cache/huggingface/hub", isDirectory: true)
+        let claude = home.appendingPathComponent(".claude", isDirectory: true)
+
+        for directory in [spmCache, androidAVD, ollama, huggingface, claude] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data(repeating: 1, count: 4_096).write(to: directory.appendingPathComponent("data.bin"))
+        }
+
         let analyzer = DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: FixtureCommandRunner(output: simctlJSON)
@@ -146,6 +157,11 @@ struct DeveloperStorageTests {
         let inventory = try await analyzer.analyze()
 
         #expect(inventory.items.contains { $0.category == .derivedData && $0.recommendation == .recommended })
+        #expect(inventory.items.contains { $0.category == .packageCaches && $0.recommendation == .recommended })
+        #expect(inventory.items.contains { $0.category == .androidEmulators && $0.recommendation == .review })
+        #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Ollama Models & Blobs" })
+        #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Hugging Face Hub Models" })
+        #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Claude Code Agent Data" })
         #expect(inventory.items.contains { $0.category == .deviceSupport })
         #expect(inventory.items.contains { $0.category == .archives && $0.recommendation == .protected })
         #expect(inventory.items.contains { $0.category == .xctestDevices && $0.recommendation == .unclassified })

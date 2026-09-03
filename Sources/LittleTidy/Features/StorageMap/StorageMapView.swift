@@ -88,81 +88,146 @@ enum TreemapLayout {
 
 struct StorageMapView: View {
     @ObservedObject var store: ScanReviewStore
+    @State private var currentRootFolderURL: URL?
+    @State private var hoveredFolderID: URL?
+
+    private var displayedFolders: [FolderUsage] {
+        if let current = currentRootFolderURL {
+            let prefix = current.standardizedFileURL.path
+            return store.folderUsage.filter { folder in
+                let folderPath = folder.url.standardizedFileURL.path
+                return folderPath.hasPrefix(prefix + "/") || folderPath == prefix
+            }
+        }
+        return store.folderUsage
+    }
 
     private var totalBytes: Int64 {
-        store.folderUsage.reduce(Int64(0)) { $0 + $1.bytes }
+        displayedFolders.reduce(Int64(0)) { $0 + $1.bytes }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Storage Map")
-                    .font(.largeTitle.weight(.semibold))
-                Text("Top folders by size across the scanned roots. Tap a tile to reveal it in Finder.")
-                    .foregroundStyle(.secondary)
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Storage Map")
+                            .font(.title2.weight(.semibold))
+                        Spacer()
+                        if currentRootFolderURL != nil {
+                            Button {
+                                currentRootFolderURL = nil
+                            } label: {
+                                Label("Back to Overview", systemImage: "chevron.left")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    if let current = currentRootFolderURL {
+                        HStack(spacing: 6) {
+                            Button("All Folders") {
+                                currentRootFolderURL = nil
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
+
+                            Text("/")
+                                .foregroundStyle(.tertiary)
+
+                            Text(current.lastPathComponent)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .font(.subheadline)
+                    } else {
+                        Text("Interactive squarified treemap of your largest scanned folders. Click any tile to inspect or reveal.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
             if store.folderUsage.isEmpty {
                 ContentUnavailableView(
                     "No Storage Data",
                     systemImage: "square.grid.2x2",
-                    description: Text("Run a scan to see where space is used.")
+                    description: Text("Run a scan to see where your disk space is used.")
                 )
                 .frame(maxWidth: .infinity)
                 .padding(24)
                 .cleanerSurface()
             } else {
                 HStack {
-                    Text("\(store.folderUsage.count) folders")
+                    Text("\(displayedFolders.count) folders")
                         .font(.subheadline.weight(.medium))
                     Spacer()
-                    Text("\(ByteCountFormatter.cleanerString(from: totalBytes)) scanned")
+                    Text("\(ByteCountFormatter.cleanerString(from: totalBytes)) mapped")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
-                Label("Darker tiles are larger folders. Use the folder list below when a tile is too small to read.", systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 GeometryReader { geometry in
                     let bounds = CGRect(origin: .zero, size: geometry.size)
-                    let weights = store.folderUsage.map { Double($0.bytes) }
+                    let weights = displayedFolders.map { Double($0.bytes) }
                     let rects = TreemapLayout.rects(forWeights: weights, in: bounds)
 
                     ZStack(alignment: .topLeading) {
-                        ForEach(Array(store.folderUsage.enumerated()), id: \.element.id) { index, folder in
+                        ForEach(Array(displayedFolders.enumerated()), id: \.element.id) { index, folder in
                             TreemapTile(
                                 folder: folder,
                                 fraction: totalBytes > 0 ? Double(folder.bytes) / Double(totalBytes) : 0,
                                 rank: index,
-                                count: store.folderUsage.count
-                            ) {
-                                store.revealInFinder(forURL: folder.url)
-                            }
+                                count: displayedFolders.count,
+                                isHovered: hoveredFolderID == folder.url,
+                                onSelect: {
+                                    if currentRootFolderURL == folder.url {
+                                        store.revealInFinder(forURL: folder.url)
+                                    } else {
+                                        currentRootFolderURL = folder.url
+                                    }
+                                },
+                                onReveal: {
+                                    store.revealInFinder(forURL: folder.url)
+                                }
+                            )
                             .frame(width: max(0, rects[index].width - 2), height: max(0, rects[index].height - 2))
                             .offset(x: rects[index].minX, y: rects[index].minY)
+                            .onHover { isHovering in
+                                hoveredFolderID = isHovering ? folder.url : nil
+                            }
                         }
                     }
                 }
-                .frame(height: 460)
+                .frame(height: 440)
                 .cleanerSurface()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Largest Folders")
-                        .font(.headline)
+                    HStack {
+                        Text(currentRootFolderURL == nil ? "Largest Scanned Folders" : "Subfolders in \(currentRootFolderURL?.lastPathComponent ?? "")")
+                            .font(.headline)
+                        Spacer()
+                    }
 
-                    ForEach(store.folderUsage.prefix(12)) { folder in
-                        StorageFolderRow(folder: folder, totalBytes: totalBytes) {
-                            store.revealInFinder(forURL: folder.url)
-                        }
+                    ForEach(displayedFolders.prefix(12)) { folder in
+                        StorageFolderRow(
+                            folder: folder,
+                            totalBytes: totalBytes,
+                            onDrillDown: {
+                                currentRootFolderURL = folder.url
+                            },
+                            reveal: {
+                                store.revealInFinder(forURL: folder.url)
+                            }
+                        )
                     }
                 }
                 .padding(16)
                 .cleanerSurface()
             }
         }
+        .padding(24)
     }
+}
 }
 
 private struct TreemapTile: View {
@@ -170,16 +235,22 @@ private struct TreemapTile: View {
     let fraction: Double
     let rank: Int
     let count: Int
-    let reveal: () -> Void
+    let isHovered: Bool
+    let onSelect: () -> Void
+    let onReveal: () -> Void
 
     var body: some View {
-        Button(action: reveal) {
+        Button(action: onSelect) {
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(tileColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(isHovered ? Color.white.opacity(0.6) : Color.clear, lineWidth: 2)
+                    )
 
                 GeometryReader { proxy in
-                    if proxy.size.width > 60, proxy.size.height > 34 {
+                    if proxy.size.width > 55, proxy.size.height > 32 {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(folder.name)
                                 .font(.caption.weight(.semibold))
@@ -187,7 +258,7 @@ private struct TreemapTile: View {
                                 .truncationMode(.middle)
                             Text(ByteCountFormatter.cleanerString(from: folder.bytes))
                                 .font(.caption2)
-                                .opacity(0.85)
+                                .opacity(0.9)
                         }
                         .padding(6)
                         .foregroundStyle(.white)
@@ -198,18 +269,36 @@ private struct TreemapTile: View {
         }
         .buttonStyle(.plain)
         .help("\(folder.name) — \(ByteCountFormatter.cleanerString(from: folder.bytes)) (\(folder.fileCount) files)")
+        .contextMenu {
+            Button {
+                onReveal()
+            } label: {
+                Label("Reveal in Finder", systemImage: "magnifyingglass")
+            }
+            Button {
+                onSelect()
+            } label: {
+                Label("Focus Folder", systemImage: "scope")
+            }
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(folder.url.path, forType: .string)
+            } label: {
+                Label("Copy Path", systemImage: "doc.on.clipboard")
+            }
+        }
     }
 
-    /// Largest folders are the most saturated; smaller ones fade toward neutral.
     private var tileColor: Color {
         let progress = count > 1 ? Double(rank) / Double(count - 1) : 0
-        return Color(hue: 0.58, saturation: 0.85 - progress * 0.55, brightness: 0.55 + progress * 0.2)
+        return Color(hue: 0.58, saturation: 0.85 - progress * 0.5, brightness: 0.55 + progress * 0.2)
     }
 }
 
 private struct StorageFolderRow: View {
     let folder: FolderUsage
     let totalBytes: Int64
+    let onDrillDown: () -> Void
     let reveal: () -> Void
 
     private var share: Double {
@@ -220,62 +309,53 @@ private struct StorageFolderRow: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            wideRow
-            compactRow
-        }
-    }
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "folder.fill")
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 18)
 
-    private var folderText: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(folder.name)
-                .font(.subheadline.weight(.medium))
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Text(folder.url.path(percentEncoded: false))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .layoutPriority(1)
-    }
-
-    private var metrics: some View {
-        HStack(spacing: 12) {
-            Text("\(folder.fileCount) files")
-            Text(share.formatted(.percent.precision(.fractionLength(0...1))))
-            Text(ByteCountFormatter.cleanerString(from: folder.bytes))
-                .font(.subheadline.weight(.semibold))
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-
-    private var revealButton: some View {
-        Button {
-            reveal()
-        } label: {
-            Label("Reveal", systemImage: "magnifyingglass")
-        }
-        .controlSize(.small)
-    }
-
-    private var wideRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            folderText
-            metrics
-            revealButton
-        }
-    }
-
-    private var compactRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                folderText
-                revealButton
+            VStack(alignment: .leading, spacing: 2) {
+                Text(folder.name)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(folder.url.path(percentEncoded: false))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            metrics
+            .layoutPriority(1)
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                Text("\(folder.fileCount) files")
+                Text(share.formatted(.percent.precision(.fractionLength(0...1))))
+                Text(ByteCountFormatter.cleanerString(from: folder.bytes))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            Button {
+                reveal()
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Reveal in Finder")
+        }
+        .padding(.vertical, 4)
+        .contextMenu {
+            Button("Reveal in Finder", action: reveal)
+            Button("Focus Folder", action: onDrillDown)
+            Button("Copy Path") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(folder.url.path, forType: .string)
+            }
         }
     }
 }

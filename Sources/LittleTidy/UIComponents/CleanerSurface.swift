@@ -1,15 +1,30 @@
+import AppKit
 import SwiftUI
 
 extension View {
-    func cleanerSurface(cornerRadius: CGFloat = 18) -> some View {
-        glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    func cleanerSurface(cornerRadius: CGFloat = 10) -> some View {
+        self
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+            )
     }
 
-    func cleanerSubtleSurface(cornerRadius: CGFloat = 14) -> some View {
-        glassEffect(.clear, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    func cleanerSubtleSurface(cornerRadius: CGFloat = 8) -> some View {
+        self
+            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
-    func cleanerInteractiveSurface(cornerRadius: CGFloat = 18) -> some View {
-        glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    func cleanerInteractiveSurface(cornerRadius: CGFloat = 10) -> some View {
+        self
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.7), lineWidth: 0.5)
+            )
     }
 }

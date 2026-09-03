@@ -17,6 +17,7 @@ final class ScanReviewStore: ObservableObject {
     @Published var scannedBytes: Int64 = 0
     @Published var skippedItems = 0
     @Published var permissionErrors = 0
+    @Published var isFullDiskAccessGranted = false
     @Published var scanIssues: [ScanIssue] = []
     @Published var statusMessage = "Ready"
     @Published var permissionReadinessItems: [PermissionReadinessItem] = []
@@ -56,6 +57,13 @@ final class ScanReviewStore: ObservableObject {
         didSet { persistScanPreferences() }
     }
     @Published var largeFileThreshold: Int64 = 500_000_000 {
+        didSet { persistScanPreferences() }
+    }
+    @Published var duplicateKeepStrategy: DuplicateKeepStrategy = .smart
+    @Published var allowPermanentDeletion: Bool = false {
+        didSet { persistScanPreferences() }
+    }
+    @Published var deletionMode: DeletionMode = .moveToTrash {
         didSet { persistScanPreferences() }
     }
     @Published var items: [ReviewItem]
@@ -128,6 +136,8 @@ final class ScanReviewStore: ObservableObject {
         self.enableTrashWatcher = preferences.enableTrashWatcher
         self.minimumDuplicateSize = preferences.minimumDuplicateSize
         self.largeFileThreshold = preferences.largeFileThreshold
+        self.allowPermanentDeletion = preferences.allowPermanentDeletion
+        self.deletionMode = preferences.deletionMode
         self.cleanupHistory = cleanupHistoryStore.load()
         refreshXcodeRunningState()
         refreshPermissionReadiness()
@@ -263,9 +273,10 @@ final class ScanReviewStore: ObservableObject {
         }
         isCleaningDeveloperStorage = true
         developerCleanupResult = nil
+        let mode = deletionMode
 
         Task { [weak self] in
-            let result = await DeveloperStorageCleanupExecutor().execute(items: selected)
+            let result = await DeveloperStorageCleanupExecutor().execute(items: selected, deletionMode: mode)
             self?.developerCleanupResult = result
             self?.isCleaningDeveloperStorage = false
             self?.selectedDeveloperStorageItemIDs = []
@@ -314,6 +325,16 @@ final class ScanReviewStore: ObservableObject {
                 }
             }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshPermissionReadiness()
+            }
+        }
     }
 
     func executeLeftoverCleanup(for event: AppUninstallEvent, selectedLeftovers: [RelatedAppData]) {
@@ -327,7 +348,7 @@ final class ScanReviewStore: ObservableObject {
                 sourceURL: leftover.url,
                 bytes: leftover.sizeBytes,
                 category: .unusedApp,
-                reason: "Residuo di \(event.displayName) disinstallata"
+                reason: "Leftover data from \(event.displayName)"
             )
         })
 
@@ -344,8 +365,74 @@ final class ScanReviewStore: ObservableObject {
             let newReportItems = self.cleanupReportItems(from: result, plan: plan)
             self.cleanupReportItems.append(contentsOf: newReportItems)
             self.recordCleanupHistory(from: newReportItems)
-            self.cleanupResultMessage = "Rimossi \(result.trashed.count) file residui per \(event.displayName)."
-            self.statusMessage = "Pulizia residui completata"
+            self.cleanupResultMessage = "Moved \(result.trashed.count) leftover files for \(event.displayName) to Trash."
+            self.statusMessage = "Leftover cleanup complete"
+        }
+    }
+
+    func applyDuplicateKeepStrategy(_ strategy: DuplicateKeepStrategy) {
+        duplicateKeepStrategy = strategy
+        previousSelectionSnapshot = items.map(SelectionSnapshot.init(item:))
+
+        let duplicateAnalyzer = DuplicateAnalyzer()
+        for index in items.indices where items[index].category == .duplicate {
+            let copies = items[index].duplicateCopies
+            let dummyRecords = copies.map { copy in
+                FileRecord(
+                    url: copy.url,
+                    fileSize: copy.bytes,
+                    creationDate: (try? copy.url.resourceValues(forKeys: [.creationDateKey]))?.creationDate,
+                    modificationDate: (try? copy.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+                )
+            }
+            if let keepFile = duplicateAnalyzer.chooseRecommendedKeep(from: dummyRecords, strategy: strategy) {
+                for copyIndex in items[index].duplicateCopies.indices {
+                    let isKeep = items[index].duplicateCopies[copyIndex].url.standardizedFileURL.path == keepFile.url.standardizedFileURL.path
+                    items[index].duplicateCopies[copyIndex] = DuplicateCopyReview(
+                        url: items[index].duplicateCopies[copyIndex].url,
+                        bytes: items[index].duplicateCopies[copyIndex].bytes,
+                        isRecommendedKeep: isKeep,
+                        isSelected: !isKeep
+                    )
+                }
+                items[index].isSelected = items[index].duplicateCopies.contains { $0.isSelected && !$0.isRecommendedKeep }
+            }
+        }
+        cleanupErrorMessage = nil
+        cleanupResultMessage = nil
+        cleanupReportItems = []
+        bulkSelectionUndoMessage = "Duplicate keep strategy set to: \(strategy.title)"
+    }
+
+    func handleDroppedURLs(_ urls: [URL]) {
+        let appURLs = urls.filter { $0.pathExtension.lowercased() == "app" }
+        let folderURLs = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true && $0.pathExtension.lowercased() != "app" }
+
+        if let firstApp = appURLs.first {
+            let appAnalyzer = AppUsageAnalyzer(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            let infoPlistURL = firstApp.appendingPathComponent("Contents/Info.plist")
+            let info = NSDictionary(contentsOf: infoPlistURL) as? [String: Any]
+            let bundleID = info?["CFBundleIdentifier"] as? String ?? firstApp.deletingPathExtension().lastPathComponent
+            let displayName = info?["CFBundleDisplayName"] as? String ?? info?["CFBundleName"] as? String ?? firstApp.deletingPathExtension().lastPathComponent
+            let version = info?["CFBundleShortVersionString"] as? String
+            let leftovers = appAnalyzer.relatedAppData(bundleIdentifier: bundleID)
+
+            self.pendingUninstallEvent = AppUninstallEvent(
+                appURL: firstApp,
+                bundleIdentifier: bundleID,
+                displayName: displayName,
+                version: version,
+                appSizeBytes: 0,
+                leftovers: leftovers
+            )
+            return
+        }
+
+        if !folderURLs.isEmpty {
+            let merged = scanRoots + folderURLs
+            scanRoots = Array(Dictionary(grouping: merged, by: { $0.standardizedFileURL.path }).compactMap { $0.value.first })
+            persistApprovedFolders()
+            startOrCancelScan()
         }
     }
 
@@ -677,6 +764,8 @@ final class ScanReviewStore: ObservableObject {
         includeCaches = true
         includeRelatedAppData = false
         enableTrashWatcher = true
+        allowPermanentDeletion = false
+        deletionMode = .moveToTrash
         statusMessage = "Default scan settings restored"
     }
 
@@ -758,6 +847,7 @@ final class ScanReviewStore: ObservableObject {
 
     private func execute(plan: TrashPlan, preservingReport: Bool = false) {
         let existingReportItems = preservingReport ? cleanupReportItems : []
+        let mode = deletionMode
         isCleaning = true
         cleanupResultMessage = nil
         if !preservingReport {
@@ -770,7 +860,7 @@ final class ScanReviewStore: ObservableObject {
             let scopedAccess = SecurityScopedFolderAccess(urls: self.approvedCleanupRoots())
             let result = await Task.detached(priority: .userInitiated) {
                 _ = scopedAccess
-                return trashExecutor.execute(plan)
+                return trashExecutor.execute(plan, deletionMode: mode)
             }.value
 
             let trashedSourcePaths = Set(result.trashed.map { $0.sourceURL.standardizedFileURL.path })
@@ -778,12 +868,35 @@ final class ScanReviewStore: ObservableObject {
             self.cleanupReportItems = existingReportItems + newReportItems
             self.items = self.items.compactMap { self.itemAfterCleanup($0, trashedSourcePaths: trashedSourcePaths) }
             self.isCleaning = false
-            self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be moved to Trash."
-            self.cleanupResultMessage = preservingReport ? "Retry complete: \(result.trashed.count) moved to Trash, \(result.skipped.count) skipped." : "\(result.trashed.count) moved to Trash, \(result.skipped.count) skipped."
+            let actionVerb = mode.isPermanent ? "deleted" : "moved to Trash"
+            self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be \(actionVerb)."
+            self.cleanupResultMessage = preservingReport ? "Retry complete: \(result.trashed.count) \(actionVerb), \(result.skipped.count) skipped." : "\(result.trashed.count) \(actionVerb), \(result.skipped.count) skipped."
             self.statusMessage = preservingReport ? "Cleanup retry complete" : "Cleanup complete"
             self.manualReviewConfirmed = false
             self.recordCleanupHistory(from: newReportItems)
             self.selectedSection = .cleanupPlan
+        }
+    }
+
+    func forceDeleteDirectly(urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        isCleaning = true
+        cleanupResultMessage = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            let trashExecutor = self.trashExecutor
+            let result = await Task.detached(priority: .userInitiated) {
+                trashExecutor.forceDelete(urls: urls)
+            }.value
+
+            let deletedPaths = Set(result.trashed.map { $0.sourceURL.standardizedFileURL.path })
+            self.items = self.items.compactMap { self.itemAfterCleanup($0, trashedSourcePaths: deletedPaths) }
+            self.isCleaning = false
+            self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be permanently deleted."
+            self.cleanupResultMessage = "Permanently deleted \(result.trashed.count) items (\(result.skipped.count) skipped)."
+            self.statusMessage = "Force delete complete"
+            self.refreshDeveloperStorage()
         }
     }
 
@@ -1325,6 +1438,7 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func refreshPermissionReadiness() {
+        isFullDiskAccessGranted = FullDiskAccess.isGranted
         var items: [PermissionReadinessItem] = []
         var rootIssues = rootReadinessIssues(for: scanRoots, label: "File root")
         rootIssues += rootReadinessIssues(for: appRoots, label: "App root")
@@ -1349,17 +1463,24 @@ final class ScanReviewStore: ObservableObject {
             items.append(contentsOf: rootIssues.prefix(6))
         }
 
-        if includeSystemFolders || permissionErrors > 0 {
+        if isFullDiskAccessGranted {
             items.append(PermissionReadinessItem(
-                title: "Full Disk Access recommended",
-                detail: "Protected locations may remain unavailable until LittleTidy is allowed in Privacy & Security.",
+                title: "Full Disk Access: Granted",
+                detail: "LittleTidy can inspect system caches, containers, and developer toolchains without restrictions.",
+                severity: .ready,
+                url: nil
+            ))
+        } else if includeSystemFolders || permissionErrors > 0 {
+            items.append(PermissionReadinessItem(
+                title: "Full Disk Access: Required for System Scan",
+                detail: "Protected system locations and ~/Library/Containers require Full Disk Access in Privacy & Security.",
                 severity: .warning,
                 url: nil
             ))
         } else {
             items.append(PermissionReadinessItem(
-                title: "Full Disk Access optional",
-                detail: "Folder-based scans work with selected folders. Grant Full Disk Access later for broader protected locations.",
+                title: "Full Disk Access: Not Granted (Optional)",
+                detail: "Folder-based scans work with selected folders. Grant Full Disk Access in Privacy & Security for broader system cache coverage.",
                 severity: .advisory,
                 url: nil
             ))
@@ -1488,7 +1609,9 @@ final class ScanReviewStore: ObservableObject {
             includeRelatedAppData: includeRelatedAppData,
             enableTrashWatcher: enableTrashWatcher,
             minimumDuplicateSize: minimumDuplicateSize,
-            largeFileThreshold: largeFileThreshold
+            largeFileThreshold: largeFileThreshold,
+            allowPermanentDeletion: allowPermanentDeletion,
+            deletionMode: deletionMode
         ))
     }
 

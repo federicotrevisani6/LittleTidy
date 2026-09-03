@@ -7,64 +7,67 @@ struct DeveloperStorageView: View {
     @State private var showingCleanupConfirmation = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            DeveloperStorageHeader(
-                isScanning: store.isScanningDeveloperStorage,
-                totalBytes: store.totalDeveloperBytes,
-                refresh: store.refreshDeveloperStorage
-            )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                DeveloperStorageHeader(
+                    isScanning: store.isScanningDeveloperStorage,
+                    totalBytes: store.totalDeveloperBytes,
+                    refresh: store.refreshDeveloperStorage
+                )
 
-            if let error = store.developerStorageErrorMessage {
-                DeveloperStorageErrorBanner(message: error, retry: store.refreshDeveloperStorage)
-            }
-
-            DeveloperStorageSummary(
-                recommendedBytes: store.recommendedDeveloperBytes,
-                reviewBytes: store.reviewDeveloperBytes,
-                protectedBytes: store.protectedDeveloperBytes,
-                unclassifiedBytes: store.unclassifiedDeveloperBytes
-            )
-
-            if store.isXcodeRunning {
-                DeveloperStorageXcodeRunningBanner()
-            }
-
-            if !store.selectedDeveloperStorageItems.isEmpty {
-                DeveloperStorageCleanupBar(
-                    selectedCount: store.selectedDeveloperStorageItems.count,
-                    selectedBytes: store.selectedDeveloperStorageBytes,
-                    hasIrreversibleOperations: store.selectedDeveloperStorageHasIrreversibleOperations,
-                    isCleaning: store.isCleaningDeveloperStorage,
-                    isXcodeRunning: store.isXcodeRunning
-                ) {
-                    showingCleanupConfirmation = true
+                if let error = store.developerStorageErrorMessage {
+                    DeveloperStorageErrorBanner(message: error, retry: store.refreshDeveloperStorage)
                 }
-            }
 
-            if let result = store.developerCleanupResult {
-                DeveloperStorageCleanupResultBanner(result: result)
-            }
+                DeveloperStorageSummary(
+                    recommendedBytes: store.recommendedDeveloperBytes,
+                    reviewBytes: store.reviewDeveloperBytes,
+                    protectedBytes: store.protectedDeveloperBytes,
+                    unclassifiedBytes: store.unclassifiedDeveloperBytes
+                )
 
-            if store.developerStorageInventory.items.isEmpty, !store.isScanningDeveloperStorage {
-                DeveloperStorageEmptyState()
-            } else {
-                ForEach(DeveloperStorageCategory.allCases, id: \.self) { category in
-                    let items = store.developerItems(for: category)
-                    if !items.isEmpty {
-                        DeveloperStorageCategorySection(
-                            category: category,
-                            items: items,
-                            selectedIDs: store.selectedDeveloperStorageItemIDs,
-                            canSelect: store.canSelectDeveloperStorageItem,
-                            setSelection: store.setDeveloperStorageItemSelection
-                        )
+                if store.isXcodeRunning {
+                    DeveloperStorageXcodeRunningBanner()
+                }
+
+                if !store.selectedDeveloperStorageItems.isEmpty {
+                    DeveloperStorageCleanupBar(
+                        selectedCount: store.selectedDeveloperStorageItems.count,
+                        selectedBytes: store.selectedDeveloperStorageBytes,
+                        hasIrreversibleOperations: store.selectedDeveloperStorageHasIrreversibleOperations,
+                        isCleaning: store.isCleaningDeveloperStorage,
+                        isXcodeRunning: store.isXcodeRunning
+                    ) {
+                        showingCleanupConfirmation = true
                     }
                 }
-            }
 
-            if !store.developerStorageInventory.accessIssues.isEmpty {
-                DeveloperStorageAccessIssues(issues: store.developerStorageInventory.accessIssues)
+                if let result = store.developerCleanupResult {
+                    DeveloperStorageCleanupResultBanner(result: result)
+                }
+
+                if store.developerStorageInventory.items.isEmpty, !store.isScanningDeveloperStorage {
+                    DeveloperStorageEmptyState()
+                } else {
+                    ForEach(DeveloperStorageCategory.allCases, id: \.self) { category in
+                        let items = store.developerItems(for: category)
+                        if !items.isEmpty {
+                            DeveloperStorageCategorySection(
+                                category: category,
+                                items: items,
+                                selectedIDs: store.selectedDeveloperStorageItemIDs,
+                                canSelect: store.canSelectDeveloperStorageItem,
+                                setSelection: store.setDeveloperStorageItemSelection
+                            )
+                        }
+                    }
+                }
+
+                if !store.developerStorageInventory.accessIssues.isEmpty {
+                    DeveloperStorageAccessIssues(issues: store.developerStorageInventory.accessIssues)
+                }
             }
+            .padding(24)
         }
         .confirmationDialog(
             store.selectedDeveloperStorageHasIrreversibleOperations
@@ -99,27 +102,26 @@ private struct DeveloperStorageHeader: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Developer Storage")
-                    .font(.largeTitle.weight(.bold))
-                Text("Find the Xcode, Simulator, and test data hidden inside System Data. LittleTidy separates safe cleanup from items that need review.")
+                    .font(.title2.weight(.semibold))
+                Text("Xcode caches, simulators, package managers, and local AI model weights.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 680, alignment: .leading)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text(ByteCountFormatter.cleanerString(from: totalBytes))
-                    .font(.title2.weight(.bold))
-                Text("identified")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.title3.weight(.bold).monospacedDigit())
                 Button(action: refresh) {
                     Label(isScanning ? "Scanning…" : "Rescan", systemImage: "arrow.clockwise")
                 }
                 .disabled(isScanning)
+                .controlSize(.small)
             }
         }
-        .padding(22)
+        .padding(16)
         .cleanerSurface()
     }
 }
@@ -352,7 +354,7 @@ private struct DeveloperStorageCleanupBar: View {
             Button(action: clean) {
                 Label(isCleaning ? "Cleaning…" : "Review & Clean", systemImage: "arrow.right.circle.fill")
             }
-            .buttonStyle(.glassProminent)
+            .buttonStyle(.borderedProminent)
             .disabled(isCleaning || isXcodeRunning)
             .help(isXcodeRunning ? "Quit Xcode before cleaning developer storage." : "Review the selected cleanup actions.")
         }

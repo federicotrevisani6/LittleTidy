@@ -1,10 +1,32 @@
 import CryptoKit
 import Foundation
 
+public enum DuplicateKeepStrategy: String, Codable, CaseIterable, Sendable {
+    case smart
+    case oldest
+    case newest
+    case preferNonDownloads
+    case shortestPath
+
+    public var title: String {
+        switch self {
+        case .smart: "Smart (Recommended)"
+        case .oldest: "Keep Oldest File"
+        case .newest: "Keep Newest File"
+        case .preferNonDownloads: "Prefer Main Folders (Avoid Downloads)"
+        case .shortestPath: "Keep Shortest Path"
+        }
+    }
+}
+
 public struct DuplicateAnalyzer: Sendable {
     public init() {}
 
-    public func findDuplicates(in files: [FileRecord], minimumSize: Int64 = 1_000_000) throws -> [DuplicateGroup] {
+    public func findDuplicates(
+        in files: [FileRecord],
+        minimumSize: Int64 = 1_000_000,
+        strategy: DuplicateKeepStrategy = .smart
+    ) throws -> [DuplicateGroup] {
         let sizeGroups = Dictionary(grouping: files.filter { $0.fileSize >= minimumSize }, by: \.fileSize)
             .values
             .filter { $0.count > 1 }
@@ -27,7 +49,7 @@ public struct DuplicateAnalyzer: Sendable {
 
                 for (hash, matchingFiles) in hashGroups where matchingFiles.count > 1 {
                     let duplicateFiles = matchingFiles.map(\.0).sorted { $0.url.path < $1.url.path }
-                    let recommendedKeep = chooseRecommendedKeep(from: duplicateFiles)
+                    let recommendedKeep = chooseRecommendedKeep(from: duplicateFiles, strategy: strategy)
                     let reclaimableBytes = duplicateFiles
                         .filter { $0.id != recommendedKeep?.id }
                         .reduce(Int64(0)) { $0 + $1.fileSize }
@@ -51,14 +73,54 @@ public struct DuplicateAnalyzer: Sendable {
         }
     }
 
-    public func chooseRecommendedKeep(from files: [FileRecord]) -> FileRecord? {
-        files.min { lhs, rhs in
-            let lhsScore = keepScore(lhs)
-            let rhsScore = keepScore(rhs)
-            if lhsScore == rhsScore {
-                return lhs.url.path < rhs.url.path
+    public func chooseRecommendedKeep(from files: [FileRecord], strategy: DuplicateKeepStrategy = .smart) -> FileRecord? {
+        switch strategy {
+        case .smart:
+            return files.min { lhs, rhs in
+                let lhsScore = keepScore(lhs)
+                let rhsScore = keepScore(rhs)
+                if lhsScore == rhsScore {
+                    return lhs.url.path < rhs.url.path
+                }
+                return lhsScore < rhsScore
             }
-            return lhsScore < rhsScore
+        case .oldest:
+            return files.min { lhs, rhs in
+                let lhsDate = lhs.creationDate ?? lhs.modificationDate ?? .distantFuture
+                let rhsDate = rhs.creationDate ?? rhs.modificationDate ?? .distantFuture
+                if lhsDate == rhsDate {
+                    return lhs.url.path < rhs.url.path
+                }
+                return lhsDate < rhsDate
+            }
+        case .newest:
+            return files.min { lhs, rhs in
+                let lhsDate = lhs.modificationDate ?? lhs.creationDate ?? .distantPast
+                let rhsDate = rhs.modificationDate ?? rhs.creationDate ?? .distantPast
+                if lhsDate == rhsDate {
+                    return lhs.url.path < rhs.url.path
+                }
+                return lhsDate > rhsDate
+            }
+        case .preferNonDownloads:
+            return files.min { lhs, rhs in
+                let lhsInDownloads = lhs.url.pathComponents.contains("Downloads")
+                let rhsInDownloads = rhs.url.pathComponents.contains("Downloads")
+                if lhsInDownloads != rhsInDownloads {
+                    return !lhsInDownloads && rhsInDownloads
+                }
+                if lhs.url.path.count == rhs.url.path.count {
+                    return lhs.url.path < rhs.url.path
+                }
+                return lhs.url.path.count < rhs.url.path.count
+            }
+        case .shortestPath:
+            return files.min { lhs, rhs in
+                if lhs.url.path.count == rhs.url.path.count {
+                    return lhs.url.path < rhs.url.path
+                }
+                return lhs.url.path.count < rhs.url.path.count
+            }
         }
     }
 
