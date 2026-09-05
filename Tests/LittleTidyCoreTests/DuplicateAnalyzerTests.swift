@@ -4,6 +4,18 @@ import Testing
 
 @Suite("Duplicate analyzer")
 struct DuplicateAnalyzerTests {
+    @Test("a disappeared file does not discard readable duplicate groups")
+    func toleratesDisappearedFile() throws {
+        let directory = try TemporaryDirectory()
+        let urls = ["a", "b", "gone"].map { directory.url.appendingPathComponent($0) }
+        for url in urls { try Data(repeating: 7, count: 1024).write(to: url) }
+        let records = try urls.map { try record(for: $0) }
+        try FileManager.default.removeItem(at: urls[2])
+        let groups = try DuplicateAnalyzer().findDuplicates(in: records, minimumSize: 1)
+        #expect(groups.count == 1)
+        #expect(groups.first?.files.count == 2)
+    }
+
     @Test("finds byte-identical duplicate files and recommends one copy to keep")
     func findsDuplicates() throws {
         let directory = try TemporaryDirectory()

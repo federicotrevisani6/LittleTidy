@@ -29,6 +29,7 @@ struct SettingsView: View {
 // MARK: - General Tab
 
 private struct GeneralSettingsTab: View {
+    @ObservedObject private var updaterManager = UpdaterManager.shared
     @State private var enableTrashWatcher: Bool
     @State private var notificationStatus: String = "Checking…"
     @State private var isFullDiskAccessGranted: Bool = FullDiskAccess.isGranted
@@ -145,6 +146,32 @@ private struct GeneralSettingsTab: View {
                 .padding(.vertical, 4)
             } header: {
                 Label("Developer & AI Toolchains", systemImage: "hammer")
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Automatically check for updates", isOn: Binding(
+                        get: { updaterManager.automaticallyChecksForUpdates },
+                        set: { updaterManager.automaticallyChecksForUpdates = $0 }
+                    ))
+
+                    HStack {
+                        Text("Keep LittleTidy up to date with the latest cleanup rules and system compatibility.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button("Check for Updates…") {
+                            updaterManager.checkForUpdates()
+                        }
+                        .controlSize(.small)
+                        .disabled(!updaterManager.canCheckForUpdates)
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Label("Updates", systemImage: "arrow.triangle.2.circlepath")
             }
         }
         .formStyle(.grouped)

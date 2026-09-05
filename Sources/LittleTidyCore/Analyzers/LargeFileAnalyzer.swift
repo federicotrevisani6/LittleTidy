@@ -16,7 +16,8 @@ public struct LargeFileAnalyzer: Sendable {
                     file: file,
                     reason: reason(for: file, threshold: threshold),
                     score: score(file),
-                    confidence: .high
+                    // Size identifies a review candidate, not whether it is disposable.
+                    confidence: .medium
                 )
             }
             .sorted {

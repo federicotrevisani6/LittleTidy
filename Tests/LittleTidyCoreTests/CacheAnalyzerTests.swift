@@ -38,6 +38,33 @@ struct CacheAnalyzerTests {
         #expect(candidates.allSatisfy { $0.sizeBytes >= 1_000_000 })
     }
 
+    @Test("finds sandbox caches without offering app documents or Maven artifacts")
+    func sandboxCoverage() throws {
+        let home = try TemporaryDirectory().url.resolvingSymlinksInPath()
+        let cache = home.appendingPathComponent("Library/Containers/com.example.app/Data/Library/Caches")
+        let documents = home.appendingPathComponent("Library/Containers/com.example.app/Data/Documents")
+        let maven = home.appendingPathComponent(".m2/repository")
+        for directory in [cache, documents, maven] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data(repeating: 1, count: 8192).write(to: directory.appendingPathComponent("data"))
+        }
+        let candidates = try CacheAnalyzer(homeDirectory: home).findCaches(minimumSize: 1)
+        #expect(candidates.map { $0.url.resolvingSymlinksInPath().standardized.path } == [cache.resolvingSymlinksInPath().standardized.path])
+    }
+
+    @Test("does not offer a symlinked cache target")
+    func excludesSymlinks() throws {
+        let home = try TemporaryDirectory().url.resolvingSymlinksInPath()
+        let caches = home.appendingPathComponent("Library/Caches")
+        let documents = home.appendingPathComponent("Documents")
+        for directory in [caches, documents] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        try Data(repeating: 1, count: 8192).write(to: documents.appendingPathComponent("data"))
+        try FileManager.default.createSymbolicLink(at: caches.appendingPathComponent("linked"), withDestinationURL: documents)
+        #expect(try CacheAnalyzer(homeDirectory: home).findCaches(minimumSize: 1).isEmpty)
+    }
+
     @Test("returns nothing when no cache locations exist")
     func emptyWhenAbsent() throws {
         let home = try TemporaryDirectory().url

@@ -21,13 +21,19 @@ let package = Package(
             targets: ["LittleTidyQA"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.0.0")
+    ],
     targets: [
         .target(
             name: "LittleTidyCore"
         ),
         .executableTarget(
             name: "LittleTidy",
-            dependencies: ["LittleTidyCore"],
+            dependencies: [
+                "LittleTidyCore",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             resources: [
                 .process("Resources")
             ]

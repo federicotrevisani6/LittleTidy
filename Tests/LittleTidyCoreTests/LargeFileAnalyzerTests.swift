@@ -22,6 +22,7 @@ struct LargeFileAnalyzerTests {
         let candidates = analyzer.findLargeFiles(in: [genericFile, downloadsInstaller], threshold: 500_000_000)
 
         #expect(candidates.count == 2)
+        #expect(candidates.allSatisfy { $0.confidence == .medium })
         #expect(candidates[0].file.url == downloadsInstaller.url)
         #expect(candidates[0].reason == "Large file in Downloads.")
     }

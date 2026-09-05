@@ -19,10 +19,14 @@ struct LittleTidyApp: App {
 
 import UserNotifications
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let updaterManager = UpdaterManager.shared
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().delegate = AppUninstallNotificationManager.shared
+        updaterManager.start()
     }
 }

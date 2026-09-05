@@ -36,15 +36,24 @@ public struct DuplicateAnalyzer: Sendable {
         for sizeGroup in sizeGroups {
             try Task.checkCancellation()
 
-            let quickGroups = Dictionary(grouping: try sizeGroup.map { file in
-                (file, try quickFingerprint(for: file.url, fileSize: file.fileSize))
+            let quickGroups = Dictionary(grouping: try sizeGroup.compactMap { file -> (FileRecord, String)? in
+                try Task.checkCancellation()
+                guard let fingerprint = try? quickFingerprint(for: file.url, fileSize: file.fileSize) else { return nil }
+                return (file, fingerprint)
             }, by: \.1)
 
             for quickGroup in quickGroups.values where quickGroup.count > 1 {
                 try Task.checkCancellation()
 
-                let hashGroups = Dictionary(grouping: try quickGroup.map { file, _ in
-                    (file, try fullHash(for: file.url))
+                let hashGroups = Dictionary(grouping: try quickGroup.compactMap { file, _ -> (FileRecord, String)? in
+                    try Task.checkCancellation()
+                    do {
+                        return (file, try fullHash(for: file.url))
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        return nil
+                    }
                 }, by: \.1)
 
                 for (hash, matchingFiles) in hashGroups where matchingFiles.count > 1 {
@@ -170,6 +179,7 @@ public struct DuplicateAnalyzer: Sendable {
 
         var hasher = SHA256()
         while true {
+            try Task.checkCancellation()
             let data = try handle.read(upToCount: 1024 * 1024) ?? Data()
             if data.isEmpty {
                 break

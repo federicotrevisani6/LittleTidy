@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		02F277A516AE1F5FBCA5EAAB /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11888020F40812DC71A3D714 /* DetailView.swift */; };
 		03B4681B085B4C2B37929A56 /* DeveloperToolActivityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9748521FC4C0BFFA7F68F151 /* DeveloperToolActivityChecker.swift */; };
+		0F90625CD84BFC4092481501 /* FullDiskAccess+AppKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7594685E70D8766BAE0541 /* FullDiskAccess+AppKit.swift */; };
 		105FD5DE285F4ACA4E49922F /* LittleTidyCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; };
 		10C5F25342C552C11C896116 /* DuplicateAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829251F5F889764F72128273 /* DuplicateAnalyzer.swift */; };
 		1EEA684B5AECC3BD5A086231 /* SimulatorInventoryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C232D452A957E54FDB82DD7 /* SimulatorInventoryParser.swift */; };
@@ -54,17 +55,20 @@
 		A55AC6B8D4DCFB8D0B088277 /* ScanReviewStorePowerReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656189CBD7F5B6F700D7856D /* ScanReviewStorePowerReviewTests.swift */; };
 		A75E007A7649C8EE9894C379 /* DeveloperStorageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1923F6997D4A22212DFB989D /* DeveloperStorageModels.swift */; };
 		A948658820519DE7D020BB04 /* CleanerPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44582403DE35F2DD4F74543E /* CleanerPalette.swift */; };
+		ACFA612731C9B2F0539F7A36 /* FullDiskAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E5BEF32F7928253A0DE7BB /* FullDiskAccess.swift */; };
 		B5A620D33F86AC9CCE306724 /* ReviewFilterScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AA9D7813287A4F279C2D49 /* ReviewFilterScope.swift */; };
 		BA1121E98E7E4434E0EC4B3C /* CacheAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A780C7DAFD1218DA461145 /* CacheAnalyzerTests.swift */; };
 		C76BFFFF8BC21D2F337B2CC8 /* PermissionReadinessItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BB0C64712ECFC9D99CCCA4 /* PermissionReadinessItem.swift */; };
 		C7AA12F3B9CEBEA3377944DD /* ReviewSortOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99EC8D63F070BEE3B82116BC /* ReviewSortOption.swift */; };
 		C8196DE278B81DE260ADC1A8 /* DuplicateAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381E0DD5DF4B49DB8EBE2470 /* DuplicateAnalyzerTests.swift */; };
+		CBC41C1C6DD2C80CBFC568AB /* UpdaterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490FC43CD4AB0DAD229BAC98 /* UpdaterManager.swift */; };
 		CCA80AFF990E85E2385057F8 /* AppUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C0DBC6B58B8181CC9BA294 /* AppUsageAnalyzer.swift */; };
 		CCF5499DC192982FB7B7835B /* ReviewListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B82234AD26E4A1EDAF1356E /* ReviewListView.swift */; };
 		D1D2EF3AC001DBB2126AF4CE /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FCD259F6574CF7AA9BFA9C5 /* Models.swift */; };
 		D22365302ED94B725CFAA119 /* ScannerAndTrashPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9EE6ADB2EF56F225BCAC547 /* ScannerAndTrashPlanTests.swift */; };
 		D3AE0B4BB577950C647253A1 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 344FCC76EF0D73F4C69E5179 /* OverviewView.swift */; };
 		D3FD15A19BE0E5E6ECD54E09 /* LittleTidyCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */; };
+		D611F4B651849C6E4F4EDC0E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 98CD607E31595849AB211A6C /* Sparkle */; };
 		D75B69435E7289CBC6C7FCB1 /* AppTrashWatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F923C10F330E2BA75625B604 /* AppTrashWatcherTests.swift */; };
 		DD5850C9D8A751A4FEA62CE4 /* AppUsageAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E5918642D5AD64D0FD71E4 /* AppUsageAnalyzerTests.swift */; };
 		DE2738E6E4CF4C21D80F3C3E /* FolderUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6172AA4172A67862FC23AD52 /* FolderUsageAnalyzer.swift */; };
@@ -157,6 +161,7 @@
 
 /* Begin PBXFileReference section */
 		022C7E6B4DA22E237F4A9CF4 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
+		02E5BEF32F7928253A0DE7BB /* FullDiskAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullDiskAccess.swift; sourceTree = "<group>"; };
 		0577EAE58D6FE03F4790B4AA /* AppLeftoverPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLeftoverPromptView.swift; sourceTree = "<group>"; };
 		07C296564BFC200E3A070809 /* TrashPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashPlanBuilder.swift; sourceTree = "<group>"; };
 		09B44D9CC408FC1B3A5E8A38 /* FolderBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderBookmarkStore.swift; sourceTree = "<group>"; };
@@ -179,6 +184,7 @@
 		44582403DE35F2DD4F74543E /* CleanerPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanerPalette.swift; sourceTree = "<group>"; };
 		466FD553FFBAC71B5E49F2B0 /* ScanReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReviewStore.swift; sourceTree = "<group>"; };
 		473AF8B098BE578C8BF073F5 /* AppUninstallNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUninstallNotificationManager.swift; sourceTree = "<group>"; };
+		490FC43CD4AB0DAD229BAC98 /* UpdaterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterManager.swift; sourceTree = "<group>"; };
 		496F231A0B8CAD5D26446F2F /* LittleTidyCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LittleTidyCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C2D82CCD743AE2C9B04A582 /* SidebarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSection.swift; sourceTree = "<group>"; };
 		4F61144B587315B469C5A38B /* ScanOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanOptions.swift; sourceTree = "<group>"; };
@@ -188,6 +194,7 @@
 		6172AA4172A67862FC23AD52 /* FolderUsageAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderUsageAnalyzer.swift; sourceTree = "<group>"; };
 		62130299396E39D7E43F64A8 /* LittleTidy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LittleTidy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		626E299458BD7C2A8837022D /* AppUninstallEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUninstallEvent.swift; sourceTree = "<group>"; };
+		642923D36CA1CECA544C6EDD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		656189CBD7F5B6F700D7856D /* ScanReviewStorePowerReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReviewStorePowerReviewTests.swift; sourceTree = "<group>"; };
 		6BCB02C5AF986E6B4D1222F2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6E259FFAC046B95E1E7B80DB /* CleanupHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupHistoryStore.swift; sourceTree = "<group>"; };
@@ -226,6 +233,7 @@
 		F923C10F330E2BA75625B604 /* AppTrashWatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTrashWatcherTests.swift; sourceTree = "<group>"; };
 		F9EE6ADB2EF56F225BCAC547 /* ScannerAndTrashPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerAndTrashPlanTests.swift; sourceTree = "<group>"; };
 		FB9CBF6BEACB1EDDDFF67EF6 /* AppTrashWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTrashWatcher.swift; sourceTree = "<group>"; };
+		FC7594685E70D8766BAE0541 /* FullDiskAccess+AppKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FullDiskAccess+AppKit.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -250,6 +258,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				105FD5DE285F4ACA4E49922F /* LittleTidyCore.framework in Frameworks */,
+				D611F4B651849C6E4F4EDC0E /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,6 +304,7 @@
 		1E68375F2BF6ADAF5F4BA401 /* LittleTidy */ = {
 			isa = PBXGroup;
 			children = (
+				642923D36CA1CECA544C6EDD /* Info.plist */,
 				51FFCC7F4D5942EB69D26D6F /* App */,
 				58A106546427E71B0772A5D3 /* Features */,
 				1680F098189B0B23394CB7FB /* Models */,
@@ -358,6 +368,7 @@
 			isa = PBXGroup;
 			children = (
 				8D6C26E8ABFF8AFF0D6E94A3 /* LittleTidyApp.swift */,
+				490FC43CD4AB0DAD229BAC98 /* UpdaterManager.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -456,6 +467,7 @@
 			isa = PBXGroup;
 			children = (
 				799E50ABEA5305FD407EB887 /* DeveloperStoragePolicy.swift */,
+				02E5BEF32F7928253A0DE7BB /* FullDiskAccess.swift */,
 				4F61144B587315B469C5A38B /* ScanOptions.swift */,
 			);
 			path = Policies;
@@ -500,6 +512,7 @@
 				9FA5DB6FA086684018CFA88D /* ByteCountFormatter+Cleaner.swift */,
 				44582403DE35F2DD4F74543E /* CleanerPalette.swift */,
 				4F9FE87C44DC28F03663F46F /* CleanerSurface.swift */,
+				FC7594685E70D8766BAE0541 /* FullDiskAccess+AppKit.swift */,
 				34A8BF5323B619A807B5D7C9 /* QuickLookPreviewController.swift */,
 			);
 			path = UIComponents;
@@ -657,6 +670,7 @@
 			);
 			name = LittleTidy;
 			packageProductDependencies = (
+				98CD607E31595849AB211A6C /* Sparkle */,
 			);
 			productName = LittleTidy;
 			productReference = 62130299396E39D7E43F64A8 /* LittleTidy.app */;
@@ -702,6 +716,9 @@
 			);
 			mainGroup = B70CCD7E6389863097187AF9;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				49C5574CA7A25434C2AC7AD5 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 67EB7CB2F4064610688647BD /* Products */;
 			projectDirPath = "";
@@ -771,6 +788,7 @@
 				10C5F25342C552C11C896116 /* DuplicateAnalyzer.swift in Sources */,
 				84C66082F6CF968010E0D339 /* FileInventoryScanner.swift in Sources */,
 				DE2738E6E4CF4C21D80F3C3E /* FolderUsageAnalyzer.swift in Sources */,
+				ACFA612731C9B2F0539F7A36 /* FullDiskAccess.swift in Sources */,
 				4C78FFB5748711B634769B4C /* LargeFileAnalyzer.swift in Sources */,
 				D1D2EF3AC001DBB2126AF4CE /* Models.swift in Sources */,
 				6957D60023339347FAE29420 /* ScanOptions.swift in Sources */,
@@ -808,6 +826,7 @@
 				02F277A516AE1F5FBCA5EAAB /* DetailView.swift in Sources */,
 				ECBD83F7312A28766BFCDE7B /* DeveloperStorageView.swift in Sources */,
 				3FD7D91C8595D90262E6E65E /* FolderBookmarkStore.swift in Sources */,
+				0F90625CD84BFC4092481501 /* FullDiskAccess+AppKit.swift in Sources */,
 				E7C2C246578BD2C3FF5B85FE /* LittleTidyApp.swift in Sources */,
 				D3AE0B4BB577950C647253A1 /* OverviewView.swift in Sources */,
 				C76BFFFF8BC21D2F337B2CC8 /* PermissionReadinessItem.swift in Sources */,
@@ -824,6 +843,7 @@
 				A109BCD1D2346BDD9A952075 /* SidebarSection.swift in Sources */,
 				245767F01A10AC562EF82681 /* SidebarView.swift in Sources */,
 				34A5B7E40471F93DF0DE717E /* StorageMapView.swift in Sources */,
+				CBC41C1C6DD2C80CBFC568AB /* UpdaterManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -891,6 +911,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyQA;
 				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
@@ -929,7 +950,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 3VU7K9SUV8;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -950,7 +971,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -997,7 +1018,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 3VU7K9SUV8;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1012,7 +1033,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1056,6 +1077,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidyQA;
 				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
@@ -1097,18 +1119,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
-				INFOPLIST_KEY_CFBundleName = LittleTidy;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/LittleTidy/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidy;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 			};
 			name = Debug;
 		};
@@ -1134,18 +1153,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = LittleTidy;
-				INFOPLIST_KEY_CFBundleName = LittleTidy;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/LittleTidy/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.federicotrevisani.LittleTidy;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 			};
 			name = Release;
 		};
@@ -1223,6 +1239,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		49C5574CA7A25434C2AC7AD5 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		98CD607E31595849AB211A6C /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49C5574CA7A25434C2AC7AD5 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5486AD437BE38638A500C96B /* Project object */;
 }

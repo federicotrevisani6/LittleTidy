@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>LittleTidy</title>
+    <link>https://raw.githubusercontent.com/federicotrevisani6/LittleTidy/main/appcast.xml</link>
+    <description>Most recent changes for LittleTidy.</description>
+    <language>en</language>
+    <item>
+      <title>Version 0.5.0 (Build 7)</title>
+      <pubDate>Sat, 05 Sep 2026 15:24:36 +0000</pubDate>
+      <sparkle:version>7</sparkle:version>
+      <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h3>LittleTidy 0.5.0</h3>
+        <ul>
+          <li><strong>Native macOS UI Overhaul</strong>: Clean AppKit surfaces, removed marketing clutter and sparkle icons, virtualized file lists with 120fps scrolling.</li>
+          <li><strong>Full Disk Access Detection</strong>: Real-time TCC probe with instant reactive status updates and deep link to Privacy &amp; Security settings.</li>
+          <li><strong>Sparkle Auto-Update</strong>: Built-in automatic updates with &ldquo;Check for Updates&rdquo; in Settings.</li>
+          <li><strong>Notification Test Tool</strong>: Verify notification delivery directly from Settings.</li>
+          <li><strong>Enhanced Cache &amp; Storage Scanners</strong>: Added detection for modern AI agent caches (Ollama, MLX, Hugging Face, Claude Code, Cursor) and robust cancellation support.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.5.0/LittleTidy.dmg"
+                 type="application/octet-stream"
+                 sparkle:edSignature="NyKZX0N+ebAsqWxYr3TvJCbkGBPTkekyrtJRXzKN+99C21mmJ8h1N40fUomTAF1hdH1NSitEjYLPtGIGd6TRCw=="
+                 length="4331058" />
+    </item>
+  </channel>
+</rss>
