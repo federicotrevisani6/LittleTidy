@@ -133,16 +133,26 @@ For local signing validation without notarization:
 ./script/package_release.sh --skip-notarization
 ```
 
+## Documentation
+
+Comprehensive architectural and engineering documentation is available:
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Architectural deep dive: scanning pipeline, analysis layers, state management, and Tahoe design system.
+- **[docs/DEVELOPER_STORAGE.md](docs/DEVELOPER_STORAGE.md)** — Deep dive into Developer Storage: Xcode DerivedData, Simulators, Runtimes, XCTest, local ML and model caches, measurement optimizations, and safety policies.
+- **[docs/SAFETY_AND_PERMISSIONS.md](docs/SAFETY_AND_PERMISSIONS.md)** — Safety invariants, Full Disk Access (FDA), security-scoped bookmarks, Trash protection, and real-time app uninstall monitoring.
+
 ## Project layout
 
 ```
+docs/                # In-depth architectural & domain specifications
 Sources/
-  LittleTidyCore/   # engine + analyzers (tested, UI-free)
-  LittleTidy/        # SwiftUI app
-  LittleTidyQA/      # CLI QA harness
-Tests/               # LittleTidyCore unit tests
-QA/                  # manual QA checklist + generated fixtures
-outputs/             # logic & UI design specs
+  LittleTidyCore/    # Engine + analyzers + policies + execution (tested, UI-free)
+  LittleTidy/        # SwiftUI app (stores, sidebar, views, components)
+  LittleTidyQA/      # Headless CLI QA harness
+Tests/               # Unit test suites (LittleTidyCoreTests, LittleTidyTests)
+QA/                  # Manual QA checklist + generated fixtures
+outputs/             # Product specs and historical design audits
+script/              # Build, fixture, and release scripts
 ```
 
 ## Status
