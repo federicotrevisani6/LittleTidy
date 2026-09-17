@@ -112,10 +112,12 @@ A helper script is provided:
 
 GitHub release artifacts should be Developer ID signed and notarized before
 upload. The release script archives the app, signs it with the local Developer
-ID Application certificate, verifies the signature, submits it to Apple's notary
-service, staples the ticket, and writes the final zip under `dist/release/`.
+ID Application certificate, notarizes and staples both the app and DMG, then
+generates the EdDSA-signed Sparkle `appcast.xml`. Artifacts are written under
+`dist/release/`.
 
-First save notary credentials in the Keychain:
+Authenticate `asc` once (preferred), or save notarytool credentials in the
+Keychain as a fallback:
 
 ```sh
 xcrun notarytool store-credentials littletidy-notary
@@ -124,7 +126,7 @@ xcrun notarytool store-credentials littletidy-notary
 Then package a notarized release:
 
 ```sh
-./script/package_release.sh --notary-profile littletidy-notary
+./script/package_release.sh --release-notes release-notes/0.6.0.md
 ```
 
 For local signing validation without notarization:
