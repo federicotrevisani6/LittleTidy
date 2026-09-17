@@ -1358,7 +1358,7 @@ final class ScanReviewStore: ObservableObject {
                 }
 
                 let analysisTask = Task.detached(priority: .userInitiated) {
-                    try CleanupAnalysis().analyze(files: records, options: options, appRoots: appRoots, scanRoots: roots)
+                    try await CleanupAnalysis().analyze(files: records, options: options, appRoots: appRoots, scanRoots: roots)
                 }
                 self.analysisTask = analysisTask
                 let result = try await analysisTask.value
@@ -1713,7 +1713,7 @@ final class ScanReviewStore: ObservableObject {
             let duplicateCopies = group.files.map { file in
                 DuplicateCopyReview(
                     url: file.url,
-                    bytes: file.fileSize,
+                    bytes: file.storageSize,
                     isRecommendedKeep: file.id == group.recommendedKeep?.id,
                     isSelected: false
                 )
@@ -1742,7 +1742,7 @@ final class ScanReviewStore: ObservableObject {
                 title: candidate.file.url.lastPathComponent,
                 detail: dateDetail(for: candidate.file),
                 location: candidate.file.url.deletingLastPathComponent().path(percentEncoded: false),
-                bytes: candidate.file.fileSize,
+                bytes: candidate.file.storageSize,
                 confidence: candidate.confidence,
                 reason: candidate.reason,
                 plannedURLs: [candidate.file.url],

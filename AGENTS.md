@@ -47,14 +47,15 @@ When modifying or generating code, **never violate these non-negotiable rules**:
 
 ## 3. Targets & Project Structure
 
-The project uses a hybrid configuration:
-- **Swift Package Manager (`Package.swift`)**: Core build and test definition.
-- **XcodeGen (`project.yml`)**: Generates `LittleTidy.xcodeproj` for Xcode, code signing, AppKit resources, and packaging.
+The project has two checked-in build definitions:
+- **Swift Package Manager (`Package.swift`)**: Core command-line build and test definition.
+- **Xcode 27 JSON-based project (`LittleTidy.xcodeproj/project.xcproj`)**: Authoritative Xcode definition for code signing, AppKit resources, schemes, and packaging. Edit this file directly or through Xcode. Never regenerate the project with XcodeGen.
 
 ```
 LittleTidy/
 ├── Package.swift               # SPM definition (LittleTidyCore, LittleTidy, LittleTidyQA, tests)
-├── project.yml                 # XcodeGen configuration (bundles, signing, Sparkle, schemes)
+├── LittleTidy.xcodeproj/       # Xcode container
+│   └── project.xcproj          # JSON-based Xcode 27 project source of truth
 ├── Sources/
 │   ├── LittleTidyCore/         # Pure Swift logic, analyzers, policies, execution (UI-free)
 │   ├── LittleTidy/             # SwiftUI + AppKit macOS application
@@ -84,14 +85,14 @@ LittleTidy/
   - `Confidence` (`high`, `medium`, `low`): Confidence in cleanup safety.
   - `CleanupCategory` (`duplicate`, `largeFile`, `unusedApp`, `cache`).
   - `DeletionMode` (`moveToTrash`, `permanentDelete`).
-  - `FileRecord`: Metadata snapshot of an indexed file (URL, size, dates, content type, hidden status).
+  - `FileRecord`: Metadata snapshot of an indexed file (URL, logical and allocated size, physical file identity, dates, content type, hidden status).
   - `DuplicateGroup`: Set of byte-identical files, content SHA-256, recommended keep file, reclaimable bytes.
   - `LargeFileCandidate`: File exceeding size threshold, scoring explanation, confidence.
   - `RelatedAppData`: URL, size, and category of an app's leftover files (Application Support, Caches, Preferences, etc.).
   - `AppUsageRecord`: App bundle metadata, Spotlight last-opened date, app size, related leftovers.
   - `TrashPlan` & `TrashPlanItem`: Validated batch of files ready for trashing.
 - [`DeveloperStorageModels.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Models/DeveloperStorageModels.swift):
-  - `DeveloperStorageCategory` (11 categories: `simulatorDevices`, `simulatorRuntimes`, `xctestDevices`, `derivedData`, `deviceSupport`, `packageCaches`, `aiModelsAndAgents`, `archives`, `androidEmulators`, `testArtifacts`, `otherDeveloperData`).
+  - `DeveloperStorageCategory` (13 categories: `simulatorDevices`, `simulatorRuntimes`, `xctestDevices`, `derivedData`, `deviceSupport`, `packageCaches`, `aiModelsAndAgents`, `aiCaches`, `aiGeneratedArtifacts`, `archives`, `androidEmulators`, `testArtifacts`, `otherDeveloperData`).
   - `StorageRecommendation` (`recommended`, `review`, `protected`, `unclassified`).
   - `StorageRecoverability` (`trashRestorable`, `recreatable`, `reinstallable`, `irreversible`, `unknown`).
   - `StorageActivityState` (`active`, `recentlyUsed`, `inactive`, `unavailable`, `unknown`).
@@ -112,6 +113,7 @@ LittleTidy/
   1. Group by exact byte size.
   2. Quick 64KB fingerprint (reads head, middle, tail of file; computes SHA-256).
   3. Full SHA-256 chunked hash verification.
+  - Collapses hard-linked paths that refer to the same physical file so they are not reported as reclaimable copies.
   - Keep strategies: `smart` (prefers non-downloads, non-hidden, shallow paths), `oldest`, `newest`, `preferNonDownloads`, `shortestPath`.
 - [`LargeFileAnalyzer.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/LargeFileAnalyzer.swift): Evaluates files >= threshold (default 500MB), excludes protected packages (`.photoslibrary`, `.xcodeproj`, `.vmwarevm`), assigns score based on size, age, Downloads location, and extension (`.dmg`, `.pkg`, `.mov`, etc.).
 - [`CacheAnalyzer.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/CacheAnalyzer.swift): Locates regenerable caches:
@@ -125,10 +127,10 @@ LittleTidy/
   - Uses direct `/usr/bin/du -sk` execution for multi-gigabyte CoreSimulator directories (significantly faster than recursive URL enumeration).
   - Uses volume capacity metadata for mounted Simulator runtimes to avoid traversing mounted OS disk images.
   - Invokes `xcrun simctl list --json` and `xcrun simctl runtime list --json`.
-  - Analyzes DerivedData, iOS DeviceSupport, Archives, XCTestDevices, Package Caches (SwiftPM, CocoaPods, Carthage), Android AVDs, AI Agents & Models (Ollama, HuggingFace, PyTorch, MLX, LM Studio, Jan, Claude, Cursor, Continue, Gemini).
+  - Analyzes DerivedData, iOS DeviceSupport, Archives, XCTestDevices, Package Caches (SwiftPM, CocoaPods, Carthage), Android AVDs, AI models (Ollama, HuggingFace, PyTorch, MLX, LM Studio, Jan), regenerable AI caches/logs, and review-only AI session artifacts (Claude, Cursor, Codex, Continue, Gemini).
   - Calculates unallocated CoreSimulator remainder storage.
 - [`FolderUsageAnalyzer.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/FolderUsageAnalyzer.swift): Aggregates indexed file records into first-level folders under each scan root for Storage Map treemap visualization without re-traversing the disk.
-- [`CleanupAnalysis.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/CleanupAnalysis.swift): Facade orchestrating duplicate, large file, app usage, cache, and folder usage analyzers into a single `CleanupAnalysisResult`.
+- [`CleanupAnalysis.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/CleanupAnalysis.swift): Async facade running the Sendable duplicate, large-file, and folder-usage analyzers concurrently while filesystem-bound app/cache analysis remains on the calling task, then combining everything into a single `CleanupAnalysisResult`.
 
 #### Execution (`Sources/LittleTidyCore/Execution/`)
 - [`TrashPlanBuilder.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Execution/TrashPlanBuilder.swift): Validates that candidates are inside approved roots, are not system apps, are not symlinks, and will not wipe out an entire duplicate group.
@@ -260,16 +262,16 @@ swift test --filter DeveloperStorageTests
 swift build -c release --product LittleTidy --arch arm64 --arch x86_64
 ```
 
-### Xcode & XcodeGen
+### Xcode
 ```bash
-# Regenerate LittleTidy.xcodeproj from project.yml
-xcodegen generate
-
 # Open the project in Xcode
 open LittleTidy.xcodeproj
 
+# Inspect the JSON-based project and schemes
+xcodebuild -list -project LittleTidy.xcodeproj
+
 # Run tests via xcodebuild (executes both LittleTidyCoreTests and LittleTidyTests)
-xcodebuild test -scheme LittleTidy -destination "platform=macOS"
+xcodebuild test -project LittleTidy.xcodeproj -scheme LittleTidy -destination "platform=macOS"
 ```
 
 ### Run Helper Script

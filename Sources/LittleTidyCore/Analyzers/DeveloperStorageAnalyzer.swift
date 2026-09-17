@@ -95,7 +95,7 @@ public actor DeveloperStorageAnalyzer {
             issues: &issues
         )
 
-        // AI Agents, LLMs & Local Models
+        // AI models. These are large and redownloadable, but never preselected.
         let userAppSupport = homeDirectory.appendingPathComponent("Library/Application Support", isDirectory: true)
         let dotCache = homeDirectory.appendingPathComponent(".cache", isDirectory: true)
 
@@ -147,38 +147,51 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
-        appendDirectory(
-            homeDirectory.appendingPathComponent(".claude", isDirectory: true),
-            category: .aiModelsAndAgents,
-            name: "Claude Code Agent Data",
-            detail: "Session transcripts, tool caches, and project history",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            userAppSupport.appendingPathComponent("Cursor/User/workspaceStorage", isDirectory: true),
-            category: .aiModelsAndAgents,
-            name: "Cursor AI Workspace Storage",
-            detail: "Codebase indexes, embeddings, and chat history",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            homeDirectory.appendingPathComponent(".continue/index", isDirectory: true),
-            category: .aiModelsAndAgents,
-            name: "Continue IDE Code Index",
-            detail: "Local vector database and codebase index",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            homeDirectory.appendingPathComponent(".gemini/cache", isDirectory: true),
-            category: .aiModelsAndAgents,
-            name: "Gemini Agent Cache",
-            detail: "Downloaded models and execution cache",
-            items: &items,
-            issues: &issues
-        )
+        // AI caches and logs. Keep exact paths so settings, credentials, and
+        // memory files in the same product roots are never cleanup candidates.
+        let aiCacheLocations: [(path: String, name: String, detail: String)] = [
+            (".claude/cache", "Claude Code Cache", "Downloaded and generated cache data"),
+            (".claude/debug", "Claude Code Debug Logs", "Regenerable diagnostic logs"),
+            (".codex/log", "Codex Logs", "Regenerable local diagnostic logs"),
+            (".codex/tmp", "Codex Temporary Data", "Temporary agent files"),
+            ("Library/Application Support/Cursor/Cache", "Cursor Cache", "Regenerable application cache"),
+            ("Library/Application Support/Cursor/Code Cache", "Cursor Code Cache", "Regenerable code cache"),
+            ("Library/Application Support/Cursor/GPUCache", "Cursor GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Cursor/CachedData", "Cursor Cached Data", "Regenerable editor data"),
+            ("Library/Application Support/Cursor/logs", "Cursor Logs", "Regenerable diagnostic logs"),
+            ("Library/Application Support/Cursor/Crashpad", "Cursor Crash Reports", "Generated crash reports"),
+            (".continue/index", "Continue IDE Code Index", "Local vector database and codebase index"),
+            (".gemini/cache", "Gemini Agent Cache", "Downloaded models and execution cache")
+        ]
+        for location in aiCacheLocations {
+            appendDirectory(
+                homeDirectory.appendingPathComponent(location.path, isDirectory: true),
+                category: .aiCaches,
+                name: location.name,
+                detail: location.detail,
+                items: &items,
+                issues: &issues
+            )
+        }
+
+        // Session histories and workspace artifacts can contain screenshots,
+        // documents, and tool outputs. They are removable only after review.
+        let aiArtifactLocations: [(path: String, name: String, detail: String)] = [
+            (".claude/projects", "Claude Code Project Sessions", "Transcripts, tool results, screenshots, and generated session artifacts"),
+            (".codex/sessions", "Codex Active Sessions", "Active rollout histories and generated session artifacts"),
+            (".codex/archived_sessions", "Codex Archived Sessions", "Archived rollout histories and generated session artifacts"),
+            ("Library/Application Support/Cursor/User/workspaceStorage", "Cursor Workspace Storage", "Workspace indexes, chat history, and generated artifacts")
+        ]
+        for location in aiArtifactLocations {
+            appendDirectory(
+                homeDirectory.appendingPathComponent(location.path, isDirectory: true),
+                category: .aiGeneratedArtifacts,
+                name: location.name,
+                detail: location.detail,
+                items: &items,
+                issues: &issues
+            )
+        }
 
         let simulatorResult = await simulatorInventory()
         items.append(contentsOf: simulatorResult.items)

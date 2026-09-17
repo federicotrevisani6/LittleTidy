@@ -64,8 +64,9 @@ fi
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
-if command -v xcodegen >/dev/null 2>&1; then
-  xcodegen generate
+if [[ ! -f "$PROJECT/project.xcproj" ]]; then
+  echo "Missing JSON-based Xcode project: $PROJECT/project.xcproj" >&2
+  exit 1
 fi
 
 xcodebuild archive \

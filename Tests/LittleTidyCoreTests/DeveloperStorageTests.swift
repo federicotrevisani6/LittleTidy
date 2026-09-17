@@ -142,9 +142,10 @@ struct DeveloperStorageTests {
         let androidAVD = home.appendingPathComponent(".android/avd/Pixel_8.avd", isDirectory: true)
         let ollama = home.appendingPathComponent(".ollama/models", isDirectory: true)
         let huggingface = home.appendingPathComponent(".cache/huggingface/hub", isDirectory: true)
-        let claude = home.appendingPathComponent(".claude", isDirectory: true)
+        let claudeCache = home.appendingPathComponent(".claude/cache", isDirectory: true)
+        let claudeProjects = home.appendingPathComponent(".claude/projects", isDirectory: true)
 
-        for directory in [spmCache, androidAVD, ollama, huggingface, claude] {
+        for directory in [spmCache, androidAVD, ollama, huggingface, claudeCache, claudeProjects] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try Data(repeating: 1, count: 4_096).write(to: directory.appendingPathComponent("data.bin"))
         }
@@ -161,7 +162,8 @@ struct DeveloperStorageTests {
         #expect(inventory.items.contains { $0.category == .androidEmulators && $0.recommendation == .review })
         #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Ollama Models & Blobs" })
         #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Hugging Face Hub Models" })
-        #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Claude Code Agent Data" })
+        #expect(inventory.items.contains { $0.category == .aiCaches && $0.name == "Claude Code Cache" && $0.recommendation == .recommended })
+        #expect(inventory.items.contains { $0.category == .aiGeneratedArtifacts && $0.name == "Claude Code Project Sessions" && $0.recommendation == .review })
         #expect(inventory.items.contains { $0.category == .deviceSupport })
         #expect(inventory.items.contains { $0.category == .archives && $0.recommendation == .protected })
         #expect(inventory.items.contains { $0.category == .xctestDevices && $0.recommendation == .unclassified })

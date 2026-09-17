@@ -8,6 +8,8 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
     case deviceSupport
     case packageCaches
     case aiModelsAndAgents
+    case aiCaches
+    case aiGeneratedArtifacts
     case archives
     case androidEmulators
     case testArtifacts
@@ -21,7 +23,9 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
         case .derivedData: "Derived Data"
         case .deviceSupport: "Device Support"
         case .packageCaches: "Package Manager Caches"
-        case .aiModelsAndAgents: "AI Agents & Models"
+        case .aiModelsAndAgents: "AI Models"
+        case .aiCaches: "AI Caches & Logs"
+        case .aiGeneratedArtifacts: "AI Sessions & Artifacts"
         case .archives: "Archives & Symbols"
         case .androidEmulators: "Android Emulators"
         case .testArtifacts: "Test Results"

@@ -9,7 +9,7 @@ public struct LargeFileAnalyzer: Sendable {
 
     public func findLargeFiles(in files: [FileRecord], threshold: Int64 = 500_000_000) -> [LargeFileCandidate] {
         files
-            .filter { $0.fileSize >= threshold }
+            .filter { $0.storageSize >= threshold }
             .filter { !isProtectedPackage($0.url) }
             .map { file in
                 LargeFileCandidate(
@@ -22,25 +22,25 @@ public struct LargeFileAnalyzer: Sendable {
             }
             .sorted {
                 if $0.score == $1.score {
-                    return $0.file.fileSize > $1.file.fileSize
+                    return $0.file.storageSize > $1.file.storageSize
                 }
                 return $0.score > $1.score
             }
     }
 
     private func reason(for file: FileRecord, threshold: Int64) -> String {
-        if file.fileSize >= 5_000_000_000 {
-            return "Very large file above 5 GB."
+        if file.storageSize >= 5_000_000_000 {
+            return "Very large file using more than 5 GB on disk."
         }
         if file.url.pathComponents.contains("Downloads") {
             return "Large file in Downloads."
         }
-        return "File is above the large-file threshold of \(threshold) bytes."
+        return "File uses more than the on-disk threshold of \(threshold) bytes."
     }
 
     private func score(_ file: FileRecord) -> Int {
         var score = 0
-        score += min(Int(file.fileSize / 100_000_000), 100)
+        score += min(Int(file.storageSize / 100_000_000), 100)
 
         let referenceDate = now()
         if let lastAccessDate = file.lastAccessDate ?? file.modificationDate {

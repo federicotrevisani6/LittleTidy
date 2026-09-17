@@ -77,6 +77,26 @@ struct ScannerAndTrashPlanTests {
         #expect(latestProgress?.scannedFiles == 2)
     }
 
+    @Test("scanner counts hard-linked storage only once")
+    func scannerCountsHardLinkedStorageOnce() async throws {
+        let directory = try TemporaryDirectory()
+        let original = directory.url.appendingPathComponent("original.bin")
+        let alias = directory.url.appendingPathComponent("alias.bin")
+        try Data(repeating: 5, count: 1_100_000).write(to: original)
+        try FileManager.default.linkItem(at: original, to: alias)
+        let expectedBytes = try record(for: original).storageSize
+        var summary: ScanSummary?
+
+        for try await event in FileInventoryScanner().scan(request: ScanRequest(roots: [directory.url])) {
+            if case .completed(let completed) = event {
+                summary = completed
+            }
+        }
+
+        #expect(summary?.scannedFiles == 2)
+        #expect(summary?.scannedBytes == expectedBytes)
+    }
+
     @Test("duplicate trash plan cannot remove every copy in a duplicate group")
     func duplicatePlanCannotRemoveAllCopies() throws {
         let directory = try TemporaryDirectory()

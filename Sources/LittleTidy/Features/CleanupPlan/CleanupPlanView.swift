@@ -299,21 +299,35 @@ private struct CleanupCategoryGroupsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Selected Items")
+                Text(items.isEmpty ? "Build a Cleanup Plan" : "Selected Items")
                     .font(.title2.weight(.semibold))
-                Text("Everything below moves to the Trash. Remove anything you want to keep.")
+                Text(items.isEmpty ? "Choose a category and select the items you want LittleTidy to handle." : "Everything below moves to the Trash. Remove anything you want to keep.")
                     .foregroundStyle(.secondary)
             }
 
             if items.isEmpty {
-                ContentUnavailableView(
-                    "No Items Selected",
-                    systemImage: "checkmark.circle",
-                    description: Text("Select duplicates, large files, or unused apps to build a cleanup plan.")
-                )
-                .frame(maxWidth: .infinity)
-                .padding(24)
-                .cleanerSurface()
+                HStack(spacing: 12) {
+                    PlanCategoryButton(
+                        title: "Caches",
+                        systemImage: "shippingbox",
+                        action: { store.selectedSection = .caches }
+                    )
+                    PlanCategoryButton(
+                        title: "Duplicates",
+                        systemImage: "doc.on.doc",
+                        action: { store.selectedSection = .duplicates }
+                    )
+                    PlanCategoryButton(
+                        title: "Large Files",
+                        systemImage: "internaldrive",
+                        action: { store.selectedSection = .largeFiles }
+                    )
+                    PlanCategoryButton(
+                        title: "Applications",
+                        systemImage: "app.badge",
+                        action: { store.selectedSection = .unusedApps }
+                    )
+                }
             } else {
                 ForEach(categoryGroups, id: \.category) { group in
                     VStack(alignment: .leading, spacing: 8) {
@@ -350,6 +364,32 @@ private struct CleanupCategoryGroupsView: View {
             }
             return CleanupCategoryGroup(category: category, items: categoryItems)
         }
+    }
+}
+
+private struct PlanCategoryButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(Color.accentColor)
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .cleanerInteractiveSurface()
     }
 }
 

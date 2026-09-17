@@ -98,11 +98,29 @@ public struct DeveloperStoragePolicy: Sendable {
         case .aiModelsAndAgents:
             return DeveloperStorageDecision(
                 activity: .inactive,
-                recoverability: .recreatable,
+                recoverability: .reinstallable,
                 mechanism: .trash,
                 consequence: .redownloadRequired,
                 recommendation: .review,
-                reason: "Local AI models, agent transcripts, and indexing caches can be regenerated or redownloaded."
+                reason: "Local model weights and derived indexes can be regenerated or redownloaded."
+            )
+        case .aiCaches:
+            return DeveloperStorageDecision(
+                activity: .inactive,
+                recoverability: .recreatable,
+                mechanism: .trash,
+                consequence: .temporarySlowdown,
+                recommendation: .recommended,
+                reason: "Generated caches, logs, and temporary agent data can be recreated as needed."
+            )
+        case .aiGeneratedArtifacts:
+            return DeveloperStorageDecision(
+                activity: .unknown,
+                recoverability: .trashRestorable,
+                mechanism: .trash,
+                consequence: .dataLossRisk,
+                recommendation: .review,
+                reason: "Sessions and generated artifacts can be large, but may contain useful transcripts, screenshots, or documents. Review before moving them to Trash."
             )
         case .androidEmulators:
             return DeveloperStorageDecision(

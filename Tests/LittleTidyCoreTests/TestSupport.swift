@@ -20,7 +20,8 @@ func record(for url: URL) throws -> FileRecord {
         .contentAccessDateKey,
         .typeIdentifierKey,
         .isHiddenKey,
-        .volumeIdentifierKey
+        .volumeIdentifierKey,
+        .fileResourceIdentifierKey
     ])
 
     return FileRecord(
@@ -32,6 +33,7 @@ func record(for url: URL) throws -> FileRecord {
         lastAccessDate: values.contentAccessDate,
         contentType: values.typeIdentifier,
         isHidden: values.isHidden ?? false,
-        volumeIdentifier: values.volumeIdentifier?.description
+        volumeIdentifier: values.volumeIdentifier?.description,
+        fileResourceIdentifier: values.fileResourceIdentifier.map { String(describing: $0) }
     )
 }

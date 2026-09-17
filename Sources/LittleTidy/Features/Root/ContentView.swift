@@ -10,8 +10,14 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarView(store: store)
         } detail: {
-            DetailView(store: store)
-                .searchable(text: $store.reviewSearchText, prompt: "Filter items…")
+            Group {
+                if store.selectedSection.supportsItemSearch {
+                    DetailView(store: store)
+                        .searchable(text: $store.reviewSearchText, prompt: "Filter items…")
+                } else {
+                    DetailView(store: store)
+                }
+            }
                 .toolbar {
                     ToolbarItemGroup(placement: .primaryAction) {
                         Menu {

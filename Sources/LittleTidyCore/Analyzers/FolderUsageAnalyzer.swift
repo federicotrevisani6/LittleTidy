@@ -20,19 +20,24 @@ public struct FolderUsage: Codable, Sendable, Hashable, Identifiable {
 
 /// Buckets scanned files by the first path component beneath each scan root,
 /// answering "where is my space going" without re-reading the disk.
-public struct FolderUsageAnalyzer {
+public struct FolderUsageAnalyzer: Sendable {
     public init() {}
 
     public func aggregate(files: [FileRecord], roots: [URL], limit: Int = 24) -> [FolderUsage] {
         let standardizedRoots = roots.map { $0.standardizedFileURL }
         var totals: [URL: (bytes: Int64, count: Int)] = [:]
+        var countedPhysicalFiles: Set<String> = []
 
         for file in files {
+            if let physicalIdentity = file.physicalIdentity,
+               !countedPhysicalFiles.insert(physicalIdentity).inserted {
+                continue
+            }
             guard let bucket = bucketURL(for: file.url.standardizedFileURL, roots: standardizedRoots) else {
                 continue
             }
             var entry = totals[bucket] ?? (0, 0)
-            entry.bytes += file.fileSize
+            entry.bytes += file.storageSize
             entry.count += 1
             totals[bucket] = entry
         }

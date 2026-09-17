@@ -46,7 +46,7 @@ public struct TrashPlanBuilder {
         let items = selectedFiles.map {
             TrashPlanItem(
                 sourceURL: $0.url,
-                bytes: $0.fileSize,
+                bytes: $0.storageSize,
                 category: .duplicate,
                 reason: "Duplicate file with matching SHA-256 hash."
             )

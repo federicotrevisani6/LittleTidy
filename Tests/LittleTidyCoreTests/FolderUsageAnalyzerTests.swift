@@ -28,9 +28,9 @@ struct FolderUsageAnalyzerTests {
         // itself for the loose file — sorted largest first.
         #expect(usage.count == 3)
         #expect(usage[0].name == "Photos")
-        #expect(usage[0].bytes == 5_000_000)
+        #expect(usage[0].bytes == records[0].storageSize)
         #expect(usage[1].name == "Projects")
-        #expect(usage[1].bytes == 2_000_000)
+        #expect(usage[1].bytes == records[1].storageSize)
         #expect(usage[1].fileCount == 1)
         #expect(usage.last?.url == root.standardizedFileURL)
     }
@@ -57,5 +57,23 @@ struct FolderUsageAnalyzerTests {
         #expect(usage.count == 1)
         #expect(usage[0].name == "A")
         #expect(!usage.contains { $0.url.path.contains("Elsewhere") })
+    }
+
+    @Test("counts hard-linked storage only once")
+    func countsHardLinkedStorageOnce() throws {
+        let directory = try TemporaryDirectory()
+        let root = directory.url.appendingPathComponent("Scanned", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let original = root.appendingPathComponent("original.bin")
+        let alias = root.appendingPathComponent("alias.bin")
+        try Data(repeating: 2, count: 1_100_000).write(to: original)
+        try FileManager.default.linkItem(at: original, to: alias)
+        let records = [try record(for: original), try record(for: alias)]
+
+        let usage = FolderUsageAnalyzer().aggregate(files: records, roots: [root])
+
+        #expect(usage.count == 1)
+        #expect(usage[0].bytes == records[0].storageSize)
+        #expect(usage[0].fileCount == 1)
     }
 }

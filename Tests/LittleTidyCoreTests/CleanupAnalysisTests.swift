@@ -5,7 +5,7 @@ import Testing
 @Suite("Cleanup analysis")
 struct CleanupAnalysisTests {
     @Test("combines duplicate, large-file, and unused-app analysis")
-    func combinesAnalysisResults() throws {
+    func combinesAnalysisResults() async throws {
         let directory = try TemporaryDirectory()
         let scanRoot = directory.url.appendingPathComponent("Documents", isDirectory: true)
         let appRoot = directory.url.appendingPathComponent("Applications", isDirectory: true)
@@ -36,7 +36,7 @@ struct CleanupAnalysisTests {
             try record(for: largeFile)
         ]
 
-        let result = try CleanupAnalysis(
+        let result = try await CleanupAnalysis(
             appUsageAnalyzer: AppUsageAnalyzer(now: { Date().addingTimeInterval(220 * 86_400) }),
             cacheAnalyzer: CacheAnalyzer(homeDirectory: directory.url)
         ).analyze(

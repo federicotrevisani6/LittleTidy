@@ -43,12 +43,16 @@ public struct CleanupAnalysis {
         self.folderUsageAnalyzer = folderUsageAnalyzer
     }
 
-    public func analyze(files: [FileRecord], options: ScanOptions, appRoots: [URL], scanRoots: [URL] = []) throws -> CleanupAnalysisResult {
-        let duplicates = try duplicateAnalyzer.findDuplicates(
+    public func analyze(files: [FileRecord], options: ScanOptions, appRoots: [URL], scanRoots: [URL] = []) async throws -> CleanupAnalysisResult {
+        let duplicateAnalyzer = self.duplicateAnalyzer
+        let largeFileAnalyzer = self.largeFileAnalyzer
+        let folderUsageAnalyzer = self.folderUsageAnalyzer
+
+        async let duplicates = try duplicateAnalyzer.findDuplicates(
             in: files,
             minimumSize: options.minimumDuplicateSize
         )
-        let largeFiles = largeFileAnalyzer.findLargeFiles(
+        async let largeFiles = largeFileAnalyzer.findLargeFiles(
             in: files,
             threshold: options.largeFileThreshold
         )
@@ -56,14 +60,16 @@ public struct CleanupAnalysis {
             .classify(appUsageAnalyzer.scanApplications(in: appRoots))
             .filter { $0.category != .recentlyUsed }
         let caches = options.includeCaches ? try cacheAnalyzer.findCaches() : []
-        let folderUsage = folderUsageAnalyzer.aggregate(files: files, roots: scanRoots)
+        async let folderUsage = folderUsageAnalyzer.aggregate(files: files, roots: scanRoots)
+
+        let resolved = try await (duplicates, largeFiles, folderUsage)
 
         return CleanupAnalysisResult(
-            duplicateGroups: duplicates,
-            largeFiles: largeFiles,
+            duplicateGroups: resolved.0,
+            largeFiles: resolved.1,
             unusedApps: apps,
             caches: caches,
-            folderUsage: folderUsage
+            folderUsage: resolved.2
         )
     }
 }

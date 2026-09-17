@@ -61,4 +61,13 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .cleanupPlan: "trash"
         }
     }
+
+    var supportsItemSearch: Bool {
+        switch self {
+        case .duplicates, .largeFiles, .unusedApps, .caches:
+            true
+        case .overview, .storage, .developerStorage, .cleanupPlan:
+            false
+        }
+    }
 }

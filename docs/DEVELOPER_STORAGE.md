@@ -32,7 +32,9 @@ LittleTidy tracks 11 distinct categories of developer storage:
 | **XCTest Devices** | `~/Library/Developer/XCTestDevices` | `Unclassified` | `.unsupported` | `unknown` |
 | **Device Support** | `~/Library/Developer/Xcode/iOS DeviceSupport` | `Review` | `.trash` | `recreatable` |
 | **Package Caches** | `~/Library/Caches/org.swift.swiftpm`, `~/.swiftpm/cache`, CocoaPods, Carthage | `Recommended` | `.trash` | `recreatable` |
-| **AI Models & Agents** | `~/.ollama/models`, `~/.cache/huggingface`, Cursor, Claude, etc. | `Review` | `.trash` | `recreatable` / `reinstallable` |
+| **AI Models** | Ollama, Hugging Face, PyTorch, MLX, LM Studio, Jan | `Review` | `.trash` | `reinstallable` |
+| **AI Caches & Logs** | Exact cache/log paths for Claude, Cursor, Codex, Continue, Gemini | `Recommended` | `.trash` | `recreatable` |
+| **AI Sessions & Artifacts** | Claude/Codex sessions and Cursor workspace storage | `Review` | `.trash` | `trashRestorable` |
 | **Archives & Symbols**| `~/Library/Developer/Xcode/Archives` | `Protected` | `.trash` (explicit user opt-in only) | `trashRestorable` |
 | **Android Emulators** | `~/.android/avd/*.avd` | `Review` | `.trash` | `reinstallable` |
 | **Test Artifacts** | `~/Library/Developer/Xcode/DerivedData/*/Logs/Test` | `Review` | `.trash` | `trashRestorable` |
@@ -76,20 +78,27 @@ LittleTidy tracks 11 distinct categories of developer storage:
 - **Policy**: Classified as `Protected`. It is **never** preselected.
 - **User Opt-in**: A user can manually inspect individual archives by date/project and opt to move obsolete ones to the Trash.
 
-### 3.5 AI Models, Agents & LLMs (`.aiModelsAndAgents`)
-LittleTidy recognizes that modern development environments store significant model weights, transcripts, and vector indexes outside traditional developer roots:
+### 3.5 AI Models, Caches, and Generated Artifacts
+LittleTidy separates modern AI storage by recoverability instead of treating an entire product directory as disposable.
+
+#### AI Models (`.aiModelsAndAgents`)
+
 - **Ollama**: `~/.ollama/models` (model manifests and multi-gigabyte blobs).
 - **Hugging Face**: `~/.cache/huggingface/hub` (model snapshots and weights).
 - **PyTorch Hub**: `~/.cache/torch/hub` (downloaded weights and checkpoints).
 - **MLX**: `~/.cache/mlx` (Apple Silicon optimized models).
 - **LM Studio**: `~/Library/Application Support/LM Studio/models`.
 - **Jan AI**: `~/Library/Application Support/jan/models`.
-- **Claude Code**: `~/.claude` (agent session logs, tool caches, project transcripts).
-- **Cursor AI**: `~/Library/Application Support/Cursor/User/workspaceStorage` (local vector embeddings, indexes, chat storage).
-- **Continue**: `~/.continue/index` (codebase vector indexes).
-- **Gemini**: `~/.gemini/cache`.
 
-All AI model caches are classified under `Review` with consequence `redownloadRequired` and are removed via `.trash`.
+Models are classified under `Review` with consequence `redownloadRequired` and are removed via `.trash`.
+
+#### AI Caches & Logs (`.aiCaches`)
+
+Only exact regenerable subpaths are eligible. Examples include Claude cache/debug logs, Codex logs/temp data, Cursor `Cache`, `Code Cache`, `GPUCache`, `CachedData`, logs and crash reports, Continue indexes, and Gemini cache. These are `Recommended`, but remain Trash-restorable by default. Settings, credentials, memory files, and product roots are never included through prefix matching.
+
+#### AI Sessions & Artifacts (`.aiGeneratedArtifacts`)
+
+Claude project sessions, Codex active/archived sessions, and Cursor workspace storage can accumulate transcripts, screenshots, documents, tool results, and indexes. They are surfaced as `Review` with `dataLossRisk`, are never preselected, and can only be moved to Trash after explicit selection. LittleTidy does not scan arbitrary project documents merely because an AI tool may have created them.
 
 ### 3.6 Critical Protected Boundary: CoreDevice Filesystems
 Inside `~/Library/Developer/CoreDevice/` resides macOS device connection mounts.

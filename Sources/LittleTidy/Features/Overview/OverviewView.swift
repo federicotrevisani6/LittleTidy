@@ -6,9 +6,11 @@ struct OverviewView: View {
     @ObservedObject var store: ScanReviewStore
 
     private var totalReclaimableBytes: Int64 {
-        store.reclaimableBytes(for: .cache) +
-        store.reclaimableBytes(for: .duplicate) +
-        store.recommendedDeveloperBytes
+        fileCleanupBytes + store.recommendedDeveloperBytes
+    }
+
+    private var fileCleanupBytes: Int64 {
+        store.reclaimableBytes(for: .cache) + store.reclaimableBytes(for: .duplicate)
     }
 
     var body: some View {
@@ -54,7 +56,7 @@ struct OverviewView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else if totalReclaimableBytes > 0 {
-                    Text("\(ByteCountFormatter.cleanerString(from: totalReclaimableBytes)) recommended for cleanup across \(store.items.count) analyzed items.")
+                    Text(recommendationSummary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -66,17 +68,8 @@ struct OverviewView: View {
 
             Spacer()
 
-            if totalReclaimableBytes > 0 && !store.isScanning {
-                Button {
-                    store.selectSuggested()
-                    store.selectedSection = .cleanupPlan
-                } label: {
-                    Label(
-                        "Review & Clean (\(ByteCountFormatter.cleanerString(from: totalReclaimableBytes)))",
-                        systemImage: "trash"
-                    )
-                }
-                .buttonStyle(.borderedProminent)
+            if !store.isScanning {
+                recommendedCleanupAction
             }
 
             Button {
@@ -89,6 +82,68 @@ struct OverviewView: View {
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    @ViewBuilder
+    private var recommendedCleanupAction: some View {
+        if fileCleanupBytes > 0, store.recommendedDeveloperBytes > 0 {
+            Menu {
+                Button {
+                    store.selectedSection = .developerStorage
+                } label: {
+                    Label(
+                        "Developer Storage · \(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperBytes))",
+                        systemImage: "hammer"
+                    )
+                }
+
+                Button {
+                    store.selectSuggested()
+                    store.selectedSection = .cleanupPlan
+                } label: {
+                    Label(
+                        "Files & Caches · \(ByteCountFormatter.cleanerString(from: fileCleanupBytes))",
+                        systemImage: "trash"
+                    )
+                }
+            } label: {
+                Label("Review Recommendations", systemImage: "checkmark.seal")
+            }
+            .menuStyle(.borderlessButton)
+            .buttonStyle(.borderedProminent)
+        } else if store.recommendedDeveloperBytes > 0 {
+            Button {
+                store.selectedSection = .developerStorage
+            } label: {
+                Label(
+                    "Review Developer Cleanup (\(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperBytes)))",
+                    systemImage: "hammer"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+        } else if fileCleanupBytes > 0 {
+            Button {
+                store.selectSuggested()
+                store.selectedSection = .cleanupPlan
+            } label: {
+                Label(
+                    "Review File Cleanup (\(ByteCountFormatter.cleanerString(from: fileCleanupBytes)))",
+                    systemImage: "trash"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private var recommendationSummary: String {
+        let formattedTotal = ByteCountFormatter.cleanerString(from: totalReclaimableBytes)
+        if fileCleanupBytes > 0, store.recommendedDeveloperBytes > 0 {
+            return "\(formattedTotal) recommended across file cleanup and developer storage."
+        }
+        if store.recommendedDeveloperBytes > 0 {
+            return "\(formattedTotal) recommended in developer storage. Review it before cleaning."
+        }
+        return "\(formattedTotal) recommended across caches and verified duplicates."
     }
 
     // MARK: - Segmented Storage Bar
@@ -169,7 +224,7 @@ struct OverviewView: View {
             VStack(spacing: 0) {
                 CategoryRow(
                     title: "Developer Storage",
-                    detail: "Xcode DerivedData, simulators, package caches, local AI models",
+                    detail: "Xcode data, simulators, package caches, AI models, caches, and sessions",
                     systemImage: "hammer",
                     color: .blue,
                     totalBytes: store.totalDeveloperBytes,
@@ -181,7 +236,7 @@ struct OverviewView: View {
 
                 CategoryRow(
                     title: "Application Caches",
-                    detail: "User application caches in ~/Library/Caches and dev toolcaches",
+                    detail: "User application caches in ~/Library/Caches and developer tool caches",
                     systemImage: "shippingbox",
                     color: .green,
                     totalBytes: store.reclaimableBytes(for: .cache),

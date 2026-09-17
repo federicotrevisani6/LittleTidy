@@ -40,6 +40,18 @@ public struct FileRecord: Hashable, Codable, Sendable {
     public let contentType: String?
     public let isHidden: Bool
     public let volumeIdentifier: String?
+    public let fileResourceIdentifier: String?
+
+    /// Best available estimate of blocks that can actually be reclaimed.
+    public var storageSize: Int64 {
+        allocatedSize ?? fileSize
+    }
+
+    /// Stable only for the lifetime of the file on its current volume.
+    public var physicalIdentity: String? {
+        guard let volumeIdentifier, let fileResourceIdentifier else { return nil }
+        return volumeIdentifier + "\u{0}" + fileResourceIdentifier
+    }
 
     public init(
         id: UUID = UUID(),
@@ -51,7 +63,8 @@ public struct FileRecord: Hashable, Codable, Sendable {
         lastAccessDate: Date? = nil,
         contentType: String? = nil,
         isHidden: Bool = false,
-        volumeIdentifier: String? = nil
+        volumeIdentifier: String? = nil,
+        fileResourceIdentifier: String? = nil
     ) {
         self.id = id
         self.url = url
@@ -63,6 +76,7 @@ public struct FileRecord: Hashable, Codable, Sendable {
         self.contentType = contentType
         self.isHidden = isHidden
         self.volumeIdentifier = volumeIdentifier
+        self.fileResourceIdentifier = fileResourceIdentifier
     }
 }
 

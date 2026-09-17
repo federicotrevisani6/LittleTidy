@@ -27,7 +27,8 @@ public struct DuplicateAnalyzer: Sendable {
         minimumSize: Int64 = 1_000_000,
         strategy: DuplicateKeepStrategy = .smart
     ) throws -> [DuplicateGroup] {
-        let sizeGroups = Dictionary(grouping: files.filter { $0.fileSize >= minimumSize }, by: \.fileSize)
+        let physicalFiles = removingHardLinkAliases(from: files)
+        let sizeGroups = Dictionary(grouping: physicalFiles.filter { $0.storageSize >= minimumSize }, by: \.fileSize)
             .values
             .filter { $0.count > 1 }
 
@@ -61,7 +62,7 @@ public struct DuplicateAnalyzer: Sendable {
                     let recommendedKeep = chooseRecommendedKeep(from: duplicateFiles, strategy: strategy)
                     let reclaimableBytes = duplicateFiles
                         .filter { $0.id != recommendedKeep?.id }
-                        .reduce(Int64(0)) { $0 + $1.fileSize }
+                        .reduce(Int64(0)) { $0 + $1.storageSize }
 
                     groups.append(DuplicateGroup(
                         contentHash: hash,
@@ -79,6 +80,18 @@ public struct DuplicateAnalyzer: Sendable {
                 return $0.files.first?.url.path ?? "" < $1.files.first?.url.path ?? ""
             }
             return $0.reclaimableBytes > $1.reclaimableBytes
+        }
+    }
+
+    private func removingHardLinkAliases(from files: [FileRecord]) -> [FileRecord] {
+        var seenPhysicalFiles: Set<String> = []
+
+        return files.filter { file in
+            guard let physicalIdentity = file.physicalIdentity else {
+                return true
+            }
+
+            return seenPhysicalFiles.insert(physicalIdentity).inserted
         }
     }
 

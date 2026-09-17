@@ -27,7 +27,7 @@ for try await event in scanner.scan(request: ScanRequest(roots: [fixtureRoot], o
     }
 }
 
-let result = try CleanupAnalysis(
+let result = try await CleanupAnalysis(
     appUsageAnalyzer: AppUsageAnalyzer(now: { Date().addingTimeInterval(220 * 86_400) })
 ).analyze(files: records, options: options, appRoots: [appRoot])
 

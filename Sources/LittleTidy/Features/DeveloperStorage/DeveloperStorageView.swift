@@ -49,7 +49,7 @@ struct DeveloperStorageView: View {
                 if store.developerStorageInventory.items.isEmpty, !store.isScanningDeveloperStorage {
                     DeveloperStorageEmptyState()
                 } else {
-                    ForEach(DeveloperStorageCategory.allCases, id: \.self) { category in
+                    ForEach(orderedCategories, id: \.self) { category in
                         let items = store.developerItems(for: category)
                         if !items.isEmpty {
                             DeveloperStorageCategorySection(
@@ -93,6 +93,27 @@ struct DeveloperStorageView: View {
             store.refreshXcodeRunningState()
         }
     }
+
+    private var orderedCategories: [DeveloperStorageCategory] {
+        DeveloperStorageCategory.allCases
+            .filter { !store.developerItems(for: $0).isEmpty }
+            .sorted { lhs, rhs in
+                let lhsRank = categoryRank(lhs)
+                let rhsRank = categoryRank(rhs)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                return DeveloperStorageCategory.allCases.firstIndex(of: lhs) ?? 0
+                    < DeveloperStorageCategory.allCases.firstIndex(of: rhs) ?? 0
+            }
+    }
+
+    private func categoryRank(_ category: DeveloperStorageCategory) -> Int {
+        let items = store.developerItems(for: category)
+        if items.contains(where: { store.selectedDeveloperStorageItemIDs.contains($0.id) }) { return 0 }
+        if items.contains(where: { $0.recommendation == .recommended }) { return 1 }
+        if items.contains(where: { $0.recommendation == .review }) { return 2 }
+        if items.contains(where: { $0.recommendation == .protected }) { return 3 }
+        return 4
+    }
 }
 
 private struct DeveloperStorageHeader: View {
@@ -105,7 +126,7 @@ private struct DeveloperStorageHeader: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Developer Storage")
                     .font(.title2.weight(.semibold))
-                Text("Xcode caches, simulators, package managers, and local AI model weights.")
+                Text("Xcode data, simulators, package managers, and local AI models, caches, and sessions.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 680, alignment: .leading)

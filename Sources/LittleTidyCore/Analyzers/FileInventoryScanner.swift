@@ -19,6 +19,7 @@ public final class FileInventoryScanner: @unchecked Sendable {
                 var scannedBytes: Int64 = 0
                 var skippedItems = 0
                 var permissionErrors = 0
+                var countedPhysicalFiles: Set<String> = []
 
                 for (rootOffset, root) in request.roots.enumerated() {
                     if cancellation.isCancelled {
@@ -117,11 +118,18 @@ public final class FileInventoryScanner: @unchecked Sendable {
                                 lastAccessDate: values.contentAccessDate,
                                 contentType: values.typeIdentifier,
                                 isHidden: values.isHidden ?? fileURL.lastPathComponent.hasPrefix("."),
-                                volumeIdentifier: values.volumeIdentifier?.description
+                                volumeIdentifier: values.volumeIdentifier?.description,
+                                fileResourceIdentifier: values.fileResourceIdentifier.map { String(describing: $0) }
                             )
 
                             scannedFiles += 1
-                            scannedBytes += record.fileSize
+                            if let physicalIdentity = record.physicalIdentity {
+                                if countedPhysicalFiles.insert(physicalIdentity).inserted {
+                                    scannedBytes += record.storageSize
+                                }
+                            } else {
+                                scannedBytes += record.storageSize
+                            }
                             continuation.yield(.indexedFile(record))
 
                             if scannedFiles.isMultiple(of: 100) {
@@ -236,6 +244,7 @@ public final class FileInventoryScanner: @unchecked Sendable {
         .contentAccessDateKey,
         .typeIdentifierKey,
         .volumeIdentifierKey,
+        .fileResourceIdentifierKey,
         .isUbiquitousItemKey,
         .ubiquitousItemDownloadingStatusKey,
         .isSymbolicLinkKey

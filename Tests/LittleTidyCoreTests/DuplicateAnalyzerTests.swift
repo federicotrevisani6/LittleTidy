@@ -43,8 +43,41 @@ struct DuplicateAnalyzerTests {
         #expect(groups.count == 1)
         #expect(groups[0].files.count == 2)
         #expect(groups[0].confidence == .high)
-        #expect(groups[0].reclaimableBytes == 1_100_000)
+        #expect(groups[0].reclaimableBytes == records[0].storageSize)
         #expect(groups[0].recommendedKeep?.url == duplicateB)
+    }
+
+    @Test("does not count hard-linked paths as reclaimable duplicate copies")
+    func ignoresHardLinkAliases() throws {
+        let directory = try TemporaryDirectory()
+        let original = directory.url.appendingPathComponent("original.bin")
+        let hardLink = directory.url.appendingPathComponent("hard-link.bin")
+        try Data(repeating: 4, count: 1_100_000).write(to: original)
+        try FileManager.default.linkItem(at: original, to: hardLink)
+
+        let records = [try record(for: original), try record(for: hardLink)]
+        #expect(records[0].fileResourceIdentifier == records[1].fileResourceIdentifier)
+
+        let groups = try DuplicateAnalyzer().findDuplicates(in: records, minimumSize: 1_000_000)
+        #expect(groups.isEmpty)
+    }
+
+    @Test("reports allocated bytes rather than logical bytes as reclaimable")
+    func usesAllocatedSizeForReclaimableBytes() throws {
+        let directory = try TemporaryDirectory()
+        let first = directory.url.appendingPathComponent("first.bin")
+        let second = directory.url.appendingPathComponent("second.bin")
+        let data = Data(repeating: 8, count: 2_000_000)
+        try data.write(to: first)
+        try data.write(to: second)
+
+        let records = [
+            FileRecord(url: first, fileSize: 2_000_000, allocatedSize: 1_000_000),
+            FileRecord(url: second, fileSize: 2_000_000, allocatedSize: 1_250_000)
+        ]
+        let group = try #require(DuplicateAnalyzer().findDuplicates(in: records, minimumSize: 1).first)
+
+        #expect(group.reclaimableBytes == records.first(where: { $0.id != group.recommendedKeep?.id })?.storageSize)
     }
 
     @Test("respects duplicate keep strategies (oldest, newest, prefer non-downloads, shortest path)")

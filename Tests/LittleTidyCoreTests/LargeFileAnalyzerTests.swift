@@ -39,4 +39,17 @@ struct LargeFileAnalyzerTests {
 
         #expect(candidates.isEmpty)
     }
+
+    @Test("uses allocated size for the disk-space threshold")
+    func usesAllocatedSize() {
+        let sparseLikeFile = FileRecord(
+            url: URL(fileURLWithPath: "/tmp/large-sparse-image.bin"),
+            fileSize: 5_000_000_000,
+            allocatedSize: 10_000_000
+        )
+
+        let candidates = LargeFileAnalyzer().findLargeFiles(in: [sparseLikeFile], threshold: 500_000_000)
+
+        #expect(candidates.isEmpty)
+    }
 }
