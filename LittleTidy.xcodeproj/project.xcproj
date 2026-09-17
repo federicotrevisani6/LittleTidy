@@ -304,5 +304,5 @@
     "SWIFT_OPTIMIZATION_LEVEL[config=Release]": "-O",
     "SWIFT_VERSION": "6.0",
   },
-  "last-upgrade": "27.0",
+  "last-upgrade": "27.2",
 }
