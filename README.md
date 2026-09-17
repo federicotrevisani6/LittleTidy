@@ -113,8 +113,9 @@ A helper script is provided:
 GitHub release artifacts should be Developer ID signed and notarized before
 upload. The release script archives the app, signs it with the local Developer
 ID Application certificate, notarizes and staples both the app and DMG, then
-generates the EdDSA-signed Sparkle `appcast.xml`. Artifacts are written under
-`dist/release/`.
+creates the DMG through the native `diskutil image` API and generates the
+EdDSA-signed Sparkle `appcast.xml` from the notarized ZIP. Artifacts are written
+under `dist/release/`.
 
 Authenticate `asc` once (preferred), or save notarytool credentials in the
 Keychain as a fallback:

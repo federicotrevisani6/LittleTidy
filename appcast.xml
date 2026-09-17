@@ -20,7 +20,7 @@
 - Faster analysis through safe parallel processing of independent scanners.
 - Native JSON-based Xcode project format for more readable and merge-friendly project changes.
 ]]></description>
-            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.6.0/LittleTidy.dmg" length="4346284" type="application/octet-stream" sparkle:edSignature="7Re4j/ApYi1Pfovd3cu6hESJhjoG9ZxGIcNOJb6ZKCMlsul04rOxjTuIYDQkkbYpUCxKT3eghgOAVMRd+6mkBw=="/>
+            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.6.0/LittleTidy.zip" length="4441247" type="application/octet-stream" sparkle:edSignature="ZogxrK/jwgbTQ1L2RNdlJAcWyujdrwmLAL+ehvLL4et+VcbKifrr+KOQa0AjGYbkwxQchZIeCct+7TNzGnj5Dw=="/>
         </item>
         <item>
             <title>Version 0.5.0 (Build 7)</title>

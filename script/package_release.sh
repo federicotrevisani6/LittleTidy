@@ -61,7 +61,9 @@ BUILD_NUMBER="${BUILD_NUMBER:-1}"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 NOTARY_ZIP="$RELEASE_DIR/$APP_NAME-$VERSION-build-$BUILD_NUMBER-notary.zip"
 FINAL_ZIP="$RELEASE_DIR/$APP_NAME-$VERSION-build-$BUILD_NUMBER-macOS.zip"
+LATEST_ZIP="$RELEASE_DIR/$APP_NAME.zip"
 APPCAST_DIR="$RELEASE_DIR/appcast"
+DMG_STAGING_DIR="$RELEASE_DIR/dmg-root"
 
 if [[ -z "$RELEASE_NOTES_PATH" ]]; then
   RELEASE_NOTES_PATH="$ROOT_DIR/release-notes/$VERSION.md"
@@ -148,65 +150,61 @@ fi
 
 rm -f "$FINAL_ZIP"
 ditto -c -k --keepParent "$APP_PATH" "$FINAL_ZIP"
+cp "$FINAL_ZIP" "$LATEST_ZIP"
 
 FINAL_DMG="$RELEASE_DIR/$APP_NAME-$VERSION-build-$BUILD_NUMBER.dmg"
 LATEST_DMG="$RELEASE_DIR/$APP_NAME.dmg"
 
-if command -v create-dmg >/dev/null 2>&1; then
-  echo "Creating DMG package..."
-  rm -f "$FINAL_DMG" "$LATEST_DMG"
-  create-dmg \
-    --volname "$APP_NAME" \
-    --window-pos 200 120 \
-    --window-size 660 400 \
-    --icon-size 160 \
-    --icon "$APP_NAME.app" 180 170 \
-    --app-drop-link 480 170 \
-    --hide-extension "$APP_NAME.app" \
-    "$FINAL_DMG" \
-    "$APP_PATH"
+echo "Creating DMG package with diskutil image..."
+rm -f "$FINAL_DMG" "$LATEST_DMG"
+mkdir -p "$DMG_STAGING_DIR"
+ditto "$APP_PATH" "$DMG_STAGING_DIR/$APP_NAME.app"
+ln -s /Applications "$DMG_STAGING_DIR/Applications"
+diskutil image create from \
+  --format UDZO \
+  --volumeName "$APP_NAME" \
+  "$DMG_STAGING_DIR" \
+  "$FINAL_DMG"
+rm -rf "$DMG_STAGING_DIR"
 
-  echo "Signing DMG with Developer ID..."
-  codesign --force --timestamp --sign "$SIGN_IDENTITY" "$FINAL_DMG"
-  codesign --verify --strict --verbose=2 "$FINAL_DMG"
+echo "Signing DMG with Developer ID..."
+codesign --force --timestamp --sign "$SIGN_IDENTITY" "$FINAL_DMG"
+codesign --verify --strict --verbose=2 "$FINAL_DMG"
 
-  if [[ "$SKIP_NOTARIZATION" == "0" ]]; then
-    submit_for_notarization "$FINAL_DMG"
-    echo "Stapling notarization ticket to DMG..."
-    xcrun stapler staple "$FINAL_DMG"
-    xcrun stapler validate "$FINAL_DMG"
-    spctl --assess --type open --context context:primary-signature --verbose=4 "$FINAL_DMG"
-  fi
-
-  cp "$FINAL_DMG" "$LATEST_DMG"
-
-  GENERATE_APPCAST_BIN="$(find "$ROOT_DIR/.build" -name "generate_appcast" -type f 2>/dev/null | head -1)"
-  if [[ -z "$GENERATE_APPCAST_BIN" || ! -x "$GENERATE_APPCAST_BIN" ]]; then
-    echo "Missing Sparkle generate_appcast tool. Run swift build first." >&2
-    exit 1
-  fi
-
-  echo "Generating Sparkle appcast with EdDSA signature..."
-  mkdir -p "$APPCAST_DIR"
-  cp "$ROOT_DIR/appcast.xml" "$APPCAST_DIR/appcast.xml"
-  cp "$LATEST_DMG" "$APPCAST_DIR/$APP_NAME.dmg"
-  if [[ -f "$RELEASE_NOTES_PATH" ]]; then
-    cp "$RELEASE_NOTES_PATH" "$APPCAST_DIR/$APP_NAME.md"
-  else
-    echo "Missing release notes: $RELEASE_NOTES_PATH" >&2
-    exit 1
-  fi
-  "$GENERATE_APPCAST_BIN" \
-    --download-url-prefix "https://github.com/$REPOSITORY_SLUG/releases/download/v$VERSION/" \
-    --embed-release-notes \
-    "$APPCAST_DIR"
-  cp "$APPCAST_DIR/appcast.xml" "$ROOT_DIR/appcast.xml"
-  xmllint --noout "$ROOT_DIR/appcast.xml"
+if [[ "$SKIP_NOTARIZATION" == "0" ]]; then
+  submit_for_notarization "$FINAL_DMG"
+  echo "Stapling notarization ticket to DMG..."
+  xcrun stapler staple "$FINAL_DMG"
+  xcrun stapler validate "$FINAL_DMG"
+  spctl --assess --type open --context context:primary-signature --verbose=4 "$FINAL_DMG"
 fi
+
+cp "$FINAL_DMG" "$LATEST_DMG"
+
+GENERATE_APPCAST_BIN="$(find "$ROOT_DIR/.build" -name "generate_appcast" -type f 2>/dev/null | head -1)"
+if [[ -z "$GENERATE_APPCAST_BIN" || ! -x "$GENERATE_APPCAST_BIN" ]]; then
+  echo "Missing Sparkle generate_appcast tool. Run swift build first." >&2
+  exit 1
+fi
+
+echo "Generating Sparkle appcast from the notarized ZIP with EdDSA signature..."
+mkdir -p "$APPCAST_DIR"
+cp "$ROOT_DIR/appcast.xml" "$APPCAST_DIR/appcast.xml"
+cp "$LATEST_ZIP" "$APPCAST_DIR/$APP_NAME.zip"
+if [[ -f "$RELEASE_NOTES_PATH" ]]; then
+  cp "$RELEASE_NOTES_PATH" "$APPCAST_DIR/$APP_NAME.md"
+else
+  echo "Missing release notes: $RELEASE_NOTES_PATH" >&2
+  exit 1
+fi
+"$GENERATE_APPCAST_BIN" \
+  --download-url-prefix "https://github.com/$REPOSITORY_SLUG/releases/download/v$VERSION/" \
+  --embed-release-notes \
+  "$APPCAST_DIR"
+cp "$APPCAST_DIR/appcast.xml" "$ROOT_DIR/appcast.xml"
+xmllint --noout "$ROOT_DIR/appcast.xml"
 
 echo "Release ZIP: $FINAL_ZIP"
-if [[ -f "$FINAL_DMG" ]]; then
-  echo "Release DMG: $FINAL_DMG"
-  echo "Sparkle DMG: $LATEST_DMG"
-  echo "Sparkle appcast: $ROOT_DIR/appcast.xml"
-fi
+echo "Release DMG: $FINAL_DMG"
+echo "Sparkle ZIP: $LATEST_ZIP"
+echo "Sparkle appcast: $ROOT_DIR/appcast.xml"
