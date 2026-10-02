@@ -6,6 +6,25 @@
         <description>Most recent changes for LittleTidy.</description>
         <language>en</language>
         <item>
+            <title>0.7.0</title>
+            <pubDate>Fri, 02 Oct 2026 18:01:05 +0200</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.7.0
+
+- New System Diagnosis explains application containers, shared app data, developer resources, and known protected system storage. Unknown measurements remain visible, and reports can be exported as JSON.
+- Explore storage one folder at a time, with progressive sizes and clear labels for caches, build output, Git checkouts, and application or personal data.
+- Review registered agent worktrees with branch, size, local and ignored file checks, and an open-file activity snapshot. Removal requires explicit permanent-deletion opt-in, confirmation, and fresh checks; Git is never forced and the branch is preserved.
+- New Maintenance view inventories startup services and reports Spotlight and Time Machine snapshot status. An optional signed administrator service supports confirmed DNS refresh and Spotlight reindexing.
+- New Protection view checks Gatekeeper, FileVault, System Integrity Protection, and the application firewall, and assesses selected applications with Gatekeeper. These checks are not an antimalware engine.
+- Improved recognition of temporary Claude build output, compact-window layouts, accessibility, and complete app-bundle packaging.
+
+Requires macOS 26 or later. The administrator service requires macOS approval; Full Disk Access is separate. Agent activity checks are snapshots: stop the owning agent and archive associated tasks before removing a worktree. DNS refresh, Spotlight rebuilding, and administrator-service removal have not yet been exercised end to end.
+]]></description>
+            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.7.0/LittleTidy.zip" length="5874150" type="application/octet-stream" sparkle:edSignature="H9cQuOmIMRIju0huj2KkJErlL7+qBK95IgXh5sIaKDaGUiTZvuLD2LXFTTbQPW6JPCeT9mEmoF3lvY0qBxzKBg=="/>
+        </item>
+        <item>
             <title>0.6.0</title>
             <pubDate>Thu, 17 Sep 2026 17:56:50 +0200</pubDate>
             <sparkle:version>8</sparkle:version>

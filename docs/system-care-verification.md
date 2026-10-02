@@ -188,3 +188,27 @@ The disabled-filter regression was demonstrated against the previous production
 owner (one test failed at the intended removal-eligibility expectation), then
 passed with the repair. The complete repaired suite passed: 61 tests, 12 suites.
 Release artifacts are regenerated and notarized from the repaired commit.
+
+
+## Published release 0.7.0 (build 9) — 2 October 2026
+
+Source commit: 72a51dd9009507199e6a690141f1d255d7e8afb3. GitHub Build & Test
+passed on this commit (run 37030788469). The local suite passed all 61 tests.
+
+The authoritative Xcode JSON project was archived for arm64 and x86_64. The
+administrator helper is also universal. Executable leaves are signed before
+nested bundles/frameworks; the complete app passes deep, strict signature
+validation. Apple accepted both the app ZIP and DMG; tickets were stapled and
+validated, and Gatekeeper accepted both as Notarized Developer ID.
+
+The actual Release app was launched from its archive and remained running with
+its normal SwiftUI interface. Sparkle's ZIP signature was independently verified
+with CryptoKit against SUPublicEDKey in the shipped app, together with enclosure
+length, download URL, and version/build metadata.
+
+GitHub release v0.7.0 includes versioned and stable-name ZIP/DMG assets plus a
+SHA256SUMS manifest. All four assets were downloaded from GitHub and checked
+against the manifest before publication. The public Sparkle asset URL was checked
+before publishing the appcast. Installing an update from the older 0.6.0 client
+has not been exercised; the archive, signature, feed, and URL checks cover the
+published update package. Existing maintenance execution limitations above remain.
