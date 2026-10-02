@@ -103,8 +103,7 @@ public actor GitWorktreeManager {
             if tip != current.head { blockers.append("The branch no longer preserves this checkout's HEAD. Review its commits manually.") }
         } else { blockers.append("Detached HEAD: preserve its commits on a branch before removal.") }
         // Filters may run arbitrary repository programs during status. Refuse them.
-        let filters = try await optionalGit(at: url, arguments: ["config", "--null", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|process|required)$"])
-        if !filters.isEmpty {
+        if try await hasEnabledContentFilters(at: url) {
             blockers.append("Repository content filters are configured. Inspect this worktree in your Git client; LittleTidy does not run them.")
         } else {
             let flags = try await run(at: url, arguments: ["ls-files", "-v", "-z"])
@@ -130,8 +129,7 @@ public actor GitWorktreeManager {
         guard fresh.canRemove, fresh.worktree == inspected.worktree else { throw failure("Worktree state changed or removal is blocked. Check again.") }
         let url = URL(fileURLWithPath: fresh.worktree.path)
         // Repeat file checks after the activity/size probes, immediately before Git removal.
-        let filters = try await optionalGit(at: url, arguments: ["config", "--null", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|process|required)$"])
-        guard filters.isEmpty else { throw failure("Content filter configuration changed. Removal blocked.") }
+        guard try await !hasEnabledContentFilters(at: url) else { throw failure("Content filter configuration changed. Removal blocked.") }
         let status = try await run(at: url, arguments: ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=matching", "--ignore-submodules=none"])
         guard status.isEmpty else { throw failure("Local data appeared after the review. Removal blocked.") }
         try Task.checkCancellation()
@@ -168,6 +166,21 @@ public actor GitWorktreeManager {
     }
     private func run(at url: URL, arguments: [String]) async throws -> Data {
         try await runner.run(executable: git, arguments: options + ["-C", url.path] + arguments).standardOutput
+    }
+    private func hasEnabledContentFilters(at url: URL) async throws -> Bool {
+        let data = try await optionalGit(at: url, arguments: ["config", "--null", "--get-regexp", "^filter\\..*\\.(clean|process|required)$"])
+        // Git emits system, global, then local values. The last value for each
+        // single-valued filter option is effective; empty drivers disable it.
+        var effective: [String: String] = [:]
+        for field in data.split(separator: 0) {
+            let parts = String(decoding: field, as: UTF8.self).split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { throw failure("Git filter configuration is unreadable.") }
+            effective[String(parts[0])] = String(parts[1])
+        }
+        return effective.contains { key, value in
+            if key.hasSuffix(".required") { return !["false", "no", "off", "0"].contains(value.lowercased()) }
+            return !value.isEmpty
+        }
     }
     private func optionalGit(at url: URL, arguments: [String]) async throws -> Data {
         do { return try await run(at: url, arguments: arguments) }

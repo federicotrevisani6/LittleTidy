@@ -60,11 +60,15 @@ struct GitWorktreeTests {
         let fixture = try await GitWorktreeFixture.make()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
         let sentinel = fixture.root.appendingPathComponent("filter-ran")
+        try await fixture.git(["config", "filter.disabled.clean", ""])
+        try await fixture.git(["config", "filter.disabled.process", ""])
+        try await fixture.git(["config", "filter.disabled.required", "false"])
+        let manager = GitWorktreeManager(root: fixture.root, activity: TestWorktreeActivity())
+        let record = try #require(try await manager.discover().worktrees.first)
+        #expect((try await manager.inspect(record)).canRemove)
         try await fixture.git(["config", "filter.danger.clean", "touch " + sentinel.path])
         try Data("tracked.txt filter=danger\n".utf8).write(to: fixture.linked.appendingPathComponent(".gitattributes"))
         try Data("modified".utf8).write(to: fixture.linked.appendingPathComponent("tracked.txt"))
-        let manager = GitWorktreeManager(root: fixture.root, activity: TestWorktreeActivity())
-        let record = try #require(try await manager.discover().worktrees.first)
         let checked = try await manager.inspect(record)
         #expect(!checked.canRemove)
         #expect(!FileManager.default.fileExists(atPath: sentinel.path))
@@ -115,6 +119,15 @@ private struct GitWorktreeFixture {
         let fixture = Self(root: URL(fileURLWithPath: "/private/tmp/LittleTidyWorktreeTests-\(UUID().uuidString)"))
         try FileManager.default.createDirectory(at: fixture.main, withIntermediateDirectories: true)
         try await fixture.git(["init", "-b", "main"])
+        // Isolate fixture policy from preinstalled runner-wide filters (e.g. LFS).
+        let configReader = BoundedCommandRunner(timeout: 15, environment: ["PATH": "/usr/bin:/bin", "HOME": FileManager.default.homeDirectoryForCurrentUser.path])
+        let names: Data
+        do {
+            names = try await configReader.run(executable: URL(fileURLWithPath: "/usr/bin/git"), arguments: ["-C", fixture.main.path, "config", "--null", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|process|required)$"]).standardOutput
+        } catch DeveloperToolCommandError.failed(_, let code, _) where code == 1 { names = Data() }
+        for name in Set(names.split(separator: 0).map { String(decoding: $0, as: UTF8.self) }) {
+            try await fixture.git(["config", "--local", name, name.hasSuffix(".required") ? "false" : ""])
+        }
         try Data("committed content".utf8).write(to: fixture.main.appendingPathComponent("tracked.txt"))
         try Data("ignored.txt\n".utf8).write(to: fixture.main.appendingPathComponent(".gitignore"))
         try await fixture.git(["add", "."])

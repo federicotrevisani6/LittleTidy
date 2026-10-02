@@ -174,3 +174,17 @@ Validation:
 - SwiftFairy rejected this new audit because no active scroll content was
   available. No trial was started. The previous folder-browser audit remains a
   separate completed pass; it does not cover this new view.
+
+
+## Release CI filter regression — 2 October 2026
+
+The first 0.7.0 GitHub run failed because the hosted runner installs global Git
+LFS filters. Worktree fixtures now explicitly disable inherited content filters
+inside their temporary repository. Production checks use the effective Git
+configuration, so empty drivers and required=false overrides do not block status;
+active filter programs remain protected and are never executed.
+
+The disabled-filter regression was demonstrated against the previous production
+owner (one test failed at the intended removal-eligibility expectation), then
+passed with the repair. The complete repaired suite passed: 61 tests, 12 suites.
+Release artifacts are regenerated and notarized from the repaired commit.
