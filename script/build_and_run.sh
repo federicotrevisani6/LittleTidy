@@ -41,8 +41,8 @@ cp "$ROOT_DIR/Sources/LittleTidy/Info.plist" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $APP_NAME" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.6.0" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 8" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.7.0" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 9" "$INFO_PLIST"
 
 if /usr/bin/security find-identity -v -p codesigning | /usr/bin/grep -Fq "$SIGN_IDENTITY"; then
   while IFS= read -r item; do

@@ -107,7 +107,9 @@ xcodebuild archive \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
   ENABLE_HARDENED_RUNTIME=YES \
-  SKIP_INSTALL=NO
+  SKIP_INSTALL=NO \
+  ONLY_ACTIVE_ARCH=NO \
+  ARCHS="arm64 x86_64"
 
 swift build -c release --product LittleTidyHelper --arch arm64 --arch x86_64
 HELPER_BINARY="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/LittleTidyHelper"
@@ -118,21 +120,10 @@ codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" --identif
 
 echo "Re-signing embedded frameworks, helpers, and app bundle inside-out with secure timestamp..."
 
-find "$APP_PATH/Contents/Frameworks" -type d -name "*.xpc" | while read -r item; do
+# Sign executable leaves before the bundles that seal them.
+while IFS= read -r item; do
   codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item"
-done
-
-find "$APP_PATH/Contents/Frameworks" -type d -name "*.app" | while read -r item; do
-  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item"
-done
-
-find "$APP_PATH/Contents/Frameworks" -type f -perm +111 | while read -r item; do
-  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item"
-done
-
-find "$APP_PATH/Contents/Frameworks" -depth 1 -type d -name "*.framework" | while read -r item; do
-  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item"
-done
+done < <(find "$APP_PATH/Contents/Frameworks" -depth \( -type f -perm +111 -o -type d -name '*.xpc' -o -type d -name '*.app' -o -type d -name '*.framework' \))
 
 codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP_PATH"
 
