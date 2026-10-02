@@ -8,6 +8,7 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
+        .executable(name: "LittleTidyHelper", targets: ["LittleTidyHelper"]),
         .library(
             name: "LittleTidyCore",
             targets: ["LittleTidyCore"]
@@ -25,6 +26,7 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.0.0")
     ],
     targets: [
+        .executableTarget(name: "LittleTidyHelper", dependencies: ["LittleTidyCore"]),
         .target(
             name: "LittleTidyCore"
         ),

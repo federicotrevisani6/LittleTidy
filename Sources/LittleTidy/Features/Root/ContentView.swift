@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var store = ScanReviewStore()
+    @State private var systemCare = SystemCareStore()
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -12,10 +13,10 @@ struct ContentView: View {
         } detail: {
             Group {
                 if store.selectedSection.supportsItemSearch {
-                    DetailView(store: store)
+                    DetailView(store: store, systemCare: systemCare)
                         .searchable(text: $store.reviewSearchText, prompt: "Filter items…")
                 } else {
-                    DetailView(store: store)
+                    DetailView(store: store, systemCare: systemCare)
                 }
             }
                 .toolbar {
@@ -57,11 +58,12 @@ struct ContentView: View {
                         }
 
                         Button {
-                            store.startOrCancelScan()
+                            if store.selectedSection.isSystemCare { systemCare.scan() }
+                            else { store.startOrCancelScan() }
                         } label: {
                             Label(
-                                store.isScanning ? "Cancel Scan" : "Scan",
-                                systemImage: store.isScanning ? "xmark.circle" : "arrow.triangle.2.circlepath"
+                                isActiveScan ? "Cancel Scan" : "Scan",
+                                systemImage: isActiveScan ? "xmark.circle" : "arrow.triangle.2.circlepath"
                             )
                         }
                         .keyboardShortcut("r", modifiers: [.command])
@@ -101,6 +103,8 @@ struct ContentView: View {
             )
         }
     }
+
+    private var isActiveScan: Bool { store.selectedSection.isSystemCare ? systemCare.isScanning : store.isScanning }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         Task { @MainActor in

@@ -31,6 +31,8 @@ private struct SidebarRow: View {
 
     private func badgeText(for section: SidebarSection) -> String {
         switch section {
+        case .systemDiagnosis, .maintenance, .protection:
+            return ""
         case .overview:
             if store.isScanning { return "…" }
             let total = store.reclaimableBytes(for: .cache) + store.reclaimableBytes(for: .duplicate) + store.recommendedDeveloperBytes

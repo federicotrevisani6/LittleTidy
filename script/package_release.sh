@@ -109,6 +109,13 @@ xcodebuild archive \
   ENABLE_HARDENED_RUNTIME=YES \
   SKIP_INSTALL=NO
 
+swift build -c release --product LittleTidyHelper --arch arm64 --arch x86_64
+HELPER_BINARY="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/LittleTidyHelper"
+mkdir -p "$APP_PATH/Contents/Library/HelperTools" "$APP_PATH/Contents/Library/LaunchDaemons"
+cp "$HELPER_BINARY" "$APP_PATH/Contents/Library/HelperTools/LittleTidyHelper"
+cp "$ROOT_DIR/Support/com.federicotrevisani.LittleTidy.Helper.plist" "$APP_PATH/Contents/Library/LaunchDaemons/"
+codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" --identifier com.federicotrevisani.LittleTidy.Helper "$APP_PATH/Contents/Library/HelperTools/LittleTidyHelper"
+
 echo "Re-signing embedded frameworks, helpers, and app bundle inside-out with secure timestamp..."
 
 find "$APP_PATH/Contents/Frameworks" -type d -name "*.xpc" | while read -r item; do

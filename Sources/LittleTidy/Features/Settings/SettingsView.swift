@@ -393,6 +393,14 @@ private struct DeletionSafetySettingsTab: View {
             }
 
             Section {
+                Toggle("Allow Permanent Git Worktree Removal", isOn: $allowPermanentDeletion)
+                    .disabled(deletionMode == .permanentDelete)
+                    .onChange(of: allowPermanentDeletion) { _, _ in savePreferences() }
+                Text("Worktree removal uses Git and does not use Trash. Each worktree requires review and confirmation; the default deletion method for other files stays as selected above.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Drop stubborn files or directories here to immediately force delete them without placing them in the Trash:")
                         .font(.caption)

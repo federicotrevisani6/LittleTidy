@@ -28,5 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().delegate = AppUninstallNotificationManager.shared
         updaterManager.start()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verify-admin") {
+            SystemCareVerification.run()
+        }
+        #endif
     }
 }

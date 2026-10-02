@@ -1,6 +1,9 @@
 import Foundation
 
 enum SidebarSection: String, CaseIterable, Identifiable {
+    case systemDiagnosis
+    case maintenance
+    case protection
     case overview
     case storage
     case developerStorage
@@ -29,7 +32,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
         var sections: [SidebarSection] {
             switch self {
-            case .system: [.overview, .storage]
+            case .system: [.overview, .systemDiagnosis, .storage, .maintenance, .protection]
             case .cleanup: [.developerStorage, .caches, .duplicates, .largeFiles, .unusedApps]
             case .review: [.cleanupPlan]
             }
@@ -38,6 +41,9 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .systemDiagnosis: "System Diagnosis"
+        case .maintenance: "Maintenance"
+        case .protection: "Protection"
         case .overview: "Overview"
         case .developerStorage: "Developer Storage"
         case .duplicates: "Duplicate Files"
@@ -51,6 +57,9 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .systemDiagnosis: "internaldrive.fill"
+        case .maintenance: "wrench.and.screwdriver"
+        case .protection: "shield.lefthalf.filled"
         case .overview: "gauge.with.needle"
         case .developerStorage: "hammer"
         case .duplicates: "doc.on.doc"
@@ -62,11 +71,13 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         }
     }
 
+    var isSystemCare: Bool { self == .systemDiagnosis || self == .maintenance || self == .protection }
+
     var supportsItemSearch: Bool {
         switch self {
         case .duplicates, .largeFiles, .unusedApps, .caches:
             true
-        case .overview, .storage, .developerStorage, .cleanupPlan:
+        case .overview, .storage, .developerStorage, .cleanupPlan, .systemDiagnosis, .maintenance, .protection:
             false
         }
     }

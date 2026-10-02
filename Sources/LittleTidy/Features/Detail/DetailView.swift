@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DetailView: View {
     @ObservedObject var store: ScanReviewStore
+    let systemCare: SystemCareStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +18,8 @@ struct DetailView: View {
             }
 
             switch store.selectedSection {
+            case .systemDiagnosis, .maintenance, .protection:
+                SystemCareView(section: store.selectedSection, store: systemCare)
             case .overview:
                 OverviewView(store: store)
             case .developerStorage:

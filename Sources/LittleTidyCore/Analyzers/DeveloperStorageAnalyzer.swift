@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public actor DeveloperStorageAnalyzer {
@@ -5,17 +6,20 @@ public actor DeveloperStorageAnalyzer {
     private let homeDirectory: URL
     private let commandRunner: any DeveloperToolCommandRunning
     private let policy: DeveloperStoragePolicy
+    private let agentTemporaryRoot: URL
 
     public init(
         fileManager: FileManager = .default,
         homeDirectory: URL? = nil,
         commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient(),
-        policy: DeveloperStoragePolicy = DeveloperStoragePolicy()
+        policy: DeveloperStoragePolicy = DeveloperStoragePolicy(),
+        agentTemporaryRoot: URL? = nil
     ) {
         self.fileManager = fileManager
         self.homeDirectory = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
         self.commandRunner = commandRunner
         self.policy = policy
+        self.agentTemporaryRoot = agentTemporaryRoot ?? URL(fileURLWithPath: "/private/tmp/claude-\(getuid())", isDirectory: true)
     }
 
     public func analyze() async throws -> DeveloperStorageInventory {
@@ -193,6 +197,16 @@ public actor DeveloperStorageAnalyzer {
             )
         }
 
+        appendAgentTemporaryBuilds(items: &items, issues: &issues)
+        appendDirectory(
+            xcodeRoot.appendingPathComponent("UserData/Previews", isDirectory: true),
+            category: .aiGeneratedArtifacts,
+            name: "Xcode Preview Environments",
+            detail: "Preview environments can be recreated, but may contain simulator app data. Review before cleaning.",
+            items: &items,
+            issues: &issues
+        )
+
         let simulatorResult = await simulatorInventory()
         items.append(contentsOf: simulatorResult.items)
         issues.append(contentsOf: simulatorResult.issues)
@@ -295,6 +309,54 @@ public actor DeveloperStorageAnalyzer {
                 false
             )
         }
+    }
+
+    private func appendAgentTemporaryBuilds(items: inout [DeveloperStorageItem], issues: inout [DeveloperStorageAccessIssue]) {
+        guard fileManager.fileExists(atPath: agentTemporaryRoot.path) else { return }
+        var accessErrors: [DeveloperStorageAccessIssue] = []
+        guard let enumerator = fileManager.enumerator(
+            at: agentTemporaryRoot,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles],
+            errorHandler: { url, error in
+                accessErrors.append(DeveloperStorageAccessIssue(path: url.path, message: error.localizedDescription))
+                return true
+            }
+        ) else {
+            issues.append(DeveloperStorageAccessIssue(path: agentTemporaryRoot.path, message: "Unable to read agent temporary data; size is unknown."))
+            return
+        }
+        for case let url as URL in enumerator {
+            if Task.isCancelled { break }
+            let depth = enumerator.level
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if values?.isSymbolicLink == true || depth > 4 {
+                enumerator.skipDescendants(); continue
+            }
+            guard values?.isDirectory == true else { continue }
+            let plistURL = url.appendingPathComponent("info.plist")
+            let build = url.appendingPathComponent("Build", isDirectory: true)
+            guard fileManager.fileExists(atPath: build.path),
+                  let data = try? Data(contentsOf: plistURL),
+                  let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
+                  plist["WorkspacePath"] is String else { continue }
+            // Recognition requires an Xcode workspace marker, not a folder name.
+            // Agent sessions, worktrees, and scripts are not cache candidates.
+            enumerator.skipDescendants()
+            let decision = DeveloperStorageDecision(
+                activity: .unknown, recoverability: .recreatable, mechanism: .trash,
+                consequence: .temporarySlowdown, recommendation: .review,
+                reason: "Xcode build output created in a Claude temporary session. Stop the owning task before moving it to Trash; the next build recreates it."
+            )
+            items.append(makeItem(
+                id: "path:\(url.standardizedFileURL.path)", category: .aiGeneratedArtifacts,
+                name: "Claude build data: \(url.lastPathComponent)",
+                detail: "Recognized Xcode DerivedData inside an agent temporary session",
+                url: url, externalIdentifier: nil, isAvailable: true,
+                decision: decision, issues: &issues
+            ))
+        }
+        issues.append(contentsOf: accessErrors)
     }
 
     private func appendDirectory(

@@ -13,12 +13,40 @@ also finds duplicate files, large files, unused apps, and caches.
 - **Conservative recommendations** — only high-confidence rebuildable or
   unavailable data is preselected; review, protected, and unclassified totals
   remain separate.
-- **Scoped access** — scans only user-approved folders; system locations
-  (`/System`, `/Library`, `/usr`, …) are excluded unless you explicitly opt in.
+- **Scoped access** — cleanup scans use approved roots. System Diagnosis also
+  measures named system locations without treating them as cleanup candidates;
+  protected locations may need Full Disk Access and the optional administrator service.
 - **Transparent** — each candidate carries a reason, path, size, and confidence.
 - **Non-blocking** — scans run off the main thread and are cancellable at any point.
 
 ## Features
+
+- **System Diagnosis** measures app containers, shared data, developer resources,
+  and known protected system locations. Failed or incomplete measurements remain
+  unknown, never zero. JSON reports include access gaps. Folder sizes can overlap
+  and are not a total of reclaimable bytes.
+- **Folder exploration** opens immediate subfolders from System Diagnosis, with
+  progressive sizes and recognition of known caches, build output, Git repositories,
+  worktrees, and application data. It is read-only: Git activity and changes are
+  not checked. Links and CoreDevice mounts are excluded; application packages are
+  not traversed. Each level is limited to 250 entries and a one-minute measurement
+  budget, with Stop and Refresh controls.
+- **Agent worktree review** discovers registered linked Git worktrees in the
+  Codex worktree folder or an explicitly chosen folder. Review shows size, branch,
+  local/ignored data, and an open-file activity snapshot. Main checkouts, detached
+  HEADs, locks, content filters, hidden-index flags, submodules, access errors,
+  and observed activity block removal. Git removal requires permanent-deletion
+  opt-in and confirmation, rechecks state, never forces, and keeps the branch.
+  Background agents can resume after a snapshot: stop the owner first.
+- **Maintenance** inventories startup plists and shows Spotlight and Time Machine
+  snapshot status. The optional signed administrator service exposes only fixed
+  DNS refresh and Spotlight rebuild actions, with confirmation before each action.
+- **Protection** checks Gatekeeper, FileVault, SIP, and the application firewall,
+  and assesses selected apps with Gatekeeper. This is not a malware scanner or
+  real-time protection engine.
+- **Agent build artifacts** identifies temporary Claude DerivedData using Xcode
+  metadata, for explicit review. Scratchpads and Git worktrees are not blanket
+  cleanup candidates.
 
 - **Developer Storage diagnosis** for Simulator devices and runtimes,
   XCTestDevices, DerivedData, Device Support, and Xcode archives. Results are
@@ -171,3 +199,24 @@ for the product, safety, engineering, testing, and release plan.
 Released under the [MIT License](LICENSE) — © 2026 Federico Trevisani. You may
 use, modify, and distribute it freely, including in closed-source software,
 provided the copyright notice and license text are retained.
+
+## Administrator service and development bundles
+
+Use `./script/build_and_run.sh --verify` to build and launch the complete debug
+bundle in `dist`. It embeds resources, Sparkle, and the administrator helper and
+signs nested code with the configured Developer ID. `script/package_release.sh`
+also embeds the universal helper. Direct Xcode Run does not currently embed the
+helper; normal app features still work, but Administrator Access is unavailable.
+
+Enable Administrator Access inside the app and approve it in macOS Login Items
+& Extensions. Full Disk Access is a separate permission. The service authenticates
+the app and helper by exact bundle identity and signing team. It accepts no
+arbitrary command or cleanup path, and does not delete protected system storage.
+The privileged registration, XPC, and maintenance flow needs verification after
+user approval; building the helper does not exercise that flow.
+
+For a read-only check of the real signed administrator connection in a debug
+build, run `./script/build_and_run.sh --verify-admin` after approving the service.
+The app writes `~/Library/Application Support/LittleTidy/Diagnostics/admin-verification.json`
+with its service status, connection result, and protected measurements. This
+entry point is excluded from release builds and never runs maintenance tasks.
