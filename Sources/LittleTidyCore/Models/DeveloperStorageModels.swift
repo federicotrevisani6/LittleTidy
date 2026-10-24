@@ -147,6 +147,19 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
         return bytes - minimumReclaimableBytes >= max(1_000_000, bytes / 10)
     }
 
+    /// Space this item gives back once nothing else holds it. Device clones
+    /// share blocks with their source device for good, so only their private
+    /// size counts. Other items are held at most by a local snapshot, which
+    /// macOS releases, so their allocated size counts.
+    public var eventuallyReclaimableBytes: Int64 {
+        switch category {
+        case .simulatorDevices, .xctestDevices:
+            return guaranteedReclaimableBytes
+        default:
+            return bytes
+        }
+    }
+
     public func withMinimumReclaimableBytes(_ value: Int64?) -> DeveloperStorageItem {
         DeveloperStorageItem(
             id: id,
@@ -253,6 +266,10 @@ public struct DeveloperStorageInventory: Codable, Equatable, Sendable {
 
     public func guaranteedReclaimableBytes(for recommendation: StorageRecommendation) -> Int64 {
         items.filter { $0.recommendation == recommendation }.reduce(0) { $0 + $1.guaranteedReclaimableBytes }
+    }
+
+    public func eventuallyReclaimableBytes(for recommendation: StorageRecommendation) -> Int64 {
+        items.filter { $0.recommendation == recommendation }.reduce(0) { $0 + $1.eventuallyReclaimableBytes }
     }
 
     public func bytes(for category: DeveloperStorageCategory) -> Int64 {

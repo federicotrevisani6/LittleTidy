@@ -35,6 +35,17 @@ public actor DeveloperStorageAnalyzer {
         var items: [DeveloperStorageItem] = []
         var issues: [DeveloperStorageAccessIssue] = []
 
+        // brew cleanup --dry-run takes tens of seconds, so it runs detached,
+        // in parallel with the filesystem measurements, and is awaited last.
+        let brew = homebrewExecutables.first { fileManager.isExecutableFile(atPath: $0.path) }
+        let runner = homebrewRunner
+        let homebrewDryRun = brew.map { brew in
+            Task.detached(priority: .utility) {
+                try await runner.run(executable: brew, arguments: HomebrewCleanup.dryRunArguments)
+            }
+        }
+        defer { homebrewDryRun?.cancel() }
+
         let developerRoot = homeDirectory.appendingPathComponent("Library/Developer", isDirectory: true)
         let xcodeRoot = developerRoot.appendingPathComponent("Xcode", isDirectory: true)
 
@@ -59,7 +70,6 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
-        await appendHomebrewCleanup(items: &items, issues: &issues)
 
         // Package Manager Caches
         let userLibraryCaches = homeDirectory.appendingPathComponent("Library/Caches", isDirectory: true)
@@ -239,6 +249,9 @@ public actor DeveloperStorageAnalyzer {
         // ~/Library/Caches/org.swift.swiftpm) or outside every known root.
         items = items.filter { item in item.url.map { !isSymbolicLink($0) } ?? true }
         items = items.map(estimatingClonedStorage)
+        if let brew, let homebrewDryRun {
+            await appendHomebrewCleanup(brew: brew, dryRun: homebrewDryRun, items: &items, issues: &issues)
+        }
         let latestLocalSnapshotAt = await latestLocalSnapshot()
 
         return DeveloperStorageInventory(
@@ -300,8 +313,10 @@ public actor DeveloperStorageAnalyzer {
                 items.append(makeItem(
                     id: "simulator-device:\(device.udid)",
                     category: .simulatorDevices,
-                    name: device.name,
-                    detail: "\(runtimeDisplayName(device.runtimeIdentifier)) · \(device.state)",
+                    // The same model usually exists once per installed runtime,
+                    // so the runtime is part of the name, not just the detail.
+                    name: "\(device.name) · \(runtimeDisplayName(device.runtimeIdentifier))",
+                    detail: device.state,
                     url: url,
                     externalIdentifier: device.udid,
                     isAvailable: device.isAvailable,
@@ -469,8 +484,8 @@ public actor DeveloperStorageAnalyzer {
             items.append(makeItem(
                 id: "xctest-device:\(device.udid)",
                 category: .xctestDevices,
-                name: device.name,
-                detail: "\(runtimeDisplayName(device.runtimeIdentifier)) · \(device.state)" + (exists ? "" : " · Folder already removed"),
+                name: "\(device.name) · \(runtimeDisplayName(device.runtimeIdentifier))",
+                detail: device.state + (exists ? "" : " · Folder already removed"),
                 url: exists ? url : nil,
                 externalIdentifier: device.udid,
                 isAvailable: device.isAvailable,
@@ -509,12 +524,13 @@ public actor DeveloperStorageAnalyzer {
     /// Homebrew reports reclaimable space itself with a dry run. Its own
     /// cache folder is not listed here, so the space is not counted twice.
     private func appendHomebrewCleanup(
+        brew: URL,
+        dryRun: Task<DeveloperToolCommandResult, any Error>,
         items: inout [DeveloperStorageItem],
         issues: inout [DeveloperStorageAccessIssue]
     ) async {
-        guard let brew = homebrewExecutables.first(where: { fileManager.isExecutableFile(atPath: $0.path) }) else { return }
         do {
-            let result = try await homebrewRunner.run(executable: brew, arguments: HomebrewCleanup.dryRunArguments)
+            let result = try await dryRun.value
             guard let bytes = HomebrewCleanup.parseReclaimedBytes(result.standardOutput), bytes > 0 else { return }
             let decision = policy.homebrewCleanupDecision()
             items.append(DeveloperStorageItem(
@@ -957,9 +973,16 @@ public actor DeveloperStorageAnalyzer {
         return max(0, Int64(total - available))
     }
 
-    private func runtimeDisplayName(_ identifier: String) -> String {
-        identifier
+    /// "com.apple.CoreSimulator.SimRuntime.iOS-27-2" becomes "iOS 27.2".
+    static func runtimeDisplayName(_ identifier: String) -> String {
+        let parts = identifier
             .replacingOccurrences(of: "com.apple.CoreSimulator.SimRuntime.", with: "")
-            .replacingOccurrences(of: "-", with: " ")
+            .split(separator: "-")
+        guard let platform = parts.first, parts.count > 1 else { return parts.joined(separator: " ") }
+        return "\(platform) \(parts.dropFirst().joined(separator: "."))"
+    }
+
+    private func runtimeDisplayName(_ identifier: String) -> String {
+        Self.runtimeDisplayName(identifier)
     }
 }

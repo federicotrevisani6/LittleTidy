@@ -185,6 +185,13 @@ final class ScanReviewStore: ObservableObject {
         return held >= max(100_000_000, recommendedDeveloperBytes / 10) ? held : nil
     }
 
+    /// What recommended developer cleanup gives back once any local snapshot
+    /// is released. Used for summary totals outside Developer Storage, where
+    /// allocated size would overstate cloned devices.
+    var recommendedDeveloperReclaimableBytes: Int64 {
+        developerStorageInventory.eventuallyReclaimableBytes(for: .recommended)
+    }
+
     var reviewDeveloperBytes: Int64 {
         developerStorageInventory.bytes(for: .review)
     }
@@ -284,6 +291,9 @@ final class ScanReviewStore: ObservableObject {
                     inventory.items
                         .filter { $0.recommendation == .recommended }
                         .filter { [.trash, .simctl, .homebrewCleanup].contains($0.cleanupMechanism) }
+                        // Empty items (for example XCTest clones whose folder is
+                        // already gone) stay selectable but are not preselected.
+                        .filter { $0.bytes > 0 }
                         .map(\.id)
                 )
                 self?.isScanningDeveloperStorage = false

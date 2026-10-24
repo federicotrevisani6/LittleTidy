@@ -45,11 +45,9 @@ scannedFiles=10
 duplicates=1
 largeFiles=5
 unusedApps=1
-developerItems=<non-zero>
-developerBytes=<non-zero>
+developerItems=6
+developerBytes=1310720
 ```
-
-The harness currently stops at `Expected at least 4 large-file candidates.` on `main` as well; treat that as a known failure until the fixture is fixed.
 
 1. Open the Xcode project:
 

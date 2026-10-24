@@ -41,7 +41,7 @@ struct DeveloperStorageReclaimTests {
             "simctl list": Data("{\"devices\":{}}".utf8)
         ])
 
-        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []).analyze()
         let xctest = inventory.items.filter { $0.category == .xctestDevices }
 
         // CLONE-2 is booted, so a test session is active and CLONE-1 is protected too.
@@ -69,7 +69,7 @@ struct DeveloperStorageReclaimTests {
             ])
         ])
 
-        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []).analyze()
 
         #expect(inventory.items.first { $0.externalIdentifier == "CLONE-1" }?.recommendation == expected)
     }
@@ -83,7 +83,7 @@ struct DeveloperStorageReclaimTests {
         let inventory = try await DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: RoutingCommandRunner(routes: [:]),
-            homebrewExecutables: []
+            agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []
         ).analyze()
 
         #expect(inventory.items.contains { $0.category == .xctestDevices && $0.recommendation == .unclassified && $0.url == root })
@@ -248,7 +248,7 @@ struct DeveloperStorageReclaimTests {
             "listlocalsnapshots": Data("com.apple.TimeMachine.2026-10-24-180741.local\ncom.apple.TimeMachine.2026-10-24-190450.local\n".utf8)
         ])
 
-        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []).analyze()
         let derived = inventory.items.filter { $0.category == .derivedData }
 
         #expect(inventory.latestLocalSnapshotAt == LocalSnapshotInventory.parseSnapshotDates(Data("com.apple.TimeMachine.2026-10-24-190450.local".utf8)).first)
@@ -264,7 +264,7 @@ struct DeveloperStorageReclaimTests {
         let inventory = try await DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: RoutingCommandRunner(routes: [:]),
-            homebrewExecutables: []
+            agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []
         ).analyze()
 
         #expect(inventory.latestLocalSnapshotAt == nil)
@@ -321,6 +321,44 @@ struct DeveloperStorageReclaimTests {
         #expect(DeveloperStorageCleanupResult(items: result.items).bytesNotYetFreed == nil)
     }
 
+    // MARK: Names and totals
+
+    @Test("runtime identifiers become readable versions for device names")
+    func formatsRuntimeNames() {
+        #expect(DeveloperStorageAnalyzer.runtimeDisplayName("com.apple.CoreSimulator.SimRuntime.iOS-27-2") == "iOS 27.2")
+        #expect(DeveloperStorageAnalyzer.runtimeDisplayName("com.apple.CoreSimulator.SimRuntime.watchOS-26-5") == "watchOS 26.5")
+        #expect(DeveloperStorageAnalyzer.runtimeDisplayName("com.apple.CoreSimulator.SimRuntime.xrOS-3-0-1") == "xrOS 3.0.1")
+    }
+
+    @Test("device names include the runtime so the same model on two runtimes is distinguishable")
+    func deviceNamesIncludeRuntime() async throws {
+        let home = try TemporaryDirectory().url
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("Library/Developer"), withIntermediateDirectories: true)
+        let devices = Data("""
+        {"devices":{
+          "com.apple.CoreSimulator.SimRuntime.iOS-27-2":[{"udid":"A","name":"iPad (A16)","state":"Shutdown","isAvailable":true}],
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-5":[{"udid":"B","name":"iPad (A16)","state":"Shutdown","isAvailable":true}]
+        }}
+        """.utf8)
+        let runner = RoutingCommandRunner(routes: ["simctl list --json": devices])
+
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []).analyze()
+        let names = Set(inventory.items.filter { $0.category == .simulatorDevices }.map(\.name))
+
+        #expect(names == ["iPad (A16) · iOS 27.2", "iPad (A16) · iOS 26.5"])
+    }
+
+    @Test("eventually reclaimable space counts private size for device clones and allocated size otherwise")
+    func eventuallyReclaimable() {
+        let clone = deviceItem(category: .xctestDevices, udid: "CLONE-1").withMinimumReclaimableBytes(400)
+        let derived = trashItem(category: .derivedData, url: URL(fileURLWithPath: "/tmp/dd"), decision: DeveloperStoragePolicy().decision(for: .derivedData))
+            .withMinimumReclaimableBytes(0)
+
+        #expect(clone.eventuallyReclaimableBytes == 400)
+        #expect(derived.eventuallyReclaimableBytes == 1_024)
+        #expect(DeveloperStorageInventory(items: [clone, derived], simulatorToolAvailable: true).eventuallyReclaimableBytes(for: .recommended) == 1_424)
+    }
+
     // MARK: Symbolic links
 
     @Test("analyzer never lists a symbolic link, such as ~/.swiftpm/cache pointing at the SwiftPM cache")
@@ -335,7 +373,7 @@ struct DeveloperStorageReclaimTests {
         let inventory = try await DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: RoutingCommandRunner(routes: [:]),
-            homebrewExecutables: []
+            agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []
         ).analyze()
 
         #expect(inventory.items.contains { $0.name == "SwiftPM Package Cache" })
@@ -385,7 +423,7 @@ struct DeveloperStorageReclaimTests {
         let inventory = try await DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: RoutingCommandRunner(routes: [:]),
-            homebrewExecutables: [brew],
+            agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: [brew],
             homebrewRunner: brewRunner
         ).analyze()
         let item = try #require(inventory.items.first { $0.cleanupMechanism == .homebrewCleanup })

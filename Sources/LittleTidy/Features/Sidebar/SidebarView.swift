@@ -35,7 +35,7 @@ private struct SidebarRow: View {
             return ""
         case .overview:
             if store.isScanning { return "…" }
-            let total = store.reclaimableBytes(for: .cache) + store.reclaimableBytes(for: .duplicate) + store.recommendedDeveloperBytes
+            let total = store.reclaimableBytes(for: .cache) + store.reclaimableBytes(for: .duplicate) + store.recommendedDeveloperReclaimableBytes
             return total > 0 ? ByteCountFormatter.cleanerString(from: total) : ""
         case .developerStorage:
             if store.isScanningDeveloperStorage { return "…" }
