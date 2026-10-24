@@ -157,6 +157,14 @@ creates the DMG through the native `diskutil image` API and generates the
 EdDSA-signed Sparkle `appcast.xml` from the notarized ZIP. Artifacts are written
 under `dist/release/`.
 
+Sparkle signs every update with an EdDSA private key kept in the login
+Keychain (`generate_keys -p` prints the matching public key, which must equal
+`SUPublicEDKey` in `Sources/LittleTidy/Info.plist`). Keep an offline copy made
+with `generate_keys -x <file>`: if the Keychain is reset, the key is gone. The
+key was rotated in 0.8.0 after the original was lost; this works only because
+the update keeps the same Developer ID certificate. Never change the EdDSA key
+and the signing certificate in the same release.
+
 Authenticate `asc` once (preferred), or save notarytool credentials in the
 Keychain as a fallback:
 
