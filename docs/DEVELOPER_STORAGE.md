@@ -68,8 +68,8 @@ LittleTidy tracks 11 distinct categories of developer storage:
 ### 3.2.1 XCTest Devices (`.xctestDevices`)
 - **What it is**: Clones of a Simulator device that Xcode creates for parallel testing. They live in simctl's dedicated "testing" device set.
 - **Discovery**: `xcrun simctl --set testing list devices --json`. Each registered device becomes an item measured at `XCTestDevices/<UDID>`. Registered devices whose folder is already gone are listed at 0 bytes so simctl can remove the stale registration.
-- **Policy**: Shutdown clones are `Recommended`; booted clones are `Protected`. Folders simctl does not list stay `Unclassified` (`unverifiedXCTestDecision`). If simctl fails, the whole directory is reported as diagnosis-only, as before.
-- **Cleanup**: `xcrun simctl --set testing delete <UDID>`, after re-listing the testing set to confirm the clone still exists and is not booted. Never `rm`.
+- **Policy**: Shutdown clones are `Recommended` only while the whole testing set is idle. If any clone is not shut down (Booted, Booting, Creating, …), a test session is active: Xcode can boot any clone of the set mid-run, so every clone becomes `Protected` (`xctestSessionActiveDecision`). Folders simctl does not list stay `Unclassified` (`unverifiedXCTestDecision`). If simctl fails, the whole directory is reported as diagnosis-only, as before.
+- **Cleanup**: `xcrun simctl --set testing delete <UDID>`. Immediately before, the executor skips the clone if `xcodebuild` is running (`pgrep -x xcodebuild`; a failed check counts as running), then re-lists the testing set and skips it if it no longer exists or if any clone of the set is not shut down. Never `rm`.
 
 ### 3.2.2 Clones, snapshots, and guaranteed reclaimable space
 Allocated size (`du`) can far exceed what removal frees right away, for two reasons:

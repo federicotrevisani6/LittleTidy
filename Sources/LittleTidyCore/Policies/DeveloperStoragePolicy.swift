@@ -177,6 +177,19 @@ public struct DeveloperStoragePolicy: Sendable {
         )
     }
 
+    /// A shutdown XCTest clone while a test session uses the same device set.
+    /// Xcode can boot any clone of the set mid-run, so none is removable.
+    public func xctestSessionActiveDecision() -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .active,
+            recoverability: .recreatable,
+            mechanism: .simctl,
+            consequence: .dataLossRisk,
+            recommendation: .protected,
+            reason: "An Xcode test session is using clones from this set. LittleTidy protects every clone until the run finishes."
+        )
+    }
+
     /// Old Homebrew versions and downloads, removed by Homebrew itself.
     public func homebrewCleanupDecision() -> DeveloperStorageDecision {
         DeveloperStorageDecision(

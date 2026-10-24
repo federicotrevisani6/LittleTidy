@@ -181,6 +181,21 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+extension SimulatorDeviceRecord {
+    /// Anything but Shutdown (Booted, Booting, Creating, Shutting Down) means
+    /// the device may be in use.
+    public var isShutdown: Bool {
+        state.localizedCaseInsensitiveCompare("Shutdown") == .orderedSame
+    }
+}
+
+extension Collection where Element == SimulatorDeviceRecord {
+    /// A test session is active when any clone of the testing set is not shut down.
+    public var hasActiveTestSession: Bool {
+        contains { !$0.isShutdown }
+    }
+}
+
 public enum XcodeActivityRule: String, Codable, Sendable {
     /// Not owned by Xcode; cleanup never waits for it.
     case independent

@@ -44,14 +44,34 @@ struct DeveloperStorageReclaimTests {
         let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
         let xctest = inventory.items.filter { $0.category == .xctestDevices }
 
+        // CLONE-2 is booted, so a test session is active and CLONE-1 is protected too.
         let shutdown = try #require(xctest.first { $0.externalIdentifier == "CLONE-1" })
-        #expect(shutdown.recommendation == .recommended)
-        #expect(shutdown.cleanupMechanism == .simctl)
+        #expect(shutdown.recommendation == .protected)
+        #expect(shutdown.activity == .active)
+        #expect(shutdown.recommendationReason.contains("test session"))
         #expect(shutdown.bytes >= 1_100_000)
         let booted = try #require(xctest.first { $0.externalIdentifier == "CLONE-2" })
         #expect(booted.recommendation == .protected)
         #expect(booted.url == nil)
         #expect(xctest.contains { $0.name == "ORPHAN" && $0.recommendation == .unclassified })
+    }
+
+    @Test("analyzer recommends shutdown clones only when every clone of the set is shut down",
+          arguments: [("Shutdown", StorageRecommendation.recommended), ("Creating", .protected), ("Booting", .protected)])
+    func recommendsClonesOnlyWhenSetIsIdle(otherState: String, expected: StorageRecommendation) async throws {
+        let home = try TemporaryDirectory().url
+        let root = home.appendingPathComponent("Library/Developer/XCTestDevices", isDirectory: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("CLONE-1/data"), withIntermediateDirectories: true)
+        let runner = RoutingCommandRunner(routes: [
+            "--set testing": devicesJSON([
+                ("CLONE-1", "Clone 1", "Shutdown", "\(root.path)/CLONE-1/data"),
+                ("CLONE-2", "Clone 2", otherState, "\(root.path)/CLONE-2/data")
+            ])
+        ])
+
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
+
+        #expect(inventory.items.first { $0.externalIdentifier == "CLONE-1" }?.recommendation == expected)
     }
 
     @Test("analyzer falls back to diagnosis-only XCTest data when simctl fails")
@@ -86,6 +106,39 @@ struct DeveloperStorageReclaimTests {
         #expect(result.items.first?.status == .removed)
         #expect(calls.first == ["simctl", "--set", "testing", "list", "devices", "--json"])
         #expect(calls.last == ["simctl", "--set", "testing", "delete", "CLONE-1"])
+    }
+
+    @Test("XCTest clone is skipped when another clone of the set booted after the scan")
+    func skipsCloneDuringActiveTestSession() async throws {
+        let runner = ScriptedRunner(results: [
+            DeveloperToolCommandResult(standardOutput: devicesJSON([
+                ("CLONE-1", "Clone 1", "Shutdown", "/tmp/none"),
+                ("CLONE-2", "Clone 2", "Booted", "/tmp/none")
+            ]))
+        ])
+
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: StubActivityChecker(isRunning: false)
+        ).execute(items: [deviceItem(category: .xctestDevices, udid: "CLONE-1")])
+
+        #expect(result.items.first?.status == .skipped)
+        #expect(result.items.first?.message.contains("test session") == true)
+        #expect(await runner.calls.count == 1)
+    }
+
+    @Test("XCTest clone is skipped without calling simctl while xcodebuild runs")
+    func skipsCloneWhileXcodebuildRuns() async throws {
+        let runner = ScriptedRunner(results: [])
+
+        let result = await DeveloperStorageCleanupExecutor(
+            commandRunner: runner,
+            activityChecker: StubActivityChecker(isRunning: false, xcodebuildRunning: true)
+        ).execute(items: [deviceItem(category: .xctestDevices, udid: "CLONE-1")])
+
+        #expect(result.items.first?.status == .skipped)
+        #expect(result.items.first?.message.contains("xcodebuild") == true)
+        #expect(await runner.calls.isEmpty)
     }
 
     @Test("XCTest clone that booted after the scan is skipped")
@@ -341,9 +394,11 @@ private actor ScriptedRunner: DeveloperToolCommandRunning {
 private struct StubActivityChecker: DeveloperToolActivityChecking {
     let isRunning: Bool
     var snapshot: OpenFileSnapshot?
+    var xcodebuildRunning = false
 
     func isXcodeRunning() async -> Bool { isRunning }
     func openFileSnapshot() async -> OpenFileSnapshot? { snapshot }
+    func isXcodebuildRunning() async -> Bool { xcodebuildRunning }
 }
 
 private final class FreeSpaceReadings: @unchecked Sendable {

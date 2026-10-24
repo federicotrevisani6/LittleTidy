@@ -427,6 +427,7 @@ public actor DeveloperStorageAnalyzer {
             return
         }
 
+        let testSessionActive = devices.hasActiveTestSession
         let deviceURLs = devices.map { root.appendingPathComponent($0.udid, isDirectory: true) }
         let measuredBytes = allocatedBytesUsingDU(at: deviceURLs.filter { fileManager.fileExists(atPath: $0.path) })
         for (device, url) in zip(devices, deviceURLs) {
@@ -440,7 +441,9 @@ public actor DeveloperStorageAnalyzer {
                 url: exists ? url : nil,
                 externalIdentifier: device.udid,
                 isAvailable: device.isAvailable,
-                decision: policy.decision(for: .xctestDevices, isAvailable: device.isAvailable, isActive: isActive),
+                decision: testSessionActive && !isActive
+                    ? policy.xctestSessionActiveDecision()
+                    : policy.decision(for: .xctestDevices, isAvailable: device.isAvailable, isActive: isActive),
                 premeasuredBytes: exists ? (measuredBytes[url.standardizedFileURL.path] ?? 0) : 0
             ))
         }

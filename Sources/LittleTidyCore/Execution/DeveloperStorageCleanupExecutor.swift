@@ -202,6 +202,9 @@ public actor DeveloperStorageCleanupExecutor {
               let udid = item.externalIdentifier else {
             return result(item, status: .skipped, message: "Only explicitly selected, inactive simulator devices can be removed.")
         }
+        if item.category == .xctestDevices, await activityChecker.isXcodebuildRunning() {
+            return result(item, status: .skipped, message: "xcodebuild is running and may be using this test clone. Try again after the run finishes.")
+        }
 
         let prefix = simctlPrefix(for: item)
         do {
@@ -215,6 +218,11 @@ public actor DeveloperStorageCleanupExecutor {
             }
             guard currentDevice.state.localizedCaseInsensitiveCompare("Booted") != .orderedSame else {
                 return result(item, status: .skipped, message: "The simulator state changed and is no longer safe to remove.")
+            }
+            // Xcode can boot any clone of the testing set during a run, so a
+            // shutdown clone is only removable when the whole set is idle.
+            if item.category == .xctestDevices, inventory.devices.hasActiveTestSession {
+                return result(item, status: .skipped, message: "An Xcode test session is using clones from this set. Try again after the run finishes.")
             }
 
             _ = try await commandRunner.run(

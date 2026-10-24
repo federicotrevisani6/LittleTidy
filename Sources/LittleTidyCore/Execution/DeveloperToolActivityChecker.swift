@@ -5,10 +5,14 @@ public protocol DeveloperToolActivityChecking: Sendable {
     /// Paths currently open by any process of this user, or nil when the
     /// snapshot cannot be taken. Callers must treat nil as "in use".
     func openFileSnapshot() async -> OpenFileSnapshot?
+    /// Whether a command-line test or build run (`xcodebuild`) is in progress.
+    /// It can be creating or about to boot XCTest clones.
+    func isXcodebuildRunning() async -> Bool
 }
 
 extension DeveloperToolActivityChecking {
     public func openFileSnapshot() async -> OpenFileSnapshot? { nil }
+    public func isXcodebuildRunning() async -> Bool { false }
 }
 
 /// A point-in-time list of open file paths, used to decide whether a single
@@ -48,10 +52,18 @@ public actor DeveloperToolActivityChecker: DeveloperToolActivityChecking {
     }
 
     public func isXcodeRunning() async -> Bool {
+        await isProcessRunning("Xcode")
+    }
+
+    public func isXcodebuildRunning() async -> Bool {
+        await isProcessRunning("xcodebuild")
+    }
+
+    private func isProcessRunning(_ name: String) async -> Bool {
         do {
             _ = try await commandRunner.run(
                 executable: URL(fileURLWithPath: "/usr/bin/pgrep"),
-                arguments: ["-x", "Xcode"]
+                arguments: ["-x", name]
             )
             return true
         } catch DeveloperToolCommandError.failed(_, let exitCode, _) where exitCode == 1 {
