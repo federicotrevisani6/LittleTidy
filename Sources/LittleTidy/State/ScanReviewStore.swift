@@ -165,6 +165,12 @@ final class ScanReviewStore: ObservableObject {
         developerStorageInventory.bytes(for: .recommended)
     }
 
+    /// What the recommended items are guaranteed to free once APFS clones are
+    /// accounted for. Equal to `recommendedDeveloperBytes` when nothing is cloned.
+    var recommendedDeveloperGuaranteedBytes: Int64 {
+        developerStorageInventory.guaranteedReclaimableBytes(for: .recommended)
+    }
+
     var reviewDeveloperBytes: Int64 {
         developerStorageInventory.bytes(for: .review)
     }
@@ -189,10 +195,20 @@ final class ScanReviewStore: ObservableObject {
         selectedDeveloperStorageItems.reduce(0) { $0 + $1.bytes }
     }
 
+    var selectedDeveloperStorageGuaranteedBytes: Int64 {
+        selectedDeveloperStorageItems.reduce(0) { $0 + $1.guaranteedReclaimableBytes }
+    }
+
+    /// Selected items a running Xcode would block outright.
+    var selectedDeveloperStorageItemsWaitingForXcode: Int {
+        selectedDeveloperStorageItems.filter { $0.xcodeActivityRule == .requiresXcodeQuit }.count
+    }
+
     var selectedDeveloperStorageHasIrreversibleOperations: Bool {
         selectedDeveloperStorageItems.contains {
             $0.cleanupMechanism == .simctl
                 || $0.cleanupMechanism == .xcodeManaged
+                || $0.cleanupMechanism == .homebrewCleanup
                 || $0.recoverability == .irreversible
                 || $0.recoverability == .reinstallable
         }
@@ -210,9 +226,11 @@ final class ScanReviewStore: ObservableObject {
         case .trash:
             return true
         case .simctl:
-            return item.category == .simulatorDevices
+            return item.category == .simulatorDevices || item.category == .xctestDevices
         case .xcodeManaged:
             return item.category == .simulatorRuntimes && item.recommendation == .review
+        case .homebrewCleanup:
+            return true
         case .manual, .unsupported:
             return false
         }
@@ -249,7 +267,7 @@ final class ScanReviewStore: ObservableObject {
                 self?.selectedDeveloperStorageItemIDs = Set(
                     inventory.items
                         .filter { $0.recommendation == .recommended }
-                        .filter { $0.cleanupMechanism == .trash || $0.cleanupMechanism == .simctl }
+                        .filter { [.trash, .simctl, .homebrewCleanup].contains($0.cleanupMechanism) }
                         .map(\.id)
                 )
                 self?.isScanningDeveloperStorage = false
@@ -266,11 +284,9 @@ final class ScanReviewStore: ObservableObject {
     func executeDeveloperStorageCleanup() {
         let selected = selectedDeveloperStorageItems
         guard !selected.isEmpty, !isCleaningDeveloperStorage else { return }
+        // The executor rechecks Xcode before each item and skips anything a
+        // running Xcode still uses, so cleanup no longer stops here.
         refreshXcodeRunningState()
-        guard !isXcodeRunning else {
-            developerStorageErrorMessage = "Quit Xcode before cleaning developer storage. Nothing has been removed."
-            return
-        }
         isCleaningDeveloperStorage = true
         developerCleanupResult = nil
         let mode = deletionMode

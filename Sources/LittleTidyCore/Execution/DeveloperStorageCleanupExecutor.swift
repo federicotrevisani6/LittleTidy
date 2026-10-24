@@ -12,25 +12,56 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
     public let bytes: Int64
     public let status: DeveloperStorageCleanupStatus
     public let message: String
+    /// True when the item went to the Trash, where it still occupies space.
+    public let movedToTrash: Bool
 
-    public init(itemID: String, name: String, bytes: Int64, status: DeveloperStorageCleanupStatus, message: String) {
+    public init(
+        itemID: String,
+        name: String,
+        bytes: Int64,
+        status: DeveloperStorageCleanupStatus,
+        message: String,
+        movedToTrash: Bool = false
+    ) {
         self.itemID = itemID
         self.name = name
         self.bytes = bytes
         self.status = status
         self.message = message
+        self.movedToTrash = movedToTrash
     }
 }
 
 public struct DeveloperStorageCleanupResult: Codable, Equatable, Sendable {
     public let items: [DeveloperStorageCleanupResultItem]
+    /// Volume free space measured immediately before and after the batch.
+    public let freeBytesBefore: Int64?
+    public let freeBytesAfter: Int64?
 
-    public init(items: [DeveloperStorageCleanupResultItem]) {
+    public init(
+        items: [DeveloperStorageCleanupResultItem],
+        freeBytesBefore: Int64? = nil,
+        freeBytesAfter: Int64? = nil
+    ) {
         self.items = items
+        self.freeBytesBefore = freeBytesBefore
+        self.freeBytesAfter = freeBytesAfter
     }
 
     public var removedBytes: Int64 {
         items.filter { $0.status == .removed }.reduce(0) { $0 + $1.bytes }
+    }
+
+    /// Bytes now in the Trash. They are freed only when the Trash is emptied.
+    public var bytesInTrash: Int64 {
+        items.filter { $0.status == .removed && $0.movedToTrash }.reduce(0) { $0 + $1.bytes }
+    }
+
+    /// The measured change in free space. Other apps write to the same volume,
+    /// so this is an observation, not an exact accounting of this cleanup.
+    public var measuredFreedBytes: Int64? {
+        guard let freeBytesBefore, let freeBytesAfter else { return nil }
+        return freeBytesAfter - freeBytesBefore
     }
 }
 
@@ -38,31 +69,40 @@ public actor DeveloperStorageCleanupExecutor {
     private let fileManager: FileManager
     private let commandRunner: any DeveloperToolCommandRunning
     private let activityChecker: any DeveloperToolActivityChecking
+    private let homebrewRunner: any DeveloperToolCommandRunning
+    private let freeSpace: @Sendable () -> Int64?
 
     public init(
         fileManager: FileManager = .default,
         commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient(),
-        activityChecker: (any DeveloperToolActivityChecking)? = nil
+        activityChecker: (any DeveloperToolActivityChecking)? = nil,
+        homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 900, environment: HomebrewCleanup.environment),
+        freeSpace: @escaping @Sendable () -> Int64? = DeveloperStorageCleanupExecutor.homeVolumeFreeBytes
     ) {
         self.fileManager = fileManager
         self.commandRunner = commandRunner
         self.activityChecker = activityChecker ?? DeveloperToolActivityChecker()
+        self.homebrewRunner = homebrewRunner
+        self.freeSpace = freeSpace
+    }
+
+    @Sendable public static func homeVolumeFreeBytes() -> Int64? {
+        let values = try? FileManager.default.homeDirectoryForCurrentUser
+            .resourceValues(forKeys: [.volumeAvailableCapacityKey])
+        return values?.volumeAvailableCapacity.map(Int64.init)
     }
 
     public func execute(items: [DeveloperStorageItem], deletionMode: DeletionMode = .moveToTrash) async -> DeveloperStorageCleanupResult {
         var results: [DeveloperStorageCleanupResultItem] = []
+        let freeBytesBefore = freeSpace()
 
-        for (index, item) in items.enumerated() {
+        for item in items {
             if Task.isCancelled { break }
-            if await activityChecker.isXcodeRunning() {
-                results.append(contentsOf: items[index...].map { pendingItem in
-                    result(
-                        pendingItem,
-                        status: .skipped,
-                        message: "Quit Xcode before cleaning developer storage. No data was removed for this item."
-                    )
-                })
-                break
+            // Rechecked before every item: Xcode can open, or a project can
+            // start building, while an earlier item is being removed.
+            if let blockingReason = await xcodeBlockingReason(for: item) {
+                results.append(result(item, status: .skipped, message: blockingReason))
+                continue
             }
             switch item.cleanupMechanism {
             case .trash:
@@ -71,6 +111,8 @@ public actor DeveloperStorageCleanupExecutor {
                 results.append(await deleteSimulatorDevice(item))
             case .xcodeManaged:
                 results.append(await deleteSimulatorRuntime(item))
+            case .homebrewCleanup:
+                results.append(await runHomebrewCleanup(item))
             case .manual, .unsupported:
                 results.append(result(
                     item,
@@ -80,7 +122,33 @@ public actor DeveloperStorageCleanupExecutor {
             }
         }
 
-        return DeveloperStorageCleanupResult(items: results)
+        return DeveloperStorageCleanupResult(
+            items: results,
+            freeBytesBefore: freeBytesBefore,
+            freeBytesAfter: freeSpace()
+        )
+    }
+
+    /// Fail-closed Xcode guard. Items Xcode owns are blocked while it runs,
+    /// except per-project build data and Simulator devices that no process
+    /// has open. If the open-file snapshot fails, the item stays blocked.
+    private func xcodeBlockingReason(for item: DeveloperStorageItem) async -> String? {
+        switch item.xcodeActivityRule {
+        case .independent:
+            return nil
+        case .requiresXcodeQuit:
+            guard await activityChecker.isXcodeRunning() else { return nil }
+            return "Quit Xcode before cleaning this item. No data was removed for this item."
+        case .openFileCheck:
+            guard await activityChecker.isXcodeRunning() else { return nil }
+            guard let snapshot = await activityChecker.openFileSnapshot() else {
+                return "Xcode is open and LittleTidy could not verify that this item is unused. Quit Xcode to clean it. No data was removed for this item."
+            }
+            if let url = item.url, snapshot.containsPath(within: url) {
+                return "In use by Xcode, a build, or a running Simulator. Close the project or quit Xcode to clean it. No data was removed for this item."
+            }
+            return nil
+        }
     }
 
     private func moveToTrash(_ item: DeveloperStorageItem, deletionMode: DeletionMode = .moveToTrash) -> DeveloperStorageCleanupResultItem {
@@ -99,19 +167,35 @@ public actor DeveloperStorageCleanupExecutor {
         do {
             if deletionMode == .permanentDelete {
                 try fileManager.removeItem(at: url)
-                return result(item, status: .removed, message: "Permanently deleted.")
             } else {
                 var resultingURL: NSURL?
                 try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
-                return result(item, status: .removed, message: "Moved to Trash.")
             }
         } catch {
-            return result(item, status: .failed, message: error.localizedDescription)
+            return result(item, status: .failed, message: remainingDataMessage(for: url, error: error))
         }
+        guard !fileManager.fileExists(atPath: url.path) else {
+            return result(item, status: .failed, message: "The item is still present after cleanup. Another process may have recreated it.")
+        }
+        return deletionMode == .permanentDelete
+            ? result(item, status: .removed, message: "Permanently deleted.")
+            : result(item, status: .removed, message: "Moved to Trash. Empty the Trash to free this space.", movedToTrash: true)
+    }
+
+    /// A failed permanent delete can leave part of a tree behind, for example
+    /// when a running build writes into it. Report what remains.
+    private func remainingDataMessage(for url: URL, error: Error) -> String {
+        guard fileManager.fileExists(atPath: url.path) else { return error.localizedDescription }
+        return "\(error.localizedDescription) Part of the item may remain at \(url.path)."
+    }
+
+    /// XCTest clones live in simctl's dedicated "testing" device set.
+    private func simctlPrefix(for item: DeveloperStorageItem) -> [String] {
+        item.category == .xctestDevices ? ["simctl", "--set", "testing"] : ["simctl"]
     }
 
     private func deleteSimulatorDevice(_ item: DeveloperStorageItem) async -> DeveloperStorageCleanupResultItem {
-        guard item.category == .simulatorDevices,
+        guard item.category == .simulatorDevices || item.category == .xctestDevices,
               item.cleanupMechanism == .simctl,
               item.activity != .active,
               (item.recommendation == .recommended || item.recommendation == .review),
@@ -119,10 +203,11 @@ public actor DeveloperStorageCleanupExecutor {
             return result(item, status: .skipped, message: "Only explicitly selected, inactive simulator devices can be removed.")
         }
 
+        let prefix = simctlPrefix(for: item)
         do {
             let current = try await commandRunner.run(
                 executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
-                arguments: ["simctl", "list", "devices", "--json"]
+                arguments: prefix + ["list", "devices", "--json"]
             )
             let inventory = try SimulatorInventoryParser().parse(current.standardOutput)
             guard let currentDevice = inventory.devices.first(where: { $0.udid == udid }) else {
@@ -134,8 +219,11 @@ public actor DeveloperStorageCleanupExecutor {
 
             _ = try await commandRunner.run(
                 executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
-                arguments: ["simctl", "delete", udid]
+                arguments: prefix + ["delete", udid]
             )
+            if let url = item.url, fileManager.fileExists(atPath: url.path) {
+                return result(item, status: .failed, message: "simctl reported success, but the device folder is still present.")
+            }
             return result(item, status: .removed, message: "Removed with simctl. This operation is not undoable.")
         } catch {
             return result(item, status: .failed, message: error.localizedDescription)
@@ -182,17 +270,46 @@ public actor DeveloperStorageCleanupExecutor {
         }
     }
 
+    private func runHomebrewCleanup(_ item: DeveloperStorageItem) async -> DeveloperStorageCleanupResultItem {
+        guard item.cleanupMechanism == .homebrewCleanup,
+              let path = item.externalIdentifier,
+              HomebrewCleanup.isKnownExecutable(path),
+              fileManager.isExecutableFile(atPath: path) else {
+            return result(item, status: .skipped, message: "Only a standard Homebrew installation can be cleaned.")
+        }
+        do {
+            let output = try await homebrewRunner.run(
+                executable: URL(fileURLWithPath: path),
+                arguments: HomebrewCleanup.cleanupArguments
+            )
+            // Homebrew reports what it actually removed, which can differ
+            // from the scan estimate if packages changed in between.
+            let freed = HomebrewCleanup.parseReclaimedBytes(output.standardOutput) ?? 0
+            return DeveloperStorageCleanupResultItem(
+                itemID: item.id,
+                name: item.name,
+                bytes: freed,
+                status: .removed,
+                message: "Removed with brew cleanup. Reinstall any version with brew if you need it."
+            )
+        } catch {
+            return result(item, status: .failed, message: error.localizedDescription)
+        }
+    }
+
     private func result(
         _ item: DeveloperStorageItem,
         status: DeveloperStorageCleanupStatus,
-        message: String
+        message: String,
+        movedToTrash: Bool = false
     ) -> DeveloperStorageCleanupResultItem {
         DeveloperStorageCleanupResultItem(
             itemID: item.id,
             name: item.name,
-            bytes: item.bytes,
+            bytes: status == .removed ? item.guaranteedReclaimableBytes : item.bytes,
             status: status,
-            message: message
+            message: message,
+            movedToTrash: movedToTrash
         )
     }
 }

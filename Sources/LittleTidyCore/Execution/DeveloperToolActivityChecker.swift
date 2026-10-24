@@ -2,6 +2,39 @@ import Foundation
 
 public protocol DeveloperToolActivityChecking: Sendable {
     func isXcodeRunning() async -> Bool
+    /// Paths currently open by any process of this user, or nil when the
+    /// snapshot cannot be taken. Callers must treat nil as "in use".
+    func openFileSnapshot() async -> OpenFileSnapshot?
+}
+
+extension DeveloperToolActivityChecking {
+    public func openFileSnapshot() async -> OpenFileSnapshot? { nil }
+}
+
+/// A point-in-time list of open file paths, used to decide whether a single
+/// project's build data or a Simulator device is in use while Xcode runs.
+public struct OpenFileSnapshot: Equatable, Sendable {
+    public let paths: [String]
+
+    public init(paths: [String]) {
+        self.paths = paths
+    }
+
+    /// Parses `lsof -F n` output, where each name field starts with "n".
+    public init(lsofOutput: Data) {
+        paths = String(decoding: lsofOutput, as: UTF8.self)
+            .split(separator: "\n")
+            .compactMap { line in
+                guard line.hasPrefix("n/") else { return nil }
+                return String(line.dropFirst())
+            }
+    }
+
+    public func containsPath(within url: URL) -> Bool {
+        let root = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        return paths.contains { $0 == root || $0.hasPrefix(prefix) }
+    }
 }
 
 /// Checks the process table immediately before developer-storage cleanup.
@@ -25,6 +58,21 @@ public actor DeveloperToolActivityChecker: DeveloperToolActivityChecking {
             return false
         } catch {
             return true
+        }
+    }
+
+    /// Lists every open file once (about half a second) instead of walking
+    /// each candidate with `lsof +D`, which scales with the size of the tree.
+    public func openFileSnapshot() async -> OpenFileSnapshot? {
+        do {
+            let result = try await commandRunner.run(
+                executable: URL(fileURLWithPath: "/usr/sbin/lsof"),
+                arguments: ["-n", "-P", "-F", "n"]
+            )
+            let snapshot = OpenFileSnapshot(lsofOutput: result.standardOutput)
+            return snapshot.paths.isEmpty ? nil : snapshot
+        } catch {
+            return nil
         }
     }
 }

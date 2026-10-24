@@ -52,10 +52,19 @@ also finds duplicate files, large files, unused apps, and caches.
   XCTestDevices, DerivedData, Device Support, and Xcode archives. Results are
   split into Recommended, Review, Protected, and Unclassified instead of
   presenting all detected storage as safe cleanup.
-- **Active-work protection** keeps booted Simulator devices out of cleanup and
-  blocks every developer-storage deletion while Xcode is open. Valuable Xcode
+- **Active-work protection** keeps booted Simulator devices out of cleanup. While
+  Xcode is open, build data of closed projects and inactive devices can still be
+  cleaned when no process has files open inside them; everything else Xcode owns
+  waits until it quits. Valuable Xcode
   archives remain protected from automatic selection but can be explicitly
   reviewed and moved to the Trash.
+- **XCTest clones** registered in simctl's testing set are recommended and removed
+  with `simctl --set testing delete`; unregistered XCTest data stays diagnosis-only.
+- **Guaranteed reclaimable space** for Simulator and XCTest devices uses APFS
+  private size, so space shared between clones is not promised twice. After
+  cleanup, the measured change in free space and bytes still in the Trash are shown.
+- **Homebrew cleanup** estimates old versions and downloads with
+  `brew cleanup --dry-run` and reclaims them with `brew cleanup`.
 - **Mechanism-aware cleanup** moves rebuildable directories to the Trash and
   removes only explicitly selected inactive Simulator devices through `simctl`,
   after refreshing their state immediately before execution.
@@ -189,7 +198,7 @@ script/              # Build, fixture, and release scripts
 ## Status
 
 Active development. Developer Storage is intentionally conservative: archives,
-active devices, and unclassified XCTest data are diagnosis-first; Simulator
+active devices, and unregistered XCTest data are diagnosis-first; Simulator
 runtimes remain review-only and are revalidated before supported removal.
 See [outputs/littletidy-system-data-master-plan.md](outputs/littletidy-system-data-master-plan.md)
 for the product, safety, engineering, testing, and release plan.

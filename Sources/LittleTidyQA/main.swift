@@ -80,7 +80,8 @@ let simulatorJSON = Data(
 )
 let developerInventory = try await DeveloperStorageAnalyzer(
     homeDirectory: fixtureRoot,
-    commandRunner: QACommandRunner(output: simulatorJSON)
+    commandRunner: QACommandRunner(output: simulatorJSON),
+    homebrewExecutables: []
 ).analyze()
 print("developerItems=\(developerInventory.items.count)")
 print("developerBytes=\(developerInventory.items.reduce(Int64(0)) { $0 + $1.bytes })")

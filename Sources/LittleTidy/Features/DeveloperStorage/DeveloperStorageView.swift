@@ -21,6 +21,7 @@ struct DeveloperStorageView: View {
 
                 DeveloperStorageSummary(
                     recommendedBytes: store.recommendedDeveloperBytes,
+                    recommendedGuaranteedBytes: store.recommendedDeveloperGuaranteedBytes,
                     reviewBytes: store.reviewDeveloperBytes,
                     protectedBytes: store.protectedDeveloperBytes,
                     unclassifiedBytes: store.unclassifiedDeveloperBytes
@@ -34,9 +35,11 @@ struct DeveloperStorageView: View {
                     DeveloperStorageCleanupBar(
                         selectedCount: store.selectedDeveloperStorageItems.count,
                         selectedBytes: store.selectedDeveloperStorageBytes,
+                        selectedGuaranteedBytes: store.selectedDeveloperStorageGuaranteedBytes,
                         hasIrreversibleOperations: store.selectedDeveloperStorageHasIrreversibleOperations,
                         isCleaning: store.isCleaningDeveloperStorage,
-                        isXcodeRunning: store.isXcodeRunning
+                        isXcodeRunning: store.isXcodeRunning,
+                        itemsWaitingForXcode: store.selectedDeveloperStorageItemsWaitingForXcode
                     ) {
                         showingCleanupConfirmation = true
                     }
@@ -71,7 +74,7 @@ struct DeveloperStorageView: View {
         }
         .confirmationDialog(
             store.selectedDeveloperStorageHasIrreversibleOperations
-                ? "Clean selected developer storage? Some Simulator operations cannot be undone."
+                ? "Clean selected developer storage? Some operations cannot be undone."
                 : "Move selected developer storage to the Trash?",
             isPresented: $showingCleanupConfirmation,
             titleVisibility: .visible
@@ -83,7 +86,7 @@ struct DeveloperStorageView: View {
             )
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("\(store.selectedDeveloperStorageItems.count) items · \(ByteCountFormatter.cleanerString(from: store.selectedDeveloperStorageBytes)). Rebuildable data may slow the next build; unavailable Simulator devices are removed with simctl.")
+            Text("\(store.selectedDeveloperStorageItems.count) items · \(ByteCountFormatter.cleanerString(from: store.selectedDeveloperStorageBytes)). Rebuildable data may slow the next build. Simulator and XCTest devices are removed with simctl, and old Homebrew versions with brew cleanup.\(store.isXcodeRunning ? " Xcode is open, so anything it is using will be skipped." : "")")
         }
         .onAppear(perform: store.refreshXcodeRunningState)
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
@@ -149,6 +152,7 @@ private struct DeveloperStorageHeader: View {
 
 private struct DeveloperStorageSummary: View {
     let recommendedBytes: Int64
+    let recommendedGuaranteedBytes: Int64
     let reviewBytes: Int64
     let protectedBytes: Int64
     let unclassifiedBytes: Int64
@@ -158,7 +162,9 @@ private struct DeveloperStorageSummary: View {
             DeveloperStorageMetric(
                 title: "Recommended",
                 bytes: recommendedBytes,
-                detail: "Rebuildable or unavailable",
+                detail: recommendedGuaranteedBytes < recommendedBytes
+                    ? "At least \(ByteCountFormatter.cleanerString(from: recommendedGuaranteedBytes)) freed right away"
+                    : "Rebuildable or unavailable",
                 color: .cleanerSuccess,
                 systemImage: "checkmark.seal"
             )
@@ -304,10 +310,19 @@ private struct DeveloperStorageItemRow: View {
 
             Spacer(minLength: 12)
 
-            Text(ByteCountFormatter.cleanerString(from: item.bytes))
-                .font(.body.weight(.semibold))
-                .monospacedDigit()
-                .frame(minWidth: 76, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ByteCountFormatter.cleanerString(from: item.bytes))
+                    .font(.body.weight(.semibold))
+                    .monospacedDigit()
+                if item.hasSharedStorage {
+                    Text("≥ \(ByteCountFormatter.cleanerString(from: item.guaranteedReclaimableBytes)) now")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .help("Part of this item is shared with APFS clones or held by a Time Machine local snapshot. Removing it frees at least this much right away; the rest is freed when the clones are gone or macOS purges the snapshot.")
+                }
+            }
+            .frame(minWidth: 76, alignment: .trailing)
 
             if let url = item.url, FileManager.default.fileExists(atPath: url.path) {
                 Button {
@@ -355,9 +370,11 @@ private struct DeveloperStorageItemRow: View {
 private struct DeveloperStorageCleanupBar: View {
     let selectedCount: Int
     let selectedBytes: Int64
+    let selectedGuaranteedBytes: Int64
     let hasIrreversibleOperations: Bool
     let isCleaning: Bool
     let isXcodeRunning: Bool
+    let itemsWaitingForXcode: Int
     let clean: () -> Void
 
     var body: some View {
@@ -365,7 +382,7 @@ private struct DeveloperStorageCleanupBar: View {
             Image(systemName: hasIrreversibleOperations ? "exclamationmark.shield" : "trash")
                 .foregroundStyle(hasIrreversibleOperations ? Color.cleanerWarning : Color.cleanerSuccess)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(selectedCount) selected · \(ByteCountFormatter.cleanerString(from: selectedBytes))")
+                Text(selectionSummary)
                     .font(.subheadline.weight(.semibold))
                 Text(cleanupDescription)
                     .font(.caption)
@@ -376,19 +393,32 @@ private struct DeveloperStorageCleanupBar: View {
                 Label(isCleaning ? "Cleaning…" : "Review & Clean", systemImage: "arrow.right.circle.fill")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isCleaning || isXcodeRunning)
-            .help(isXcodeRunning ? "Quit Xcode before cleaning developer storage." : "Review the selected cleanup actions.")
+            .disabled(isCleaning || (isXcodeRunning && itemsWaitingForXcode == selectedCount))
+            .help(isXcodeRunning && itemsWaitingForXcode == selectedCount
+                ? "Quit Xcode before cleaning the selected items."
+                : "Review the selected cleanup actions.")
         }
         .padding(14)
         .cleanerSubtleSurface()
     }
 
+    private var selectionSummary: String {
+        let size = ByteCountFormatter.cleanerString(from: selectedBytes)
+        guard selectedGuaranteedBytes < selectedBytes else { return "\(selectedCount) selected · \(size)" }
+        return "\(selectedCount) selected · \(size) (at least \(ByteCountFormatter.cleanerString(from: selectedGuaranteedBytes)) freed right away)"
+    }
+
     private var cleanupDescription: String {
         if isXcodeRunning {
-            return "Quit Xcode to enable cleanup. No developer data can be removed while it is open."
+            if itemsWaitingForXcode == selectedCount {
+                return "Quit Xcode to clean these items. They belong to Xcode and cannot be removed while it is open."
+            }
+            return itemsWaitingForXcode > 0
+                ? "Xcode is open: build data and devices it is using are skipped, and \(itemsWaitingForXcode) items wait until you quit it."
+                : "Xcode is open: build data and devices it is using are skipped."
         }
         return hasIrreversibleOperations
-            ? "Includes Simulator operations that cannot be undone."
+            ? "Includes Simulator or Homebrew operations that cannot be undone."
             : "Selected items will move to the Trash."
     }
 }
@@ -396,7 +426,7 @@ private struct DeveloperStorageCleanupBar: View {
 private struct DeveloperStorageXcodeRunningBanner: View {
     var body: some View {
         Label(
-            "Xcode is open. Quit Xcode before cleaning developer storage; selection remains available for review.",
+            "Xcode is open. Projects and Simulators it is using are protected; other Xcode data waits until you quit it.",
             systemImage: "lock.shield.fill"
         )
         .font(.subheadline.weight(.medium))
@@ -404,7 +434,7 @@ private struct DeveloperStorageXcodeRunningBanner: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cleanerSubtleSurface()
-        .accessibilityLabel("Developer storage cleanup locked because Xcode is open")
+        .accessibilityLabel("Xcode is open; items it is using are protected from cleanup")
     }
 }
 
@@ -417,11 +447,18 @@ private struct DeveloperStorageCleanupResultBanner: View {
         let failed = result.items.filter { $0.status == .failed }.count
         let hasWarnings = skipped > 0 || failed > 0
         HStack(spacing: 10) {
-            Label(
-                "Cleanup complete: \(removed) removed · \(ByteCountFormatter.cleanerString(from: result.removedBytes))",
-                systemImage: hasWarnings ? "exclamationmark.triangle" : "checkmark.circle"
-            )
-            .foregroundStyle(hasWarnings ? Color.cleanerWarning : Color.cleanerSuccess)
+            VStack(alignment: .leading, spacing: 3) {
+                Label(
+                    "Cleanup complete: \(removed) removed · \(ByteCountFormatter.cleanerString(from: result.removedBytes))",
+                    systemImage: hasWarnings ? "exclamationmark.triangle" : "checkmark.circle"
+                )
+                .foregroundStyle(hasWarnings ? Color.cleanerWarning : Color.cleanerSuccess)
+                if let verification {
+                    Text(verification)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             if skipped > 0 {
                 Text("\(skipped) skipped")
@@ -436,6 +473,20 @@ private struct DeveloperStorageCleanupResultBanner: View {
         }
         .padding(12)
         .cleanerSubtleSurface()
+    }
+
+    /// What the volume actually reports, measured before and after the batch.
+    private var verification: String? {
+        var parts: [String] = []
+        if let measured = result.measuredFreedBytes {
+            parts.append(measured > 0
+                ? "Free space measured: +\(ByteCountFormatter.cleanerString(from: measured))"
+                : "No measurable change in free space yet")
+        }
+        if result.bytesInTrash > 0 {
+            parts.append("\(ByteCountFormatter.cleanerString(from: result.bytesInTrash)) is in the Trash until you empty it")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

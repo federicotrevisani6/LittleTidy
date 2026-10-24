@@ -18,10 +18,11 @@ public struct DeveloperStoragePolicy: Sendable {
         isActive: Bool = false
     ) -> DeveloperStorageDecision {
         if isActive {
+            let isSimulator = category == .simulatorDevices || category == .xctestDevices
             return DeveloperStorageDecision(
                 activity: .active,
-                recoverability: category == .simulatorDevices ? .irreversible : .unknown,
-                mechanism: category == .simulatorDevices ? .simctl : .unsupported,
+                recoverability: isSimulator ? .irreversible : .unknown,
+                mechanism: isSimulator ? .simctl : .unsupported,
                 consequence: .dataLossRisk,
                 recommendation: .protected,
                 reason: "Currently active. LittleTidy protects it from cleanup."
@@ -69,13 +70,15 @@ public struct DeveloperStoragePolicy: Sendable {
                     : "The runtime appears unavailable, but LittleTidy cannot yet prove a supported removal path."
             )
         case .xctestDevices:
+            // Only devices registered in simctl's "testing" set reach this
+            // decision; unregistered XCTest data uses `unverifiedXCTestDecision`.
             return DeveloperStorageDecision(
-                activity: .unknown,
-                recoverability: .unknown,
-                mechanism: .unsupported,
-                consequence: .dataLossRisk,
-                recommendation: .unclassified,
-                reason: "XCTest data is reported for diagnosis only until ownership and activity can be proven."
+                activity: isAvailable ? .inactive : .unavailable,
+                recoverability: .recreatable,
+                mechanism: .simctl,
+                consequence: .temporarySlowdown,
+                recommendation: .recommended,
+                reason: "Clone created by Xcode for parallel testing. Xcode creates new clones on the next test run. Removal uses simctl and cannot be undone."
             )
         case .deviceSupport:
             return DeveloperStorageDecision(
@@ -159,5 +162,30 @@ public struct DeveloperStoragePolicy: Sendable {
                 reason: "LittleTidy found this storage but cannot classify it safely yet."
             )
         }
+    }
+
+    /// XCTest data that simctl does not list in its "testing" device set.
+    /// Ownership cannot be proven, so it remains diagnosis-only.
+    public func unverifiedXCTestDecision() -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .unknown,
+            recoverability: .unknown,
+            mechanism: .unsupported,
+            consequence: .dataLossRisk,
+            recommendation: .unclassified,
+            reason: "simctl does not list this XCTest data as a test device, so LittleTidy reports it for diagnosis only."
+        )
+    }
+
+    /// Old Homebrew versions and downloads, removed by Homebrew itself.
+    public func homebrewCleanupDecision() -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .inactive,
+            recoverability: .reinstallable,
+            mechanism: .homebrewCleanup,
+            consequence: .negligible,
+            recommendation: .recommended,
+            reason: "Outdated formula versions and cached downloads. Homebrew removes them with brew cleanup, skips pinned formulae, and can reinstall any version later."
+        )
     }
 }
