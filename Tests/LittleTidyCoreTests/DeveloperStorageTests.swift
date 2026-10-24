@@ -101,7 +101,7 @@ struct DeveloperStorageTests {
     @Test("analyzer inventories developer categories without flattening them into caches")
     func inventoriesDeveloperStorage() async throws {
         let home = try TemporaryDirectory().url
-        let derivedData = home.appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true)
+        let derivedData = home.appendingPathComponent("Library/Developer/Xcode/DerivedData/App-abc123", isDirectory: true)
         let deviceSupport = home.appendingPathComponent("Library/Developer/Xcode/iOS DeviceSupport/18.4", isDirectory: true)
         let archive = home.appendingPathComponent("Library/Developer/Xcode/Archives/2026-07-01/App 01-07-26.xcarchive", isDirectory: true)
         let xctestDevices = home.appendingPathComponent("Library/Developer/XCTestDevices", isDirectory: true)
@@ -150,14 +150,22 @@ struct DeveloperStorageTests {
             try Data(repeating: 1, count: 4_096).write(to: directory.appendingPathComponent("data.bin"))
         }
 
+        let workspace = home.appendingPathComponent("Projects/App.xcodeproj")
+        let infoPlist = try PropertyListSerialization.data(fromPropertyList: ["WorkspacePath": workspace.path], format: .xml, options: 0)
+        try infoPlist.write(to: derivedData.appendingPathComponent("info.plist"))
+
         let analyzer = DeveloperStorageAnalyzer(
             homeDirectory: home,
-            commandRunner: FixtureCommandRunner(output: simctlJSON)
+            commandRunner: FixtureCommandRunner(output: simctlJSON),
+            homebrewExecutables: []
         )
 
         let inventory = try await analyzer.analyze()
 
-        #expect(inventory.items.contains { $0.category == .derivedData && $0.recommendation == .recommended })
+        #expect(inventory.items.contains {
+            $0.category == .derivedData && $0.recommendation == .recommended
+                && $0.name == "App" && $0.detail.hasPrefix("Project no longer exists")
+        })
         #expect(inventory.items.contains { $0.category == .packageCaches && $0.recommendation == .recommended })
         #expect(inventory.items.contains { $0.category == .androidEmulators && $0.recommendation == .review })
         #expect(inventory.items.contains { $0.category == .aiModelsAndAgents && $0.name == "Ollama Models & Blobs" })
@@ -166,7 +174,9 @@ struct DeveloperStorageTests {
         #expect(inventory.items.contains { $0.category == .aiGeneratedArtifacts && $0.name == "Claude Code Project Sessions" && $0.recommendation == .review })
         #expect(inventory.items.contains { $0.category == .deviceSupport })
         #expect(inventory.items.contains { $0.category == .archives && $0.recommendation == .protected })
-        #expect(inventory.items.contains { $0.category == .xctestDevices && $0.recommendation == .unclassified })
+        // The fixture's testing set lists only a device outside XCTestDevices,
+        // and loose files below 1 MB are not reported.
+        #expect(inventory.items.contains { $0.id == "xctest-device:DEVICE-1" && $0.recommendation == .protected })
         #expect(inventory.items.contains { $0.category == .simulatorDevices && $0.recommendation == .protected })
         #expect(inventory.items.contains { $0.category == .simulatorRuntimes && $0.recommendation == .review })
         #expect(inventory.bytes(for: .recommended) > 0)

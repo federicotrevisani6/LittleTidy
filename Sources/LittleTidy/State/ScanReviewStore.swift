@@ -1,6 +1,7 @@
 import Foundation
 import LittleTidyCore
 import AppKit
+import Combine
 
 @MainActor
 final class ScanReviewStore: ObservableObject {
@@ -87,6 +88,9 @@ final class ScanReviewStore: ObservableObject {
     @Published var isCleaningDeveloperStorage = false
     @Published var developerCleanupResult: DeveloperStorageCleanupResult?
     @Published private(set) var isXcodeRunning = false
+    @Published private(set) var isReleasingSnapshotSpace = false
+    @Published var snapshotReleaseResult: LocalSnapshotReleaseResult?
+    @Published var snapshotReleaseErrorMessage: String?
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
@@ -98,6 +102,7 @@ final class ScanReviewStore: ObservableObject {
     private let scanPreferencesStore: ScanPreferencesStore
     private let cleanupHistoryStore: CleanupHistoryStore
     private let trashWatcher: AppTrashWatcher
+    private var preferencesSubscription: AnyCancellable?
 
     init(
         items: [ReviewItem] = [],
@@ -143,6 +148,7 @@ final class ScanReviewStore: ObservableObject {
         refreshPermissionReadiness()
         updateTrashWatcherState()
         setupNotificationHandling()
+        observeExternalPreferenceChanges()
         if automaticallyScanDeveloperStorage {
             Task { [weak self] in
                 self?.refreshDeveloperStorage()
@@ -163,6 +169,20 @@ final class ScanReviewStore: ObservableObject {
 
     var recommendedDeveloperBytes: Int64 {
         developerStorageInventory.bytes(for: .recommended)
+    }
+
+    /// What the recommended items are guaranteed to free once APFS clones are
+    /// accounted for. Equal to `recommendedDeveloperBytes` when nothing is cloned.
+    var recommendedDeveloperGuaranteedBytes: Int64 {
+        developerStorageInventory.guaranteedReclaimableBytes(for: .recommended)
+    }
+
+    /// Recommended bytes a Time Machine local snapshot is holding, when that
+    /// explains a meaningful gap between found and immediately freed space.
+    var recommendedDeveloperBytesHeldBySnapshot: Int64? {
+        guard developerStorageInventory.latestLocalSnapshotAt != nil else { return nil }
+        let held = recommendedDeveloperBytes - recommendedDeveloperGuaranteedBytes
+        return held >= max(100_000_000, recommendedDeveloperBytes / 10) ? held : nil
     }
 
     var reviewDeveloperBytes: Int64 {
@@ -189,10 +209,22 @@ final class ScanReviewStore: ObservableObject {
         selectedDeveloperStorageItems.reduce(0) { $0 + $1.bytes }
     }
 
+    var selectedDeveloperStorageGuaranteedBytes: Int64 {
+        selectedDeveloperStorageItems.reduce(0) { $0 + $1.guaranteedReclaimableBytes }
+    }
+
+    /// Selected items a running Xcode would block outright.
+    var selectedDeveloperStorageItemsWaitingForXcode: Int {
+        selectedDeveloperStorageItems.filter { $0.xcodeActivityRule == .requiresXcodeQuit }.count
+    }
+
     var selectedDeveloperStorageHasIrreversibleOperations: Bool {
-        selectedDeveloperStorageItems.contains {
+        // In permanent-delete mode even Trash-mechanism items cannot be restored.
+        if deletionMode == .permanentDelete, !selectedDeveloperStorageItems.isEmpty { return true }
+        return selectedDeveloperStorageItems.contains {
             $0.cleanupMechanism == .simctl
                 || $0.cleanupMechanism == .xcodeManaged
+                || $0.cleanupMechanism == .homebrewCleanup
                 || $0.recoverability == .irreversible
                 || $0.recoverability == .reinstallable
         }
@@ -210,9 +242,11 @@ final class ScanReviewStore: ObservableObject {
         case .trash:
             return true
         case .simctl:
-            return item.category == .simulatorDevices
+            return item.category == .simulatorDevices || item.category == .xctestDevices
         case .xcodeManaged:
             return item.category == .simulatorRuntimes && item.recommendation == .review
+        case .homebrewCleanup:
+            return true
         case .manual, .unsupported:
             return false
         }
@@ -249,7 +283,7 @@ final class ScanReviewStore: ObservableObject {
                 self?.selectedDeveloperStorageItemIDs = Set(
                     inventory.items
                         .filter { $0.recommendation == .recommended }
-                        .filter { $0.cleanupMechanism == .trash || $0.cleanupMechanism == .simctl }
+                        .filter { [.trash, .simctl, .homebrewCleanup].contains($0.cleanupMechanism) }
                         .map(\.id)
                 )
                 self?.isScanningDeveloperStorage = false
@@ -266,22 +300,69 @@ final class ScanReviewStore: ObservableObject {
     func executeDeveloperStorageCleanup() {
         let selected = selectedDeveloperStorageItems
         guard !selected.isEmpty, !isCleaningDeveloperStorage else { return }
+        // The executor rechecks Xcode before each item and skips anything a
+        // running Xcode still uses, so cleanup no longer stops here.
         refreshXcodeRunningState()
-        guard !isXcodeRunning else {
-            developerStorageErrorMessage = "Quit Xcode before cleaning developer storage. Nothing has been removed."
-            return
-        }
         isCleaningDeveloperStorage = true
         developerCleanupResult = nil
         let mode = deletionMode
 
         Task { [weak self] in
             let result = await DeveloperStorageCleanupExecutor().execute(items: selected, deletionMode: mode)
+            self?.removeCleanedDeveloperItems(result)
             self?.developerCleanupResult = result
+            self?.snapshotReleaseResult = nil
+            self?.snapshotReleaseErrorMessage = nil
             self?.isCleaningDeveloperStorage = false
             self?.selectedDeveloperStorageItemIDs = []
             self?.refreshDeveloperStorage()
         }
+    }
+
+    /// Space the last cleanup removed that a local snapshot still holds,
+    /// including Trash contents, which only count once the Trash is emptied.
+    /// Offered only after a cleanup: releasing earlier would thin snapshots
+    /// for data that is still in use.
+    var snapshotReleasableBytes: Int64? {
+        guard developerStorageInventory.latestLocalSnapshotAt != nil,
+              snapshotReleaseResult == nil,
+              let result = developerCleanupResult,
+              let notYetFreed = result.bytesNotYetFreed else {
+            return nil
+        }
+        let bytes = notYetFreed + result.bytesInTrash
+        return bytes >= 100_000_000 ? bytes : nil
+    }
+
+    func releaseSnapshotSpace() {
+        guard let bytes = snapshotReleasableBytes, !isReleasingSnapshotSpace else { return }
+        isReleasingSnapshotSpace = true
+        snapshotReleaseErrorMessage = nil
+        Task { [weak self] in
+            do {
+                let result = try await LocalSnapshotReleaser().release(bytes: bytes)
+                self?.snapshotReleaseResult = result
+            } catch {
+                self?.snapshotReleaseErrorMessage = "macOS did not release the snapshot space: \(error.localizedDescription)"
+            }
+            self?.isReleasingSnapshotSpace = false
+            self?.refreshDeveloperStorage()
+        }
+    }
+
+    /// Drops removed items right away, so the list does not show them with
+    /// their old sizes while the follow-up rescan runs.
+    private func removeCleanedDeveloperItems(_ result: DeveloperStorageCleanupResult) {
+        let removedIDs = Set(result.items.filter { $0.status == .removed }.map(\.itemID))
+        guard !removedIDs.isEmpty else { return }
+        let inventory = developerStorageInventory
+        developerStorageInventory = DeveloperStorageInventory(
+            scannedAt: inventory.scannedAt,
+            items: inventory.items.filter { !removedIDs.contains($0.id) },
+            accessIssues: inventory.accessIssues,
+            simulatorToolAvailable: inventory.simulatorToolAvailable,
+            latestLocalSnapshotAt: inventory.latestLocalSnapshotAt
+        )
     }
 
     func refreshXcodeRunningState() {
@@ -1599,6 +1680,36 @@ final class ScanReviewStore: ObservableObject {
     private func persistApprovedFolders() {
         folderBookmarkStore.saveScanRoots(scanRoots)
         folderBookmarkStore.saveAppRoots(appRoots)
+    }
+
+    /// The Settings window writes preferences directly to UserDefaults. Without
+    /// reloading them, the store would keep acting on stale values (for example
+    /// trashing while Settings says permanent delete) and its next save would
+    /// overwrite the user's change.
+    private func observeExternalPreferenceChanges() {
+        preferencesSubscription = NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.applyExternalPreferences()
+                }
+            }
+    }
+
+    /// Assigns only values that differ, so the didSet saves this triggers write
+    /// back identical values and the next notification changes nothing.
+    func applyExternalPreferences() {
+        let preferences = scanPreferencesStore.load()
+        if includeHiddenFiles != preferences.includeHiddenFiles { includeHiddenFiles = preferences.includeHiddenFiles }
+        if includeSystemFolders != preferences.includeSystemFolders { includeSystemFolders = preferences.includeSystemFolders }
+        if includeCaches != preferences.includeCaches { includeCaches = preferences.includeCaches }
+        if includeRelatedAppData != preferences.includeRelatedAppData { includeRelatedAppData = preferences.includeRelatedAppData }
+        if enableTrashWatcher != preferences.enableTrashWatcher { enableTrashWatcher = preferences.enableTrashWatcher }
+        if minimumDuplicateSize != preferences.minimumDuplicateSize { minimumDuplicateSize = preferences.minimumDuplicateSize }
+        if largeFileThreshold != preferences.largeFileThreshold { largeFileThreshold = preferences.largeFileThreshold }
+        if allowPermanentDeletion != preferences.allowPermanentDeletion { allowPermanentDeletion = preferences.allowPermanentDeletion }
+        if deletionMode != preferences.deletionMode { deletionMode = preferences.deletionMode }
     }
 
     private func persistScanPreferences() {

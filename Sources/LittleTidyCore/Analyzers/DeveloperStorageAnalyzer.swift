@@ -7,19 +7,28 @@ public actor DeveloperStorageAnalyzer {
     private let commandRunner: any DeveloperToolCommandRunning
     private let policy: DeveloperStoragePolicy
     private let agentTemporaryRoot: URL
+    private let homebrewExecutables: [URL]
+    private let homebrewRunner: any DeveloperToolCommandRunning
+    private let reclaimEstimator: APFSReclaimEstimator
 
     public init(
         fileManager: FileManager = .default,
         homeDirectory: URL? = nil,
         commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient(),
         policy: DeveloperStoragePolicy = DeveloperStoragePolicy(),
-        agentTemporaryRoot: URL? = nil
+        agentTemporaryRoot: URL? = nil,
+        homebrewExecutables: [URL] = HomebrewCleanup.knownExecutables,
+        homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 120, environment: HomebrewCleanup.environment),
+        reclaimEstimator: APFSReclaimEstimator = APFSReclaimEstimator()
     ) {
         self.fileManager = fileManager
         self.homeDirectory = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
         self.commandRunner = commandRunner
         self.policy = policy
         self.agentTemporaryRoot = agentTemporaryRoot ?? URL(fileURLWithPath: "/private/tmp/claude-\(getuid())", isDirectory: true)
+        self.homebrewExecutables = homebrewExecutables
+        self.homebrewRunner = homebrewRunner
+        self.reclaimEstimator = reclaimEstimator
     }
 
     public func analyze() async throws -> DeveloperStorageInventory {
@@ -29,11 +38,8 @@ public actor DeveloperStorageAnalyzer {
         let developerRoot = homeDirectory.appendingPathComponent("Library/Developer", isDirectory: true)
         let xcodeRoot = developerRoot.appendingPathComponent("Xcode", isDirectory: true)
 
-        appendDirectory(
-            xcodeRoot.appendingPathComponent("DerivedData", isDirectory: true),
-            category: .derivedData,
-            name: "Xcode Derived Data",
-            detail: "Build products, indexes, and intermediates",
+        appendDerivedDataProjects(
+            of: xcodeRoot.appendingPathComponent("DerivedData", isDirectory: true),
             items: &items,
             issues: &issues
         )
@@ -48,14 +54,12 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
-        appendDirectory(
+        await appendXCTestDevices(
             developerRoot.appendingPathComponent("XCTestDevices", isDirectory: true),
-            category: .xctestDevices,
-            name: "XCTest Devices",
-            detail: "Test device environments and data",
             items: &items,
             issues: &issues
         )
+        await appendHomebrewCleanup(items: &items, issues: &issues)
 
         // Package Manager Caches
         let userLibraryCaches = homeDirectory.appendingPathComponent("Library/Caches", isDirectory: true)
@@ -230,6 +234,13 @@ public actor DeveloperStorageAnalyzer {
             issues: &issues
         )
 
+        // A symbolic link is never a cleanup candidate: it can point at a
+        // location already listed (~/.swiftpm/cache links to
+        // ~/Library/Caches/org.swift.swiftpm) or outside every known root.
+        items = items.filter { item in item.url.map { !isSymbolicLink($0) } ?? true }
+        items = items.map(estimatingClonedStorage)
+        let latestLocalSnapshotAt = await latestLocalSnapshot()
+
         return DeveloperStorageInventory(
             items: items.sorted { lhs, rhs in
                 lhs.bytes == rhs.bytes
@@ -237,8 +248,24 @@ public actor DeveloperStorageAnalyzer {
                     : lhs.bytes > rhs.bytes
             },
             accessIssues: issues,
-            simulatorToolAvailable: simulatorResult.toolAvailable
+            simulatorToolAvailable: simulatorResult.toolAvailable,
+            latestLocalSnapshotAt: latestLocalSnapshotAt
         )
+    }
+
+    private func isSymbolicLink(_ url: URL) -> Bool {
+        (try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink
+    }
+
+    /// Read-only. A failure only means the explanation is not shown.
+    private func latestLocalSnapshot() async -> Date? {
+        guard let result = try? await commandRunner.run(
+            executable: URL(fileURLWithPath: "/usr/bin/tmutil"),
+            arguments: LocalSnapshotInventory.listArguments
+        ) else {
+            return nil
+        }
+        return LocalSnapshotInventory.parseSnapshotDates(result.standardOutput).last
     }
 
     private func simulatorInventory() async -> (items: [DeveloperStorageItem], issues: [DeveloperStorageAccessIssue], toolAvailable: Bool) {
@@ -308,6 +335,208 @@ public actor DeveloperStorageAnalyzer {
                 [DeveloperStorageAccessIssue(path: "/usr/bin/xcrun simctl", message: error.localizedDescription)],
                 false
             )
+        }
+    }
+
+    /// Simulator devices and XCTest clones are APFS clones, and a local snapshot
+    /// holds older blocks of any item, so allocated size can overstate what
+    /// removal frees. Every preselected item is estimated, so the guaranteed
+    /// total never relies on allocated size; review-only items are estimated
+    /// only for the clone-heavy device categories to keep scans short.
+    private func estimatingClonedStorage(_ item: DeveloperStorageItem) -> DeveloperStorageItem {
+        let isDevice = item.category == .simulatorDevices || item.category == .xctestDevices
+        guard item.recommendation == .recommended || (isDevice && item.recommendation == .review),
+              item.bytes > 0,
+              let url = item.url,
+              !Task.isCancelled else {
+            return item
+        }
+        return item.withMinimumReclaimableBytes(reclaimEstimator.minimumReclaimableBytes(at: url))
+    }
+
+    /// One item per project, so a running Xcode blocks only the projects it
+    /// has open. Shared caches such as ModuleCache.noindex appear separately.
+    private func appendDerivedDataProjects(
+        of root: URL,
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) {
+        guard fileManager.fileExists(atPath: root.path) else { return }
+        do {
+            let children = try fileManager.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                options: [.skipsHiddenFiles]
+            )
+            for child in children {
+                try Task.checkCancellation()
+                let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
+                let name: String
+                let detail: String
+                if let workspacePath = derivedDataWorkspacePath(child) {
+                    name = URL(fileURLWithPath: workspacePath).deletingPathExtension().lastPathComponent
+                    detail = fileManager.fileExists(atPath: workspacePath)
+                        ? "Build data for \(abbreviatingHome(workspacePath))"
+                        : "Project no longer exists at \(abbreviatingHome(workspacePath))"
+                } else if let projectName = derivedDataProjectName(child.lastPathComponent) {
+                    // Some project folders, for example one holding only
+                    // SourcePackages, have no info.plist to name the workspace.
+                    name = projectName
+                    detail = "Build data for \(projectName) · project location not recorded by Xcode"
+                } else {
+                    name = child.lastPathComponent
+                    detail = "Shared Xcode build data"
+                }
+                items.append(makeItem(
+                    id: "path:\(child.standardizedFileURL.path)",
+                    category: .derivedData,
+                    name: name,
+                    detail: detail,
+                    url: child,
+                    externalIdentifier: nil,
+                    isAvailable: true,
+                    decision: policy.decision(for: .derivedData),
+                    issues: &issues
+                ))
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            issues.append(DeveloperStorageAccessIssue(path: root.path, message: error.localizedDescription))
+        }
+    }
+
+    /// Xcode names per-project folders "<Name>-<28 lowercase letters>".
+    /// Shared caches such as ModuleCache.noindex do not match.
+    private func derivedDataProjectName(_ folderName: String) -> String? {
+        guard let match = folderName.wholeMatch(of: /(.+)-[a-z]{28}/) else { return nil }
+        return String(match.1)
+    }
+
+    private func derivedDataWorkspacePath(_ folder: URL) -> String? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("info.plist")),
+              let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] else {
+            return nil
+        }
+        return plist["WorkspacePath"] as? String
+    }
+
+    private func abbreviatingHome(_ path: String) -> String {
+        let home = homeDirectory.standardizedFileURL.path
+        return path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
+    }
+
+    /// XCTest clones are registered in simctl's "testing" device set, which
+    /// gives a supported removal path and live Booted state. Folders simctl
+    /// does not list stay unclassified. If simctl is unavailable, the whole
+    /// directory is reported for diagnosis only, as before.
+    private func appendXCTestDevices(
+        _ root: URL,
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) async {
+        guard fileManager.fileExists(atPath: root.path) else { return }
+        let devices: [SimulatorDeviceRecord]
+        do {
+            let result = try await commandRunner.run(
+                executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
+                arguments: ["simctl", "--set", "testing", "list", "devices", "--json"]
+            )
+            devices = try SimulatorInventoryParser().parse(result.standardOutput).devices
+        } catch {
+            issues.append(DeveloperStorageAccessIssue(path: "/usr/bin/xcrun simctl --set testing", message: error.localizedDescription))
+            items.append(makeItem(
+                id: "path:\(root.standardizedFileURL.path)",
+                category: .xctestDevices,
+                name: "XCTest Devices",
+                detail: "Test device environments and data",
+                url: root,
+                externalIdentifier: nil,
+                isAvailable: true,
+                decision: policy.unverifiedXCTestDecision(),
+                issues: &issues
+            ))
+            return
+        }
+
+        let testSessionActive = devices.hasActiveTestSession
+        let deviceURLs = devices.map { root.appendingPathComponent($0.udid, isDirectory: true) }
+        let measuredBytes = allocatedBytesUsingDU(at: deviceURLs.filter { fileManager.fileExists(atPath: $0.path) })
+        for (device, url) in zip(devices, deviceURLs) {
+            let exists = fileManager.fileExists(atPath: url.path)
+            let isActive = device.state.localizedCaseInsensitiveCompare("Booted") == .orderedSame
+            items.append(makeItem(
+                id: "xctest-device:\(device.udid)",
+                category: .xctestDevices,
+                name: device.name,
+                detail: "\(runtimeDisplayName(device.runtimeIdentifier)) · \(device.state)" + (exists ? "" : " · Folder already removed"),
+                url: exists ? url : nil,
+                externalIdentifier: device.udid,
+                isAvailable: device.isAvailable,
+                decision: testSessionActive && !isActive
+                    ? policy.xctestSessionActiveDecision()
+                    : policy.decision(for: .xctestDevices, isAvailable: device.isAvailable, isActive: isActive),
+                premeasuredBytes: exists ? (measuredBytes[url.standardizedFileURL.path] ?? 0) : 0
+            ))
+        }
+
+        let registered = Set(devices.map(\.udid))
+        let children = (try? fileManager.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        for child in children where !registered.contains(child.lastPathComponent) {
+            guard (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
+            let item = makeItem(
+                id: "path:\(child.standardizedFileURL.path)",
+                category: .xctestDevices,
+                name: child.lastPathComponent,
+                detail: "XCTest data not registered with simctl",
+                url: child,
+                externalIdentifier: nil,
+                isAvailable: true,
+                decision: policy.unverifiedXCTestDecision(),
+                issues: &issues
+            )
+            if item.bytes >= 1_000_000 {
+                items.append(item)
+            }
+        }
+    }
+
+    /// Homebrew reports reclaimable space itself with a dry run. Its own
+    /// cache folder is not listed here, so the space is not counted twice.
+    private func appendHomebrewCleanup(
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) async {
+        guard let brew = homebrewExecutables.first(where: { fileManager.isExecutableFile(atPath: $0.path) }) else { return }
+        do {
+            let result = try await homebrewRunner.run(executable: brew, arguments: HomebrewCleanup.dryRunArguments)
+            guard let bytes = HomebrewCleanup.parseReclaimedBytes(result.standardOutput), bytes > 0 else { return }
+            let decision = policy.homebrewCleanupDecision()
+            items.append(DeveloperStorageItem(
+                id: "homebrew-cleanup:\(brew.path)",
+                category: .packageCaches,
+                name: "Homebrew Old Versions & Downloads",
+                detail: "Estimated by brew cleanup --dry-run",
+                url: nil,
+                bytes: bytes,
+                activity: decision.activity,
+                recoverability: decision.recoverability,
+                cleanupMechanism: decision.mechanism,
+                consequence: decision.consequence,
+                recommendation: decision.recommendation,
+                recommendationReason: decision.reason,
+                externalIdentifier: brew.path,
+                isAvailable: true
+            ))
+        } catch is CancellationError {
+            return
+        } catch {
+            issues.append(DeveloperStorageAccessIssue(path: "\(brew.path) cleanup --dry-run", message: error.localizedDescription))
         }
     }
 

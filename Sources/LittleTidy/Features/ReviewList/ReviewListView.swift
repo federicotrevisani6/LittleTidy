@@ -275,20 +275,57 @@ private struct ReviewBatchToolbar: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Picker("Filter", selection: $store.reviewFilterScope) {
-                ForEach(ReviewFilterScope.allCases) { scope in
-                    Text(scope.title).tag(scope)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                filterPicker
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+
+                summary
+                    .fixedSize()
+
+                Spacer(minLength: 0)
+
+                batchActions
+                    .fixedSize()
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                ViewThatFits(in: .horizontal) {
+                    filterPicker
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+
+                    filterPicker
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                }
+
+                HStack(spacing: 12) {
+                    summary
+
+                    Spacer(minLength: 0)
+
+                    batchActions
+                        .fixedSize()
                 }
             }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .frame(maxWidth: 220)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .controlSize(.small)
+    }
 
-            summary
+    private var filterPicker: some View {
+        Picker("Filter", selection: $store.reviewFilterScope) {
+            ForEach(ReviewFilterScope.allCases) { scope in
+                Text(scope.title).tag(scope)
+            }
+        }
+        .labelsHidden()
+    }
 
-            Spacer()
-
+    private var batchActions: some View {
+        HStack(spacing: 12) {
             if category == .duplicate {
                 Menu {
                     ForEach(DuplicateKeepStrategy.allCases, id: \.self) { strategy in
@@ -335,7 +372,6 @@ private struct ReviewBatchToolbar: View {
                 }
             }
         }
-        .controlSize(.small)
     }
 
     private var summary: some View {

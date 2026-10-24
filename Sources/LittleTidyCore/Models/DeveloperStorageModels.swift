@@ -60,6 +60,7 @@ public enum DeveloperCleanupMechanism: String, Codable, Sendable {
     case trash
     case simctl
     case xcodeManaged
+    case homebrewCleanup
     case manual
     case unsupported
 }
@@ -90,6 +91,11 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
     public let recommendationReason: String
     public let externalIdentifier: String?
     public let isAvailable: Bool
+    /// Allocated bytes can overstate what removal frees right away: APFS clones
+    /// share blocks, and a local snapshot (for example Time Machine's) keeps
+    /// blocks that existed when it was taken. When measured, this is the APFS
+    /// private size, a lower bound on the space freed immediately.
+    public let minimumReclaimableBytes: Int64?
 
     public init(
         id: String,
@@ -107,7 +113,8 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
         recommendation: StorageRecommendation,
         recommendationReason: String,
         externalIdentifier: String? = nil,
-        isAvailable: Bool = true
+        isAvailable: Bool = true,
+        minimumReclaimableBytes: Int64? = nil
     ) {
         self.id = id
         self.category = category
@@ -125,7 +132,77 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
         self.recommendationReason = recommendationReason
         self.externalIdentifier = externalIdentifier
         self.isAvailable = isAvailable
+        self.minimumReclaimableBytes = minimumReclaimableBytes.map { min($0, bytes) }
     }
+
+    /// The bytes removal is guaranteed to free, falling back to allocated size.
+    public var guaranteedReclaimableBytes: Int64 {
+        minimumReclaimableBytes ?? bytes
+    }
+
+    /// Whether a meaningful part of this item is shared with clones or held
+    /// by a local snapshot, so removal frees less right away.
+    public var hasSharedStorage: Bool {
+        guard let minimumReclaimableBytes else { return false }
+        return bytes - minimumReclaimableBytes >= max(1_000_000, bytes / 10)
+    }
+
+    public func withMinimumReclaimableBytes(_ value: Int64?) -> DeveloperStorageItem {
+        DeveloperStorageItem(
+            id: id,
+            category: category,
+            name: name,
+            detail: detail,
+            url: url,
+            bytes: bytes,
+            createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            activity: activity,
+            recoverability: recoverability,
+            cleanupMechanism: cleanupMechanism,
+            consequence: consequence,
+            recommendation: recommendation,
+            recommendationReason: recommendationReason,
+            externalIdentifier: externalIdentifier,
+            isAvailable: isAvailable,
+            minimumReclaimableBytes: value
+        )
+    }
+
+    /// How a running Xcode affects cleanup of this item.
+    public var xcodeActivityRule: XcodeActivityRule {
+        if cleanupMechanism == .homebrewCleanup { return .independent }
+        switch category {
+        case .derivedData, .simulatorDevices, .xctestDevices:
+            return .openFileCheck
+        default:
+            return .requiresXcodeQuit
+        }
+    }
+}
+
+extension SimulatorDeviceRecord {
+    /// Anything but Shutdown (Booted, Booting, Creating, Shutting Down) means
+    /// the device may be in use.
+    public var isShutdown: Bool {
+        state.localizedCaseInsensitiveCompare("Shutdown") == .orderedSame
+    }
+}
+
+extension Collection where Element == SimulatorDeviceRecord {
+    /// A test session is active when any clone of the testing set is not shut down.
+    public var hasActiveTestSession: Bool {
+        contains { !$0.isShutdown }
+    }
+}
+
+public enum XcodeActivityRule: String, Codable, Sendable {
+    /// Not owned by Xcode; cleanup never waits for it.
+    case independent
+    /// Allowed while Xcode runs only when no process has files open inside it.
+    case openFileCheck
+    /// Blocked whenever Xcode is running.
+    case requiresXcodeQuit
 }
 
 public struct DeveloperStorageAccessIssue: Identifiable, Codable, Hashable, Sendable {
@@ -145,17 +222,22 @@ public struct DeveloperStorageInventory: Codable, Equatable, Sendable {
     public let items: [DeveloperStorageItem]
     public let accessIssues: [DeveloperStorageAccessIssue]
     public let simulatorToolAvailable: Bool
+    /// The most recent Time Machine local snapshot, if any. It explains why
+    /// older data frees little space right away.
+    public let latestLocalSnapshotAt: Date?
 
     public init(
         scannedAt: Date = Date(),
         items: [DeveloperStorageItem],
         accessIssues: [DeveloperStorageAccessIssue] = [],
-        simulatorToolAvailable: Bool
+        simulatorToolAvailable: Bool,
+        latestLocalSnapshotAt: Date? = nil
     ) {
         self.scannedAt = scannedAt
         self.items = items
         self.accessIssues = accessIssues
         self.simulatorToolAvailable = simulatorToolAvailable
+        self.latestLocalSnapshotAt = latestLocalSnapshotAt
     }
 
     public static let empty = DeveloperStorageInventory(
@@ -167,6 +249,10 @@ public struct DeveloperStorageInventory: Codable, Equatable, Sendable {
 
     public func bytes(for recommendation: StorageRecommendation) -> Int64 {
         items.filter { $0.recommendation == recommendation }.reduce(0) { $0 + $1.bytes }
+    }
+
+    public func guaranteedReclaimableBytes(for recommendation: StorageRecommendation) -> Int64 {
+        items.filter { $0.recommendation == recommendation }.reduce(0) { $0 + $1.guaranteedReclaimableBytes }
     }
 
     public func bytes(for category: DeveloperStorageCategory) -> Int64 {

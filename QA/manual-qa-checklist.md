@@ -5,14 +5,14 @@ Use the generated fixture folder before scanning real user folders.
 ## Create Fixture
 
 ```bash
-cd /Users/federicotrevisani/MacCleaner
+cd /Users/federicotrevisani/LittleTidy
 ./script/create_qa_fixture.sh
 ```
 
 Fixture path:
 
 ```text
-/Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture
+/Users/federicotrevisani/LittleTidy/QA/LittleTidyFixture
 ```
 
 ## Expected Fixture Contents
@@ -34,7 +34,7 @@ Fixture path:
 Run the automated fixture audit first:
 
 ```bash
-cd /Users/federicotrevisani/MacCleaner
+cd /Users/federicotrevisani/LittleTidy
 swift run LittleTidyQA
 ```
 
@@ -45,14 +45,16 @@ scannedFiles=10
 duplicates=1
 largeFiles=5
 unusedApps=1
-developerItems=6
+developerItems=<non-zero>
 developerBytes=<non-zero>
 ```
+
+The harness currently stops at `Expected at least 4 large-file candidates.` on `main` as well; treat that as a known failure until the fixture is fixed.
 
 1. Open the Xcode project:
 
    ```bash
-   open /Users/federicotrevisani/MacCleaner/LittleTidy.xcodeproj
+   open /Users/federicotrevisani/LittleTidy/LittleTidy.xcodeproj
    ```
 
 2. Run the `LittleTidy` scheme.
@@ -62,13 +64,13 @@ developerBytes=<non-zero>
 4. Confirm the overview shows this file root:
 
    ```text
-   /Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture
+   /Users/federicotrevisani/LittleTidy/QA/LittleTidyFixture
    ```
 
 5. Confirm the overview shows this app root:
 
    ```text
-   /Users/federicotrevisani/MacCleaner/QA/LittleTidyFixture/Applications
+   /Users/federicotrevisani/LittleTidy/QA/LittleTidyFixture/Applications
    ```
 
 6. Quit and relaunch the app, then confirm the fixture file root and app root are still selected.
@@ -129,25 +131,51 @@ developerBytes=<non-zero>
 
 ## Developer Storage QA
 
+### Inventory
 1. Launch LittleTidy and open `Developer Storage` from the sidebar.
 2. Confirm the scan runs without blocking navigation or window interaction.
 3. Confirm the summary keeps `Recommended`, `Review`, `Protected`, and `Unclassified` totals separate.
-4. Confirm booted Simulator devices are `Protected` and cannot be selected.
-5. Confirm ordinary shutdown Simulator devices are `Review`, are not preselected, and can be explicitly selected with a native macOS checkbox.
-6. Confirm DerivedData is `Recommended`, preselected, and explains that the next build may be slower.
-7. Confirm Archives are `Protected`, never preselected, and can be explicitly selected for Trash-restorable cleanup.
-8. Confirm XCTestDevices is `Unclassified` and diagnosis-only.
+4. Confirm `Recommended` shows "At least X freed right away" when part of it is shared with clones or held by a local snapshot.
+5. Confirm booted Simulator devices are `Protected` and cannot be selected.
+6. Confirm ordinary shutdown Simulator devices are `Review`, are not preselected, and can be explicitly selected with a native macOS checkbox.
+7. Confirm DerivedData shows one `Recommended`, preselected row per project, named after the project. A folder without `info.plist` (for example one holding only `SourcePackages`) is still named after the project; `ModuleCache.noindex` and similar show "Shared Xcode build data".
+8. Confirm Archives are `Protected`, never preselected, and can be explicitly selected for Trash-restorable cleanup.
 9. Confirm each filesystem-backed row can be revealed in Finder.
-10. Select only generated QA developer data and open `Review & Clean`.
-11. Confirm the dialog states the exact item count, size, consequence, and whether operations are irreversible.
-12. Cancel and confirm nothing changes.
-13. For destructive QA, use only disposable fixtures and a simulator created specifically for the test; never use a real development device.
-14. With Xcode open, confirm the warning banner appears and `Review & Clean` is disabled even when items are selected.
-15. Confirm the cleanup executor also skips every selected item if Xcode opens after confirmation but before execution.
-16. After cleanup, confirm the inventory refreshes and reports removed, skipped, and failed operations accurately.
+10. Confirm `~/.swiftpm/cache` (a link to `~/Library/Caches/org.swift.swiftpm`) is not listed; no symbolic link appears as a row.
+
+### XCTest clones
+11. With no test running, confirm XCTest clones listed by `xcrun simctl --set testing list devices` appear as `Recommended`, preselected, with the clone reason. Folders simctl does not list stay `Unclassified`.
+12. Start a parallel test run in Xcode. Rescan while a clone is booted and confirm every clone of the set, including shutdown ones, is `Protected` with "An Xcode test session is using clones from this set".
+13. While `xcodebuild test` runs from Terminal, select a shutdown clone, confirm cleanup, and confirm it is skipped with an `xcodebuild` reason.
+
+### Xcode open
+14. With Xcode open on one project, confirm the banner says projects and Simulators in use are protected, and `Review & Clean` stays enabled unless every selected item waits for Xcode.
+15. Clean the build data of a project that is not open and confirm it is removed; confirm the open project's build data is skipped with "In use by Xcode…".
+16. Confirm Device Support, archives, runtimes, and package caches are skipped with "Quit Xcode before cleaning this item" while Xcode runs.
+
+### Homebrew
+17. With outdated Homebrew versions present (for example after `brew upgrade`), confirm a `Homebrew Old Versions & Downloads` row appears under Package Manager Caches with the `brew cleanup --dry-run` estimate.
+18. Clean it and confirm the result reports the size Homebrew says it freed. Confirm it is never blocked by Xcode.
+
+### Cleanup, results, and settings
+19. Select only disposable developer data and open `Review & Clean`. Confirm the dialog states the item count, size, consequence, and whether operations are irreversible.
+20. Cancel and confirm nothing changes.
+21. In Settings › Deletion & Safety, switch to `Permanently Delete` without relaunching. Confirm the cleanup bar says "Selected items will be deleted permanently, skipping the Trash" and the dialog offers `Delete Permanently`. Switch back to the Trash and confirm the wording returns.
+22. After a cleanup, confirm removed rows leave the list immediately, before the rescan finishes.
+23. Confirm the result shows the total removed, "At least X freed right away", the measured change in free space, and any bytes still in the Trash.
+24. If anything was skipped or failed, expand "Why N items were not removed" and confirm each item shows its reason.
+25. For destructive QA, use only disposable fixtures and a simulator created specifically for the test; never use a real development device.
+
+### Time Machine local snapshots
+26. With a local snapshot present (`tmutil listlocalsnapshots /`), confirm the banner names the latest snapshot time and how much recommended data it holds.
+27. After a cleanup in permanent-delete mode (or after emptying the Trash), confirm the snapshot panel offers `Release X…` only when at least 100 MB did not come back.
+28. Confirm the release dialog explains that local restore points are lost and Time Machine disk backups are unaffected, and mentions the Trash when items are still there.
+29. Release and confirm the panel reports snapshots removed and the measured free space; check with `tmutil listlocalsnapshots /` that the oldest snapshots were removed.
 
 ## Known QA Gaps
 
 - macOS does not expose a simple Full Disk Access boolean; `Access Readiness` surfaces selected-root readability and opens the Privacy settings pane.
 - Runtime removal is review-only and uses the installed Xcode's supported `simctl runtime delete` command after revalidating the runtime and its device dependencies.
-- XCTestDevices remains diagnosis-only unless ownership and activity can be proven.
+- XCTest folders not registered with `simctl --set testing` remain diagnosis-only.
+- `LittleTidyTests` (app-target tests) run only from the Xcode project, not with `swift test`.
+- Snapshot release asks macOS to thin by amount; macOS decides how many snapshots to remove, oldest first.

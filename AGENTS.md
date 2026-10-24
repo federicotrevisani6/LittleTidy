@@ -17,10 +17,10 @@ macOS Storage Settings aggregates tens or hundreds of gigabytes into an opaque "
    - `Recommended`: Confidently rebuildable or orphaned data (e.g. DerivedData, unavailable simulator devices). Preselected by default.
    - `Review`: Useful or reinstallable data (e.g. Device Support symbols, old shutdown simulators, local AI model weights). Requires manual review and opt-in.
    - `Protected`: Active or critical assets (e.g. Xcode archives, booted simulators, current runtimes, CoreDevice mounts). Never auto-selected; protected from accidental deletion.
-   - `Unclassified`: Data whose ownership or safety cannot yet be proven (e.g. arbitrary XCTest data). Surfaced for diagnostic awareness only; deletion is disabled.
+   - `Unclassified`: Data whose ownership or safety cannot yet be proven (e.g. XCTest folders not registered in `simctl --set testing`). Surfaced for diagnostic awareness only; deletion is disabled.
 3. **Reversible by Default**: Standard files and directories are moved to the macOS Trash (`FileManager.default.trashItem`) rather than permanently deleted.
 4. **Supported Mechanisms Only**: Simulator devices and runtimes are never deleted by directly pruning internal CoreSimulator directories; they are manipulated via Apple's official `xcrun simctl` CLI.
-5. **Active-Work Protection (Fail-Closed)**: If Xcode is running, all developer storage cleanup is blocked immediately to prevent corrupting active builds or index databases. If a simulator is booted, it is protected.
+5. **Active-Work Protection (Fail-Closed)**: While Xcode runs, only per-project DerivedData and inactive Simulator/XCTest devices that no process has open (fresh `lsof` snapshot) can be cleaned; every other Xcode-owned item waits until Xcode quits. If the snapshot fails, the item is blocked. Homebrew cleanup is independent of Xcode. If a simulator is booted, it is protected.
 6. **Conservative Leftover Matching**: When detecting uninstalled app leftovers, matching is restricted strictly to exact bundle identifier matches (`CFBundleIdentifier`). Shared Group Containers and fuzzy name matches are excluded to prevent cross-app data loss.
 7. **Local-First & Private**: Scanning, analysis, and indexing are 100% on-device. No telemetry, file paths, or inventory data leave the user's machine.
 
@@ -35,7 +35,10 @@ When modifying or generating code, **never violate these non-negotiable rules**:
 | **Trash Over Permanent Delete** | Default deletion mode MUST be `moveToTrash`. Permanent deletion (`removeItem`) is strictly an opt-in toggle guarded in settings. |
 | **Simctl For Simulator Management** | Never run `rm -rf` or `FileManager.removeItem` on CoreSimulator devices or runtimes. Use `xcrun simctl delete <UDID>` or `xcrun simctl runtime delete <ID>`. |
 | **Simctl State Revalidation** | Simulator state must be re-checked immediately before execution (checking if a device changed to `Booted` since the scan). |
-| **Xcode Lock Guard** | Developer cleanup must verify that Xcode is not running (`DeveloperToolActivityChecker`). If Xcode is running or if the check fails, fail-closed and abort. |
+| **Xcode Lock Guard** | Before every item, `DeveloperStorageCleanupExecutor` applies `xcodeActivityRule`. `requiresXcodeQuit` items are skipped while Xcode runs (or if the check fails). `openFileCheck` items (per-project DerivedData, Simulator and XCTest devices) proceed only if `openFileSnapshot()` succeeds and shows no open file inside the item; a nil snapshot blocks. Never weaken this to skip the snapshot. |
+| **Homebrew Through brew Only** | Homebrew space is reclaimed only with `brew cleanup` from `/opt/homebrew/bin/brew` or `/usr/local/bin/brew` (`HomebrewCleanup.isKnownExecutable`). Never delete Cellar or cache folders directly. |
+| **Snapshots Through macOS Thinning Only** | Time Machine local snapshot space is released only with `tmutil thinlocalsnapshots / <bytes> 4` (`LocalSnapshotReleaser`), after a cleanup and an explicit confirmation. Never run `tmutil deletelocalsnapshots` or name a snapshot. |
+| **XCTest Through simctl Testing Set** | XCTest clones are removed only with `xcrun simctl --set testing delete <UDID>` after revalidation. No clone is removable while a test session is active: any clone of the set not shut down, or `xcodebuild` running. Unregistered XCTest folders remain `unclassified`. |
 | **Duplicate Keep Invariant** | A duplicate group can NEVER have all copies deleted. At least one file MUST be retained (`TrashPlanBuilder.duplicateGroupWouldRemoveAllCopies`). |
 | **System Apps Protection** | Any app inside `/System/Applications` or `/System/` is strictly prohibited from cleanup plans. |
 | **Symbolic Link Protection** | Symlinks are never traversed or deleted as part of trash plans to prevent escaping approved boundaries. |
@@ -127,7 +130,7 @@ LittleTidy/
   - Uses direct `/usr/bin/du -sk` execution for multi-gigabyte CoreSimulator directories (significantly faster than recursive URL enumeration).
   - Uses volume capacity metadata for mounted Simulator runtimes to avoid traversing mounted OS disk images.
   - Invokes `xcrun simctl list --json` and `xcrun simctl runtime list --json`.
-  - Analyzes DerivedData, iOS DeviceSupport, Archives, XCTestDevices, Package Caches (SwiftPM, CocoaPods, Carthage), Android AVDs, AI models (Ollama, HuggingFace, PyTorch, MLX, LM Studio, Jan), regenerable AI caches/logs, and review-only AI session artifacts (Claude, Cursor, Codex, Continue, Gemini).
+  - Analyzes per-project DerivedData, iOS DeviceSupport, Archives, XCTest clones (`simctl --set testing`), Homebrew (`brew cleanup --dry-run`), Package Caches (SwiftPM, CocoaPods, Carthage), Android AVDs, AI models (Ollama, HuggingFace, PyTorch, MLX, LM Studio, Jan), regenerable AI caches/logs, and review-only AI session artifacts (Claude, Cursor, Codex, Continue, Gemini).
   - Calculates unallocated CoreSimulator remainder storage.
 - [`FolderUsageAnalyzer.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/FolderUsageAnalyzer.swift): Aggregates indexed file records into first-level folders under each scan root for Storage Map treemap visualization without re-traversing the disk.
 - [`CleanupAnalysis.swift`](file:///Users/federicotrevisani/LittleTidy/Sources/LittleTidyCore/Analyzers/CleanupAnalysis.swift): Async facade running the Sendable duplicate, large-file, and folder-usage analyzers concurrently while filesystem-bound app/cache analysis remains on the calling task, then combining everything into a single `CleanupAnalysisResult`.

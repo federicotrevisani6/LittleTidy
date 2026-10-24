@@ -148,6 +148,36 @@ struct ScanReviewStorePowerReviewTests {
         )
     }
 
+    @Test
+    func settingsChangesApplyWithoutRelaunchAndAreNotOverwritten() {
+        let suiteName = "LittleTidyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let preferences = ScanPreferencesStore(userDefaults: defaults)
+        let store = ScanReviewStore(
+            items: [],
+            scanRoots: [URL(fileURLWithPath: "/tmp")],
+            appRoots: [],
+            folderBookmarkStore: FolderBookmarkStore(userDefaults: defaults),
+            scanPreferencesStore: preferences,
+            cleanupHistoryStore: CleanupHistoryStore(userDefaults: defaults),
+            automaticallyScanDeveloperStorage: false
+        )
+        #expect(store.deletionMode == .moveToTrash)
+
+        // The Settings window writes UserDefaults directly.
+        var changed = preferences.load()
+        changed.deletionMode = .permanentDelete
+        changed.allowPermanentDeletion = true
+        preferences.save(changed)
+        store.applyExternalPreferences()
+
+        #expect(store.deletionMode == .permanentDelete)
+        // A later change made in the main window must not restore the stale mode.
+        store.includeCaches.toggle()
+        #expect(preferences.load().deletionMode == .permanentDelete)
+    }
+
     private func makeStore(items: [ReviewItem]) -> ScanReviewStore {
         let suiteName = "LittleTidyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
