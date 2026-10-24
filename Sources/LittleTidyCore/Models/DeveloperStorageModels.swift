@@ -222,17 +222,22 @@ public struct DeveloperStorageInventory: Codable, Equatable, Sendable {
     public let items: [DeveloperStorageItem]
     public let accessIssues: [DeveloperStorageAccessIssue]
     public let simulatorToolAvailable: Bool
+    /// The most recent Time Machine local snapshot, if any. It explains why
+    /// older data frees little space right away.
+    public let latestLocalSnapshotAt: Date?
 
     public init(
         scannedAt: Date = Date(),
         items: [DeveloperStorageItem],
         accessIssues: [DeveloperStorageAccessIssue] = [],
-        simulatorToolAvailable: Bool
+        simulatorToolAvailable: Bool,
+        latestLocalSnapshotAt: Date? = nil
     ) {
         self.scannedAt = scannedAt
         self.items = items
         self.accessIssues = accessIssues
         self.simulatorToolAvailable = simulatorToolAvailable
+        self.latestLocalSnapshotAt = latestLocalSnapshotAt
     }
 
     public static let empty = DeveloperStorageInventory(

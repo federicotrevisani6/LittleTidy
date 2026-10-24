@@ -171,6 +171,14 @@ final class ScanReviewStore: ObservableObject {
         developerStorageInventory.guaranteedReclaimableBytes(for: .recommended)
     }
 
+    /// Recommended bytes a Time Machine local snapshot is holding, when that
+    /// explains a meaningful gap between found and immediately freed space.
+    var recommendedDeveloperBytesHeldBySnapshot: Int64? {
+        guard developerStorageInventory.latestLocalSnapshotAt != nil else { return nil }
+        let held = recommendedDeveloperBytes - recommendedDeveloperGuaranteedBytes
+        return held >= max(100_000_000, recommendedDeveloperBytes / 10) ? held : nil
+    }
+
     var reviewDeveloperBytes: Int64 {
         developerStorageInventory.bytes(for: .review)
     }

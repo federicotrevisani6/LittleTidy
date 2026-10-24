@@ -221,6 +221,55 @@ struct DeveloperStorageReclaimTests {
         #expect(!snapshot.containsPath(within: URL(fileURLWithPath: "/Users/me/DD/App")))
     }
 
+    // MARK: Snapshots and DerivedData names
+
+    @Test("local snapshot parser reads Time Machine names in local time and ignores other lines")
+    func parsesLocalSnapshots() throws {
+        let output = Data("Snapshots for disk /:\ncom.apple.TimeMachine.2026-10-24-180741.local\ncom.apple.TimeMachine.2026-10-24-190450.local\ncom.example.other.local\n".utf8)
+        let utc = try #require(TimeZone(identifier: "UTC"))
+
+        let dates = LocalSnapshotInventory.parseSnapshotDates(output, timeZone: utc)
+
+        #expect(dates.count == 2)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = utc
+        let latest = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: try #require(dates.last))
+        #expect([latest.year, latest.month, latest.day, latest.hour, latest.minute, latest.second] == [2026, 10, 24, 19, 4, 50])
+    }
+
+    @Test("analyzer records the latest local snapshot and names DerivedData projects without info.plist")
+    func snapshotAndProjectNames() async throws {
+        let home = try TemporaryDirectory().url
+        let derivedData = home.appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true)
+        for name in ["PetroCheck-eyucodwfauvormaistxbodcopolj/SourcePackages", "ModuleCache.noindex", "Short-abc"] {
+            try FileManager.default.createDirectory(at: derivedData.appendingPathComponent(name), withIntermediateDirectories: true)
+        }
+        let runner = RoutingCommandRunner(routes: [
+            "listlocalsnapshots": Data("com.apple.TimeMachine.2026-10-24-180741.local\ncom.apple.TimeMachine.2026-10-24-190450.local\n".utf8)
+        ])
+
+        let inventory = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: runner, homebrewExecutables: []).analyze()
+        let derived = inventory.items.filter { $0.category == .derivedData }
+
+        #expect(inventory.latestLocalSnapshotAt == LocalSnapshotInventory.parseSnapshotDates(Data("com.apple.TimeMachine.2026-10-24-190450.local".utf8)).first)
+        #expect(derived.contains { $0.name == "PetroCheck" && $0.detail.hasPrefix("Build data for PetroCheck") })
+        #expect(derived.contains { $0.name == "ModuleCache.noindex" && $0.detail == "Shared Xcode build data" })
+        #expect(derived.contains { $0.name == "Short-abc" && $0.detail == "Shared Xcode build data" })
+    }
+
+    @Test("analyzer reports no snapshot when tmutil is unavailable")
+    func noSnapshotWhenTmutilFails() async throws {
+        let home = try TemporaryDirectory().url
+
+        let inventory = try await DeveloperStorageAnalyzer(
+            homeDirectory: home,
+            commandRunner: RoutingCommandRunner(routes: [:]),
+            homebrewExecutables: []
+        ).analyze()
+
+        #expect(inventory.latestLocalSnapshotAt == nil)
+    }
+
     // MARK: Homebrew
 
     @Test("Homebrew summary parsing uses binary multiples")

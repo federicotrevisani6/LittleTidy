@@ -27,6 +27,11 @@ struct DeveloperStorageView: View {
                     unclassifiedBytes: store.unclassifiedDeveloperBytes
                 )
 
+                if let heldBytes = store.recommendedDeveloperBytesHeldBySnapshot,
+                   let snapshotDate = store.developerStorageInventory.latestLocalSnapshotAt {
+                    DeveloperStorageSnapshotBanner(heldBytes: heldBytes, snapshotDate: snapshotDate)
+                }
+
                 if store.isXcodeRunning {
                     DeveloperStorageXcodeRunningBanner()
                 }
@@ -435,6 +440,37 @@ private struct DeveloperStorageXcodeRunningBanner: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cleanerSubtleSurface()
         .accessibilityLabel("Xcode is open; items it is using are protected from cleanup")
+    }
+}
+
+/// Explains why cleanup frees little space right away: the data is still
+/// referenced by a Time Machine local snapshot.
+private struct DeveloperStorageSnapshotBanner: View {
+    let heldBytes: Int64
+    let snapshotDate: Date
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("A Time Machine local snapshot from \(snapshotDescription) still holds \(ByteCountFormatter.cleanerString(from: heldBytes)) of the recommended data.")
+                    .font(.subheadline.weight(.medium))
+                Text("Cleaning removes it now, but the space returns only when macOS releases the snapshot. macOS does this automatically when space is needed, and Time Machine replaces local snapshots within 24 hours.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(Color.cleanerInfo)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cleanerSubtleSurface()
+    }
+
+    private var snapshotDescription: String {
+        Calendar.current.isDateInToday(snapshotDate)
+            ? snapshotDate.formatted(date: .omitted, time: .shortened)
+            : snapshotDate.formatted(date: .abbreviated, time: .shortened)
     }
 }
 

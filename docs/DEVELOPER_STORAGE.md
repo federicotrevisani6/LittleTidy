@@ -48,7 +48,7 @@ LittleTidy tracks 11 distinct categories of developer storage:
 ### 3.1 Derived Data (`.derivedData`)
 - **What it is**: Xcode build products, indexes, intermediate files, and precompiled headers.
 - **Safety**: Safe to remove when Xcode is not actively compiling. Xcode automatically rebuilds these artifacts on the next build.
-- **Granularity**: One item per child folder. The project name comes from `info.plist` → `WorkspacePath`; folders without it (for example `ModuleCache.noindex`) are listed as shared build data. A missing workspace is reported as "Project no longer exists".
+- **Granularity**: One item per child folder. The project name comes from `info.plist` → `WorkspacePath`. Without it, a folder named `<Name>-<28 lowercase letters>` (Xcode's per-project pattern, for example one holding only `SourcePackages`) is still listed as project `<Name>`; other folders (for example `ModuleCache.noindex`) are listed as shared build data. A missing workspace is reported as "Project no longer exists".
 - **Cleanup**: Handled via `.trash` (moving the project's DerivedData folder to Trash). While Xcode runs, see §4.
 - **Consequence**: `temporarySlowdown` (subsequent build will perform a clean compile).
 
@@ -75,6 +75,8 @@ LittleTidy tracks 11 distinct categories of developer storage:
 Allocated size (`du`) can far exceed what removal frees right away, for two reasons:
 - Simulator devices and XCTest clones are created with `clonefile` and share blocks with other devices.
 - A local APFS snapshot (for example `com.apple.TimeMachine.*.local`) keeps every block that existed when it was taken. Files older than the snapshot report a private size of 0; their space returns only when macOS purges the snapshot, which it does automatically under space pressure.
+
+The analyzer reads the latest Time Machine local snapshot (`tmutil listlocalsnapshots /`, read-only) into `latestLocalSnapshotAt`. When a snapshot exists and it holds at least 100 MB and 10% of the Recommended total, Developer Storage explains that the space returns when macOS releases the snapshot.
 
 `APFSReclaimEstimator` sums each file's APFS private size (`getattrlist` with `ATTR_CMNEXT_PRIVATESIZE`) into `minimumReclaimableBytes`, a **lower bound on immediately freed space**. Every `Recommended` item is estimated, plus `Review` Simulator and XCTest devices. The UI shows allocated size together with "at least X freed right away"; `removedBytes` in results uses the lower bound. On volumes that do not report private size the estimate is nil and allocated size is used.
 

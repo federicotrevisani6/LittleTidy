@@ -235,6 +235,7 @@ public actor DeveloperStorageAnalyzer {
         )
 
         items = items.map(estimatingClonedStorage)
+        let latestLocalSnapshotAt = await latestLocalSnapshot()
 
         return DeveloperStorageInventory(
             items: items.sorted { lhs, rhs in
@@ -243,8 +244,20 @@ public actor DeveloperStorageAnalyzer {
                     : lhs.bytes > rhs.bytes
             },
             accessIssues: issues,
-            simulatorToolAvailable: simulatorResult.toolAvailable
+            simulatorToolAvailable: simulatorResult.toolAvailable,
+            latestLocalSnapshotAt: latestLocalSnapshotAt
         )
+    }
+
+    /// Read-only. A failure only means the explanation is not shown.
+    private func latestLocalSnapshot() async -> Date? {
+        guard let result = try? await commandRunner.run(
+            executable: URL(fileURLWithPath: "/usr/bin/tmutil"),
+            arguments: LocalSnapshotInventory.listArguments
+        ) else {
+            return nil
+        }
+        return LocalSnapshotInventory.parseSnapshotDates(result.standardOutput).last
     }
 
     private func simulatorInventory() async -> (items: [DeveloperStorageItem], issues: [DeveloperStorageAccessIssue], toolAvailable: Bool) {
@@ -358,6 +371,11 @@ public actor DeveloperStorageAnalyzer {
                     detail = fileManager.fileExists(atPath: workspacePath)
                         ? "Build data for \(abbreviatingHome(workspacePath))"
                         : "Project no longer exists at \(abbreviatingHome(workspacePath))"
+                } else if let projectName = derivedDataProjectName(child.lastPathComponent) {
+                    // Some project folders, for example one holding only
+                    // SourcePackages, have no info.plist to name the workspace.
+                    name = projectName
+                    detail = "Build data for \(projectName) · project location not recorded by Xcode"
                 } else {
                     name = child.lastPathComponent
                     detail = "Shared Xcode build data"
@@ -379,6 +397,13 @@ public actor DeveloperStorageAnalyzer {
         } catch {
             issues.append(DeveloperStorageAccessIssue(path: root.path, message: error.localizedDescription))
         }
+    }
+
+    /// Xcode names per-project folders "<Name>-<28 lowercase letters>".
+    /// Shared caches such as ModuleCache.noindex do not match.
+    private func derivedDataProjectName(_ folderName: String) -> String? {
+        guard let match = folderName.wholeMatch(of: /(.+)-[a-z]{28}/) else { return nil }
+        return String(match.1)
     }
 
     private func derivedDataWorkspacePath(_ folder: URL) -> String? {
