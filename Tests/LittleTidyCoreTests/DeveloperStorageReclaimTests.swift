@@ -270,6 +270,54 @@ struct DeveloperStorageReclaimTests {
         #expect(inventory.latestLocalSnapshotAt == nil)
     }
 
+    // MARK: Snapshot release
+
+    @Test("snapshot release thins through tmutil with the requested amount and reports the outcome")
+    func releasesSnapshotSpace() async throws {
+        let two = Data("com.apple.TimeMachine.2026-10-24-180741.local\ncom.apple.TimeMachine.2026-10-24-190450.local\n".utf8)
+        let one = Data("com.apple.TimeMachine.2026-10-24-190450.local\n".utf8)
+        let runner = ScriptedRunner(results: [
+            DeveloperToolCommandResult(standardOutput: two),
+            DeveloperToolCommandResult(standardOutput: Data()),
+            DeveloperToolCommandResult(standardOutput: one)
+        ])
+        let readings = FreeSpaceReadings([1_000, 5_000])
+
+        let result = try await LocalSnapshotReleaser(runner: runner, freeSpace: { readings.next() }).release(bytes: 4_000)
+        let calls = await runner.calls
+
+        #expect(calls == [["listlocalsnapshots", "/"], ["thinlocalsnapshots", "/", "4000", "4"], ["listlocalsnapshots", "/"]])
+        #expect(result.snapshotsRemoved == 1)
+        #expect(result.measuredFreedBytes == 4_000)
+    }
+
+    @Test("snapshot release refuses a zero amount without running tmutil")
+    func refusesEmptyRelease() async throws {
+        let runner = ScriptedRunner(results: [])
+
+        await #expect(throws: DeveloperToolCommandError.self) {
+            try await LocalSnapshotReleaser(runner: runner, freeSpace: { nil }).release(bytes: 0)
+        }
+        #expect(await runner.calls.isEmpty)
+    }
+
+    @Test("bytes not yet freed count removed allocated size minus measured change, excluding Trash")
+    func bytesNotYetFreed() {
+        let result = DeveloperStorageCleanupResult(
+            items: [
+                DeveloperStorageCleanupResultItem(itemID: "a", name: "a", bytes: 0, status: .removed, message: "", allocatedBytes: 3_000),
+                DeveloperStorageCleanupResultItem(itemID: "b", name: "b", bytes: 500, status: .removed, message: "", movedToTrash: true, allocatedBytes: 500),
+                DeveloperStorageCleanupResultItem(itemID: "c", name: "c", bytes: 900, status: .skipped, message: "", allocatedBytes: 900)
+            ],
+            freeBytesBefore: 10_000,
+            freeBytesAfter: 11_000
+        )
+
+        #expect(result.bytesNotYetFreed == 2_000)
+        #expect(result.bytesInTrash == 500)
+        #expect(DeveloperStorageCleanupResult(items: result.items).bytesNotYetFreed == nil)
+    }
+
     // MARK: Homebrew
 
     @Test("Homebrew summary parsing uses binary multiples")

@@ -14,6 +14,9 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
     public let message: String
     /// True when the item went to the Trash, where it still occupies space.
     public let movedToTrash: Bool
+    /// The item's allocated size, which can exceed `bytes` when part of it is
+    /// shared with clones or held by a local snapshot.
+    public let allocatedBytes: Int64
 
     public init(
         itemID: String,
@@ -21,7 +24,8 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
         bytes: Int64,
         status: DeveloperStorageCleanupStatus,
         message: String,
-        movedToTrash: Bool = false
+        movedToTrash: Bool = false,
+        allocatedBytes: Int64? = nil
     ) {
         self.itemID = itemID
         self.name = name
@@ -29,6 +33,7 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
         self.status = status
         self.message = message
         self.movedToTrash = movedToTrash
+        self.allocatedBytes = allocatedBytes ?? bytes
     }
 }
 
@@ -62,6 +67,16 @@ public struct DeveloperStorageCleanupResult: Codable, Equatable, Sendable {
     public var measuredFreedBytes: Int64? {
         guard let freeBytesBefore, let freeBytesAfter else { return nil }
         return freeBytesAfter - freeBytesBefore
+    }
+
+    /// Removed data whose space did not come back. Trashed items still exist,
+    /// so they are excluded: they occupy space until the Trash is emptied.
+    public var bytesNotYetFreed: Int64? {
+        guard let measuredFreedBytes else { return nil }
+        let removed = items
+            .filter { $0.status == .removed && !$0.movedToTrash }
+            .reduce(Int64(0)) { $0 + $1.allocatedBytes }
+        return max(0, removed - max(0, measuredFreedBytes))
     }
 }
 
@@ -317,7 +332,8 @@ public actor DeveloperStorageCleanupExecutor {
             bytes: status == .removed ? item.guaranteedReclaimableBytes : item.bytes,
             status: status,
             message: message,
-            movedToTrash: movedToTrash
+            movedToTrash: movedToTrash,
+            allocatedBytes: item.bytes
         )
     }
 }

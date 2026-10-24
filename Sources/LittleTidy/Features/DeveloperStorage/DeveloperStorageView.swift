@@ -5,6 +5,7 @@ import SwiftUI
 struct DeveloperStorageView: View {
     @ObservedObject var store: ScanReviewStore
     @State private var showingCleanupConfirmation = false
+    @State private var showingSnapshotReleaseConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -54,6 +55,18 @@ struct DeveloperStorageView: View {
                     DeveloperStorageCleanupResultBanner(result: result)
                 }
 
+                if store.snapshotReleasableBytes != nil || store.isReleasingSnapshotSpace
+                    || store.snapshotReleaseResult != nil || store.snapshotReleaseErrorMessage != nil {
+                    DeveloperStorageSnapshotReleasePanel(
+                        releasableBytes: store.snapshotReleasableBytes,
+                        isReleasing: store.isReleasingSnapshotSpace,
+                        result: store.snapshotReleaseResult,
+                        errorMessage: store.snapshotReleaseErrorMessage
+                    ) {
+                        showingSnapshotReleaseConfirmation = true
+                    }
+                }
+
                 if store.developerStorageInventory.items.isEmpty, !store.isScanningDeveloperStorage {
                     DeveloperStorageEmptyState()
                 } else {
@@ -93,6 +106,16 @@ struct DeveloperStorageView: View {
         } message: {
             Text("\(store.selectedDeveloperStorageItems.count) items · \(ByteCountFormatter.cleanerString(from: store.selectedDeveloperStorageBytes)). Rebuildable data may slow the next build. Simulator and XCTest devices are removed with simctl, and old Homebrew versions with brew cleanup.\(store.isXcodeRunning ? " Xcode is open, so anything it is using will be skipped." : "")")
         }
+        .confirmationDialog(
+            "Release space held by Time Machine local snapshots?",
+            isPresented: $showingSnapshotReleaseConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Release Space", role: .destructive, action: store.releaseSnapshotSpace)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(snapshotReleaseMessage)
+        }
         .onAppear(perform: store.refreshXcodeRunningState)
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
             store.refreshXcodeRunningState()
@@ -100,6 +123,15 @@ struct DeveloperStorageView: View {
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in
             store.refreshXcodeRunningState()
         }
+    }
+
+    private var snapshotReleaseMessage: String {
+        let bytes = ByteCountFormatter.cleanerString(from: store.snapshotReleasableBytes ?? 0)
+        var message = "macOS removes local snapshots, oldest first, until about \(bytes) can be reclaimed. You lose the hourly restore points they contain; backups on a Time Machine disk are not affected. This cannot be undone."
+        if let inTrash = store.developerCleanupResult?.bytesInTrash, inTrash > 0 {
+            message += " Empty the Trash first: \(ByteCountFormatter.cleanerString(from: inTrash)) is still there, and macOS may remove every local snapshot trying to reclaim it."
+        }
+        return message
     }
 
     private var orderedCategories: [DeveloperStorageCategory] {
@@ -471,6 +503,56 @@ private struct DeveloperStorageSnapshotBanner: View {
         Calendar.current.isDateInToday(snapshotDate)
             ? snapshotDate.formatted(date: .omitted, time: .shortened)
             : snapshotDate.formatted(date: .abbreviated, time: .shortened)
+    }
+}
+
+/// Offered after a cleanup when a local snapshot still holds removed data.
+private struct DeveloperStorageSnapshotReleasePanel: View {
+    let releasableBytes: Int64?
+    let isReleasing: Bool
+    let result: LocalSnapshotReleaseResult?
+    let errorMessage: String?
+    let release: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(errorMessage == nil ? Color.cleanerInfo : Color.cleanerDanger)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let releasableBytes, result == nil {
+                Button(action: release) {
+                    Label(isReleasing ? "Releasing…" : "Release \(ByteCountFormatter.cleanerString(from: releasableBytes))…",
+                          systemImage: "arrow.uturn.backward.circle")
+                }
+                .disabled(isReleasing)
+                .help("Ask macOS to thin Time Machine local snapshots until this space is reclaimed.")
+            }
+        }
+        .padding(12)
+        .cleanerSubtleSurface()
+    }
+
+    private var title: String {
+        if let errorMessage { return errorMessage }
+        if let result {
+            let freed = result.measuredFreedBytes.map { $0 > 0 ? "+\(ByteCountFormatter.cleanerString(from: $0)) free space measured" : "no measurable change in free space yet" } ?? "free space unknown"
+            return "Released \(result.snapshotsRemoved) of \(result.snapshotsBefore) local snapshots · \(freed)"
+        }
+        return "A Time Machine local snapshot still holds the space this cleanup removed."
+    }
+
+    private var detail: String {
+        if result != nil || errorMessage != nil {
+            return "Backups on a Time Machine disk are not affected."
+        }
+        return "macOS releases it automatically when space is needed. Release it now to free the space immediately; the restore points in those snapshots are lost."
     }
 }
 

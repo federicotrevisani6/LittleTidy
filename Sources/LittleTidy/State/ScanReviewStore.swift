@@ -87,6 +87,9 @@ final class ScanReviewStore: ObservableObject {
     @Published var isCleaningDeveloperStorage = false
     @Published var developerCleanupResult: DeveloperStorageCleanupResult?
     @Published private(set) var isXcodeRunning = false
+    @Published private(set) var isReleasingSnapshotSpace = false
+    @Published var snapshotReleaseResult: LocalSnapshotReleaseResult?
+    @Published var snapshotReleaseErrorMessage: String?
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
@@ -302,8 +305,41 @@ final class ScanReviewStore: ObservableObject {
         Task { [weak self] in
             let result = await DeveloperStorageCleanupExecutor().execute(items: selected, deletionMode: mode)
             self?.developerCleanupResult = result
+            self?.snapshotReleaseResult = nil
+            self?.snapshotReleaseErrorMessage = nil
             self?.isCleaningDeveloperStorage = false
             self?.selectedDeveloperStorageItemIDs = []
+            self?.refreshDeveloperStorage()
+        }
+    }
+
+    /// Space the last cleanup removed that a local snapshot still holds,
+    /// including Trash contents, which only count once the Trash is emptied.
+    /// Offered only after a cleanup: releasing earlier would thin snapshots
+    /// for data that is still in use.
+    var snapshotReleasableBytes: Int64? {
+        guard developerStorageInventory.latestLocalSnapshotAt != nil,
+              snapshotReleaseResult == nil,
+              let result = developerCleanupResult,
+              let notYetFreed = result.bytesNotYetFreed else {
+            return nil
+        }
+        let bytes = notYetFreed + result.bytesInTrash
+        return bytes >= 100_000_000 ? bytes : nil
+    }
+
+    func releaseSnapshotSpace() {
+        guard let bytes = snapshotReleasableBytes, !isReleasingSnapshotSpace else { return }
+        isReleasingSnapshotSpace = true
+        snapshotReleaseErrorMessage = nil
+        Task { [weak self] in
+            do {
+                let result = try await LocalSnapshotReleaser().release(bytes: bytes)
+                self?.snapshotReleaseResult = result
+            } catch {
+                self?.snapshotReleaseErrorMessage = "macOS did not release the snapshot space: \(error.localizedDescription)"
+            }
+            self?.isReleasingSnapshotSpace = false
             self?.refreshDeveloperStorage()
         }
     }
