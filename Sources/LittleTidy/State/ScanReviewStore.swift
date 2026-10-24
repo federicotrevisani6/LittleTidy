@@ -1,6 +1,7 @@
 import Foundation
 import LittleTidyCore
 import AppKit
+import Combine
 
 @MainActor
 final class ScanReviewStore: ObservableObject {
@@ -101,6 +102,7 @@ final class ScanReviewStore: ObservableObject {
     private let scanPreferencesStore: ScanPreferencesStore
     private let cleanupHistoryStore: CleanupHistoryStore
     private let trashWatcher: AppTrashWatcher
+    private var preferencesSubscription: AnyCancellable?
 
     init(
         items: [ReviewItem] = [],
@@ -146,6 +148,7 @@ final class ScanReviewStore: ObservableObject {
         refreshPermissionReadiness()
         updateTrashWatcherState()
         setupNotificationHandling()
+        observeExternalPreferenceChanges()
         if automaticallyScanDeveloperStorage {
             Task { [weak self] in
                 self?.refreshDeveloperStorage()
@@ -216,7 +219,9 @@ final class ScanReviewStore: ObservableObject {
     }
 
     var selectedDeveloperStorageHasIrreversibleOperations: Bool {
-        selectedDeveloperStorageItems.contains {
+        // In permanent-delete mode even Trash-mechanism items cannot be restored.
+        if deletionMode == .permanentDelete, !selectedDeveloperStorageItems.isEmpty { return true }
+        return selectedDeveloperStorageItems.contains {
             $0.cleanupMechanism == .simctl
                 || $0.cleanupMechanism == .xcodeManaged
                 || $0.cleanupMechanism == .homebrewCleanup
@@ -1659,6 +1664,36 @@ final class ScanReviewStore: ObservableObject {
     private func persistApprovedFolders() {
         folderBookmarkStore.saveScanRoots(scanRoots)
         folderBookmarkStore.saveAppRoots(appRoots)
+    }
+
+    /// The Settings window writes preferences directly to UserDefaults. Without
+    /// reloading them, the store would keep acting on stale values (for example
+    /// trashing while Settings says permanent delete) and its next save would
+    /// overwrite the user's change.
+    private func observeExternalPreferenceChanges() {
+        preferencesSubscription = NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.applyExternalPreferences()
+                }
+            }
+    }
+
+    /// Assigns only values that differ, so the didSet saves this triggers write
+    /// back identical values and the next notification changes nothing.
+    func applyExternalPreferences() {
+        let preferences = scanPreferencesStore.load()
+        if includeHiddenFiles != preferences.includeHiddenFiles { includeHiddenFiles = preferences.includeHiddenFiles }
+        if includeSystemFolders != preferences.includeSystemFolders { includeSystemFolders = preferences.includeSystemFolders }
+        if includeCaches != preferences.includeCaches { includeCaches = preferences.includeCaches }
+        if includeRelatedAppData != preferences.includeRelatedAppData { includeRelatedAppData = preferences.includeRelatedAppData }
+        if enableTrashWatcher != preferences.enableTrashWatcher { enableTrashWatcher = preferences.enableTrashWatcher }
+        if minimumDuplicateSize != preferences.minimumDuplicateSize { minimumDuplicateSize = preferences.minimumDuplicateSize }
+        if largeFileThreshold != preferences.largeFileThreshold { largeFileThreshold = preferences.largeFileThreshold }
+        if allowPermanentDeletion != preferences.allowPermanentDeletion { allowPermanentDeletion = preferences.allowPermanentDeletion }
+        if deletionMode != preferences.deletionMode { deletionMode = preferences.deletionMode }
     }
 
     private func persistScanPreferences() {

@@ -53,8 +53,20 @@ public struct DeveloperStorageCleanupResult: Codable, Equatable, Sendable {
         self.freeBytesAfter = freeBytesAfter
     }
 
+    /// Space guaranteed to be freed by the removed items (lower bound).
     public var removedBytes: Int64 {
         items.filter { $0.status == .removed }.reduce(0) { $0 + $1.bytes }
+    }
+
+    /// Allocated size of everything removed, including space that clones or a
+    /// local snapshot still hold.
+    public var removedAllocatedBytes: Int64 {
+        items.filter { $0.status == .removed }.reduce(0) { $0 + $1.allocatedBytes }
+    }
+
+    /// Items that were not removed, with the executor's reason for each.
+    public var unresolvedItems: [DeveloperStorageCleanupResultItem] {
+        items.filter { $0.status != .removed }
     }
 
     /// Bytes now in the Trash. They are freed only when the Trash is emptied.

@@ -314,6 +314,9 @@ struct DeveloperStorageReclaimTests {
         )
 
         #expect(result.bytesNotYetFreed == 2_000)
+        #expect(result.removedAllocatedBytes == 3_500)
+        #expect(result.removedBytes == 500)
+        #expect(result.unresolvedItems.map(\.itemID) == ["c"])
         #expect(result.bytesInTrash == 500)
         #expect(DeveloperStorageCleanupResult(items: result.items).bytesNotYetFreed == nil)
     }
