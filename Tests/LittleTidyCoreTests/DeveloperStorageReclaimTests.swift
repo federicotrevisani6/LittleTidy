@@ -321,6 +321,46 @@ struct DeveloperStorageReclaimTests {
         #expect(DeveloperStorageCleanupResult(items: result.items).bytesNotYetFreed == nil)
     }
 
+    // MARK: Symbolic links
+
+    @Test("analyzer never lists a symbolic link, such as ~/.swiftpm/cache pointing at the SwiftPM cache")
+    func skipsSymbolicLinks() async throws {
+        let home = try TemporaryDirectory().url
+        let target = home.appendingPathComponent("Library/Caches/org.swift.swiftpm", isDirectory: true)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        try Data(repeating: 1, count: 4_096).write(to: target.appendingPathComponent("repo.bin"))
+        try FileManager.default.createDirectory(at: home.appendingPathComponent(".swiftpm"), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: home.appendingPathComponent(".swiftpm/cache"), withDestinationURL: target)
+
+        let inventory = try await DeveloperStorageAnalyzer(
+            homeDirectory: home,
+            commandRunner: RoutingCommandRunner(routes: [:]),
+            homebrewExecutables: []
+        ).analyze()
+
+        #expect(inventory.items.contains { $0.name == "SwiftPM Package Cache" })
+        #expect(!inventory.items.contains { $0.name == "SwiftPM Binary Cache" })
+    }
+
+    @Test("cleanup refuses a symbolic link and leaves both the link and its target")
+    func refusesSymbolicLinkCleanup() async throws {
+        let root = try TemporaryDirectory().url
+        let target = root.appendingPathComponent("target", isDirectory: true)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        let link = root.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+
+        let result = await DeveloperStorageCleanupExecutor(
+            activityChecker: StubActivityChecker(isRunning: false),
+            freeSpace: { nil }
+        ).execute(items: [trashItem(category: .packageCaches, url: link, decision: DeveloperStoragePolicy().decision(for: .packageCaches))])
+
+        #expect(result.items.first?.status == .skipped)
+        #expect(result.items.first?.message.contains("symbolic link") == true)
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) != nil)
+        #expect(FileManager.default.fileExists(atPath: target.path))
+    }
+
     // MARK: Homebrew
 
     @Test("Homebrew summary parsing uses binary multiples")

@@ -187,6 +187,10 @@ public actor DeveloperStorageCleanupExecutor {
         guard let url = item.url else {
             return result(item, status: .failed, message: "The item has no filesystem location.")
         }
+        // attributesOfItem does not follow links, unlike fileExists.
+        if (try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink {
+            return result(item, status: .skipped, message: "The item is a symbolic link. LittleTidy never removes links.")
+        }
         guard fileManager.fileExists(atPath: url.path) else {
             return result(item, status: .skipped, message: "The item no longer exists.")
         }

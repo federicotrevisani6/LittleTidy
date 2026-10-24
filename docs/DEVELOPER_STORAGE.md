@@ -122,6 +122,9 @@ Only exact regenerable subpaths are eligible. Examples include Claude cache/debu
 
 Claude project sessions, Codex active/archived sessions, and Cursor workspace storage can accumulate transcripts, screenshots, documents, tool results, and indexes. They are surfaced as `Review` with `dataLossRisk`, are never preselected, and can only be moved to Trash after explicit selection. LittleTidy does not scan arbitrary project documents merely because an AI tool may have created them.
 
+### 3.5.1 Symbolic links
+Locations that are symbolic links are dropped from the inventory (for example `~/.swiftpm/cache`, which links to `~/Library/Caches/org.swift.swiftpm` and would otherwise appear twice). The executor also refuses any item whose path is a link (checked with `attributesOfItem`, which does not follow links), so neither the link nor its target is removed.
+
 ### 3.6 Critical Protected Boundary: CoreDevice Filesystems
 Inside `~/Library/Developer/CoreDevice/` resides macOS device connection mounts.
 - **Warning**: These directory entries may represent mounted remote filesystems on connected physical iPhones, iPads, or Apple Watches.

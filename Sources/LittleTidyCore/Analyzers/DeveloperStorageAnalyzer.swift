@@ -234,6 +234,10 @@ public actor DeveloperStorageAnalyzer {
             issues: &issues
         )
 
+        // A symbolic link is never a cleanup candidate: it can point at a
+        // location already listed (~/.swiftpm/cache links to
+        // ~/Library/Caches/org.swift.swiftpm) or outside every known root.
+        items = items.filter { item in item.url.map { !isSymbolicLink($0) } ?? true }
         items = items.map(estimatingClonedStorage)
         let latestLocalSnapshotAt = await latestLocalSnapshot()
 
@@ -247,6 +251,10 @@ public actor DeveloperStorageAnalyzer {
             simulatorToolAvailable: simulatorResult.toolAvailable,
             latestLocalSnapshotAt: latestLocalSnapshotAt
         )
+    }
+
+    private func isSymbolicLink(_ url: URL) -> Bool {
+        (try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink
     }
 
     /// Read-only. A failure only means the explanation is not shown.

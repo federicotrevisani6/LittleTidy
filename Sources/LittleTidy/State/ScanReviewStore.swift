@@ -309,6 +309,7 @@ final class ScanReviewStore: ObservableObject {
 
         Task { [weak self] in
             let result = await DeveloperStorageCleanupExecutor().execute(items: selected, deletionMode: mode)
+            self?.removeCleanedDeveloperItems(result)
             self?.developerCleanupResult = result
             self?.snapshotReleaseResult = nil
             self?.snapshotReleaseErrorMessage = nil
@@ -347,6 +348,21 @@ final class ScanReviewStore: ObservableObject {
             self?.isReleasingSnapshotSpace = false
             self?.refreshDeveloperStorage()
         }
+    }
+
+    /// Drops removed items right away, so the list does not show them with
+    /// their old sizes while the follow-up rescan runs.
+    private func removeCleanedDeveloperItems(_ result: DeveloperStorageCleanupResult) {
+        let removedIDs = Set(result.items.filter { $0.status == .removed }.map(\.itemID))
+        guard !removedIDs.isEmpty else { return }
+        let inventory = developerStorageInventory
+        developerStorageInventory = DeveloperStorageInventory(
+            scannedAt: inventory.scannedAt,
+            items: inventory.items.filter { !removedIDs.contains($0.id) },
+            accessIssues: inventory.accessIssues,
+            simulatorToolAvailable: inventory.simulatorToolAvailable,
+            latestLocalSnapshotAt: inventory.latestLocalSnapshotAt
+        )
     }
 
     func refreshXcodeRunningState() {
