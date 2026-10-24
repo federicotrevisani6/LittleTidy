@@ -122,6 +122,13 @@ Only exact regenerable subpaths are eligible. Examples include Claude cache/debu
 
 Claude project sessions, Codex active/archived sessions, and Cursor workspace storage can accumulate transcripts, screenshots, documents, tool results, and indexes. They are surfaced as `Review` with `dataLossRisk`, are never preselected, and can only be moved to Trash after explicit selection. LittleTidy does not scan arbitrary project documents merely because an AI tool may have created them.
 
+### 3.5.0 Claude sessions and AI app caches
+- **Closed Claude sessions.** Claude Code records each running session in `~/.claude/sessions/<pid>.json` (`ClaudeSessionRegistry`). Under `/private/tmp/claude-<uid>/<project>/<session-id>/`, a folder named with a session UUID whose process is not alive becomes one item for the whole folder (screenshots, videos, builds, scratch files): `Recommended` if nothing in it changed in the last hour, otherwise `Review`. Sessions under 1 MB are not listed. Transcripts in `~/.claude/projects` are separate and untouched.
+- **Kept narrow:** live sessions, folders not named with a UUID, and every folder when the registry cannot be read keep the Xcode-build-only scan (`Claude build data`, `Review`).
+- **Before cleanup** the executor rereads the registry (a resumed session is skipped) and requires a fresh open-file snapshot with nothing open inside the folder; an unreadable registry or a failed snapshot blocks the item. Sessions are independent of Xcode.
+- **Codex and Antigravity caches** (`aiCaches`, `Recommended`): `~/.codex/cache`, `~/Library/Caches/com.openai.codex` (includes downloaded app updates), Codex's Chromium caches and crash reports in `~/Library/Application Support/Codex`, `~/Library/Caches/com.google.antigravity` and `.ShipIt`, and Antigravity's caches and logs in `~/Library/Application Support/Antigravity`. Codex artifact sessions and Antigravity conversations and agent memory are `Review` artifacts. Settings, credentials, databases in use (for example `~/.codex/*.sqlite`), and `~/.codex/worktrees` (handled by worktree review) are never listed.
+- **Every `aiCaches` item** now requires a fresh open-file snapshot with nothing open inside it, regardless of Xcode, because the owning app may be running.
+
 ### 3.5.1 Symbolic links
 Locations that are symbolic links are dropped from the inventory (for example `~/.swiftpm/cache`, which links to `~/Library/Caches/org.swift.swiftpm` and would otherwise appear twice). The executor also refuses any item whose path is a link (checked with `attributesOfItem`, which does not follow links), so neither the link nor its target is removed.
 

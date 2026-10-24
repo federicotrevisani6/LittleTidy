@@ -63,6 +63,9 @@ also finds duplicate files, large files, unused apps, and caches.
 - **Guaranteed reclaimable space** for Simulator and XCTest devices uses APFS
   private size, so space shared between clones is not promised twice. After
   cleanup, the measured change in free space and bytes still in the Trash are shown.
+- **Closed Claude sessions** in `/private/tmp/claude-<uid>` are offered as one
+  item each once their process has ended, and Codex and Antigravity caches are
+  recognized. Both are rechecked for open files right before cleanup.
 - **Snapshot-aware results** explain when a Time Machine local snapshot still
   holds removed data and, after a cleanup and confirmation, ask macOS to thin
   local snapshots (`tmutil thinlocalsnapshots`) to release that space.

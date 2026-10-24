@@ -157,7 +157,7 @@ struct DeveloperStorageTests {
         let analyzer = DeveloperStorageAnalyzer(
             homeDirectory: home,
             commandRunner: FixtureCommandRunner(output: simctlJSON),
-            homebrewExecutables: []
+            agentTemporaryRoot: home.appendingPathComponent("agent-tmp"), homebrewExecutables: []
         )
 
         let inventory = try await analyzer.analyze()

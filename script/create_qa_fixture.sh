@@ -30,13 +30,10 @@ duplicate = b"LittleTidy duplicate fixture\n" * 45_000
 (root / "Documents" / "duplicate-copy-b.bin").write_bytes(duplicate)
 (root / "Documents" / "unique-same-size.bin").write_bytes(b"Unique fixture payload\n" * 58_000)
 
-large_path = root / "Movies" / "large-video-fixture.mov"
-with large_path.open("wb") as f:
-    f.truncate(6 * 1024 * 1024)
-
-installer_path = root / "Downloads" / "installer-fixture.dmg"
-with installer_path.open("wb") as f:
-    f.truncate(2 * 1024 * 1024)
+# Real bytes, not truncate(): sparse files allocate nothing on disk, and
+# the large-file analyzer ranks by allocated size.
+(root / "Movies" / "large-video-fixture.mov").write_bytes(b"LittleTidy large video fixture\n" * 204_000)
+(root / "Downloads" / "installer-fixture.dmg").write_bytes(b"LittleTidy installer fixture\n" * 73_000)
 
 app = root / "Applications" / "OldFixtureApp.app"
 contents = app / "Contents"

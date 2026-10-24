@@ -190,6 +190,31 @@ public struct DeveloperStoragePolicy: Sendable {
         )
     }
 
+    /// Temporary files of a Claude session whose process has ended and that
+    /// nothing has written to for an hour.
+    public func closedClaudeSessionDecision() -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .inactive,
+            recoverability: .trashRestorable,
+            mechanism: .trash,
+            consequence: .negligible,
+            recommendation: .recommended,
+            reason: "Temporary files of a closed Claude session: screenshots, videos, builds, and scratch files. The conversation transcript in ~/.claude/projects is kept."
+        )
+    }
+
+    /// A closed session that was written to in the last hour may be resuming.
+    public func recentClaudeSessionDecision() -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .recentlyUsed,
+            recoverability: .trashRestorable,
+            mechanism: .trash,
+            consequence: .dataLossRisk,
+            recommendation: .review,
+            reason: "This session closed less than an hour ago or was just written to. Review it before moving it to Trash."
+        )
+    }
+
     /// Old Homebrew versions and downloads, removed by Homebrew itself.
     public func homebrewCleanupDecision() -> DeveloperStorageDecision {
         DeveloperStorageDecision(

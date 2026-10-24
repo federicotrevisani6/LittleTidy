@@ -6,7 +6,7 @@ struct OverviewView: View {
     @ObservedObject var store: ScanReviewStore
 
     private var totalReclaimableBytes: Int64 {
-        fileCleanupBytes + store.recommendedDeveloperBytes
+        fileCleanupBytes + store.recommendedDeveloperReclaimableBytes
     }
 
     private var fileCleanupBytes: Int64 {
@@ -86,13 +86,13 @@ struct OverviewView: View {
 
     @ViewBuilder
     private var recommendedCleanupAction: some View {
-        if fileCleanupBytes > 0, store.recommendedDeveloperBytes > 0 {
+        if fileCleanupBytes > 0, store.recommendedDeveloperReclaimableBytes > 0 {
             Menu {
                 Button {
                     store.selectedSection = .developerStorage
                 } label: {
                     Label(
-                        "Developer Storage · \(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperBytes))",
+                        "Developer Storage · \(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperReclaimableBytes))",
                         systemImage: "hammer"
                     )
                 }
@@ -111,12 +111,12 @@ struct OverviewView: View {
             }
             .menuStyle(.borderlessButton)
             .buttonStyle(.borderedProminent)
-        } else if store.recommendedDeveloperBytes > 0 {
+        } else if store.recommendedDeveloperReclaimableBytes > 0 {
             Button {
                 store.selectedSection = .developerStorage
             } label: {
                 Label(
-                    "Review Developer Cleanup (\(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperBytes)))",
+                    "Review Developer Cleanup (\(ByteCountFormatter.cleanerString(from: store.recommendedDeveloperReclaimableBytes)))",
                     systemImage: "hammer"
                 )
             }
@@ -137,10 +137,10 @@ struct OverviewView: View {
 
     private var recommendationSummary: String {
         let formattedTotal = ByteCountFormatter.cleanerString(from: totalReclaimableBytes)
-        if fileCleanupBytes > 0, store.recommendedDeveloperBytes > 0 {
+        if fileCleanupBytes > 0, store.recommendedDeveloperReclaimableBytes > 0 {
             return "\(formattedTotal) recommended across file cleanup and developer storage."
         }
-        if store.recommendedDeveloperBytes > 0 {
+        if store.recommendedDeveloperReclaimableBytes > 0 {
             return "\(formattedTotal) recommended in developer storage. Review it before cleaning."
         }
         return "\(formattedTotal) recommended across caches and verified duplicates."
@@ -228,7 +228,7 @@ struct OverviewView: View {
                     systemImage: "hammer",
                     color: .blue,
                     totalBytes: store.totalDeveloperBytes,
-                    reclaimableBytes: store.recommendedDeveloperBytes,
+                    reclaimableBytes: store.recommendedDeveloperReclaimableBytes,
                     action: { store.selectedSection = .developerStorage }
                 )
 

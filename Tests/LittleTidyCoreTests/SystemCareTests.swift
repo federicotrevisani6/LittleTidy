@@ -62,7 +62,7 @@ struct SystemCareTests {
         let pretend = scratch.appendingPathComponent("dd-important-documents")
         try FileManager.default.createDirectory(at: pretend, withIntermediateDirectories: true)
         try Data("useful script".utf8).write(to: scratch.appendingPathComponent("script.py"))
-        let result = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: DiagnosticFixtureRunner(failure: true), agentTemporaryRoot: temp).analyze()
+        let result = try await DeveloperStorageAnalyzer(homeDirectory: home, commandRunner: DiagnosticFixtureRunner(failure: true), agentTemporaryRoot: temp, homebrewExecutables: []).analyze()
         let builds = result.items.filter { $0.name.hasPrefix("Claude build data:") }
         #expect(builds.count == 1)
         #expect(builds.first?.url?.resolvingSymlinksInPath() == build.resolvingSymlinksInPath())
