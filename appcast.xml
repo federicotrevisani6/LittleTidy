@@ -6,6 +6,25 @@
         <description>Most recent changes for LittleTidy.</description>
         <language>en</language>
         <item>
+            <title>0.8.1</title>
+            <pubDate>Sat, 24 Oct 2026 23:41:24 +0200</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.8.1
+
+- Temporary folders of closed Claude sessions (screenshots, videos, builds, and scratch files) are now offered for cleanup, one item per session. Running sessions are never offered, and each session is checked again right before cleanup. Conversation transcripts are kept.
+- Codex and Antigravity caches, including downloaded app updates, are now recognized. AI app caches are cleaned only when no app has files open inside them.
+- Simulator devices now include the OS version in their name, so the same model on two runtimes no longer looks duplicated.
+- Empty items, such as XCTest clones whose folder is already gone, are no longer preselected.
+- The Overview total no longer counts space that Simulator clones share with their source device.
+- Developer Storage scans finish sooner: the Homebrew estimate runs alongside the rest of the scan.
+
+Requires macOS 26 or later.
+]]></description>
+            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.1/LittleTidy.zip" length="6156117" type="application/octet-stream" sparkle:edSignature="ew6jMBz+u7uoQJR2Wq6ElsL6Qr3gVxTxI79//zTxiT5tAtjobh6K9MPHHa28KUhwgHoKHN5bhTdkXQF4UwzuAA=="/>
+        </item>
+        <item>
             <title>0.8.0</title>
             <pubDate>Sat, 24 Oct 2026 23:16:31 +0200</pubDate>
             <sparkle:version>10</sparkle:version>
@@ -44,23 +63,6 @@ Requires macOS 26 or later. Releasing snapshot space removes local hourly restor
 Requires macOS 26 or later. The administrator service requires macOS approval; Full Disk Access is separate. Agent activity checks are snapshots: stop the owning agent and archive associated tasks before removing a worktree. DNS refresh, Spotlight rebuilding, and administrator-service removal have not yet been exercised end to end.
 ]]></description>
             <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.7.0/LittleTidy.zip" length="5874150" type="application/octet-stream" sparkle:edSignature="H9cQuOmIMRIju0huj2KkJErlL7+qBK95IgXh5sIaKDaGUiTZvuLD2LXFTTbQPW6JPCeT9mEmoF3lvY0qBxzKBg=="/>
-        </item>
-        <item>
-            <title>0.6.0</title>
-            <pubDate>Thu, 17 Sep 2026 17:56:50 +0200</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.6.0
-
-- More accurate reclaimable-space estimates based on allocated disk usage, with hard-linked files counted only once.
-- New AI storage categories for models, recreatable caches and logs, and reviewable sessions and generated artifacts.
-- Safer, clearer Developer Storage recommendations with selected cleanup candidates shown first.
-- Improved Overview and Cleanup Plan flows so each recommendation opens the correct cleanup mechanism.
-- Faster analysis through safe parallel processing of independent scanners.
-- Native JSON-based Xcode project format for more readable and merge-friendly project changes.
-]]></description>
-            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.6.0/LittleTidy.zip" length="4441247" type="application/octet-stream" sparkle:edSignature="ZogxrK/jwgbTQ1L2RNdlJAcWyujdrwmLAL+ehvLL4et+VcbKifrr+KOQa0AjGYbkwxQchZIeCct+7TNzGnj5Dw=="/>
         </item>
     </channel>
 </rss>
