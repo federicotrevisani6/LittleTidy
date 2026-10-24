@@ -164,11 +164,17 @@ developerBytes=1310720
 24. If anything was skipped or failed, expand "Why N items were not removed" and confirm each item shows its reason.
 25. For destructive QA, use only disposable fixtures and a simulator created specifically for the test; never use a real development device.
 
+### Claude sessions and AI app caches
+30. With a closed Claude session in `/private/tmp/claude-<uid>`, confirm one `Claude session · <project>` row appears, `Recommended` when untouched for an hour, with the session ID prefix and last-used time. The current session and any session listed alive in `~/.claude/sessions` must not appear as a whole session.
+31. Reopen (resume) a listed session, then clean it without rescanning, and confirm it is skipped as running again.
+32. Confirm Codex and Antigravity caches appear under AI Caches & Logs; with the app open, cleaning a cache that has files open is skipped with an open-files reason.
+33. Confirm the duplicated-looking Simulator rows now read "<model> · <OS version>" and empty XCTest clones are not preselected.
+
 ### Time Machine local snapshots
-26. With a local snapshot present (`tmutil listlocalsnapshots /`), confirm the banner names the latest snapshot time and how much recommended data it holds.
-27. After a cleanup in permanent-delete mode (or after emptying the Trash), confirm the snapshot panel offers `Release X…` only when at least 100 MB did not come back.
-28. Confirm the release dialog explains that local restore points are lost and Time Machine disk backups are unaffected, and mentions the Trash when items are still there.
-29. Release and confirm the panel reports snapshots removed and the measured free space; check with `tmutil listlocalsnapshots /` that the oldest snapshots were removed.
+34. With a local snapshot present (`tmutil listlocalsnapshots /`), confirm the banner names the latest snapshot time and how much recommended data it holds.
+35. After a cleanup in permanent-delete mode (or after emptying the Trash), confirm the snapshot panel offers `Release X…` only when at least 100 MB did not come back.
+36. Confirm the release dialog explains that local restore points are lost and Time Machine disk backups are unaffected, and mentions the Trash when items are still there.
+37. Release and confirm the panel reports snapshots removed and the measured free space; check with `tmutil listlocalsnapshots /` that the oldest snapshots were removed.
 
 ## Known QA Gaps
 

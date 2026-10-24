@@ -10,6 +10,8 @@ public actor DeveloperStorageAnalyzer {
     private let homebrewExecutables: [URL]
     private let homebrewRunner: any DeveloperToolCommandRunning
     private let reclaimEstimator: APFSReclaimEstimator
+    private let sessionRegistry: ClaudeSessionRegistry
+    private let now: @Sendable () -> Date
 
     public init(
         fileManager: FileManager = .default,
@@ -19,7 +21,9 @@ public actor DeveloperStorageAnalyzer {
         agentTemporaryRoot: URL? = nil,
         homebrewExecutables: [URL] = HomebrewCleanup.knownExecutables,
         homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 120, environment: HomebrewCleanup.environment),
-        reclaimEstimator: APFSReclaimEstimator = APFSReclaimEstimator()
+        reclaimEstimator: APFSReclaimEstimator = APFSReclaimEstimator(),
+        sessionRegistry: ClaudeSessionRegistry? = nil,
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.fileManager = fileManager
         self.homeDirectory = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
@@ -29,6 +33,8 @@ public actor DeveloperStorageAnalyzer {
         self.homebrewExecutables = homebrewExecutables
         self.homebrewRunner = homebrewRunner
         self.reclaimEstimator = reclaimEstimator
+        self.sessionRegistry = sessionRegistry ?? ClaudeSessionRegistry(homeDirectory: homeDirectory ?? fileManager.homeDirectoryForCurrentUser)
+        self.now = now
     }
 
     public func analyze() async throws -> DeveloperStorageInventory {
@@ -179,6 +185,23 @@ public actor DeveloperStorageAnalyzer {
             ("Library/Application Support/Cursor/logs", "Cursor Logs", "Regenerable diagnostic logs"),
             ("Library/Application Support/Cursor/Crashpad", "Cursor Crash Reports", "Generated crash reports"),
             (".continue/index", "Continue IDE Code Index", "Local vector database and codebase index"),
+            (".codex/cache", "Codex Cache", "Plugin catalog and app tool metadata, downloaded again when needed"),
+            ("Library/Caches/com.openai.codex", "Codex App Cache", "Network cache and downloaded app updates"),
+            ("Library/Application Support/Codex/GPUPersistentCache", "Codex GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Codex/GraphiteDawnCache", "Codex Graphics Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Codex/component_crx_cache", "Codex Component Cache", "Downloaded browser components, fetched again when needed"),
+            ("Library/Application Support/Codex/extensions_crx_cache", "Codex Extension Cache", "Downloaded extension packages, fetched again when needed"),
+            ("Library/Application Support/Codex/download_cache", "Codex Download Cache", "Temporary downloads"),
+            ("Library/Application Support/Codex/Crashpad", "Codex Crash Reports", "Generated crash reports"),
+            ("Library/Caches/com.google.antigravity", "Antigravity App Cache", "Network cache and downloaded app updates"),
+            ("Library/Caches/com.google.antigravity.ShipIt", "Antigravity Updater Cache", "Update installer files and logs"),
+            ("Library/Application Support/Antigravity/Cache", "Antigravity Cache", "Regenerable application cache"),
+            ("Library/Application Support/Antigravity/Code Cache", "Antigravity Code Cache", "Regenerable code cache"),
+            ("Library/Application Support/Antigravity/GPUCache", "Antigravity GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Antigravity/DawnWebGPUCache", "Antigravity WebGPU Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Antigravity/DawnGraphiteCache", "Antigravity Graphics Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Antigravity/CachedData", "Antigravity Cached Data", "Regenerable editor data"),
+            ("Library/Application Support/Antigravity/logs", "Antigravity Logs", "Regenerable diagnostic logs"),
             (".gemini/cache", "Gemini Agent Cache", "Downloaded models and execution cache")
         ]
         for location in aiCacheLocations {
@@ -198,7 +221,10 @@ public actor DeveloperStorageAnalyzer {
             (".claude/projects", "Claude Code Project Sessions", "Transcripts, tool results, screenshots, and generated session artifacts"),
             (".codex/sessions", "Codex Active Sessions", "Active rollout histories and generated session artifacts"),
             (".codex/archived_sessions", "Codex Archived Sessions", "Archived rollout histories and generated session artifacts"),
-            ("Library/Application Support/Cursor/User/workspaceStorage", "Cursor Workspace Storage", "Workspace indexes, chat history, and generated artifacts")
+            ("Library/Application Support/Cursor/User/workspaceStorage", "Cursor Workspace Storage", "Workspace indexes, chat history, and generated artifacts"),
+            ("Library/Application Support/Codex/artifact-sessions", "Codex Artifact Sessions", "Documents and pages generated in Codex sessions"),
+            (".gemini/antigravity/conversations", "Antigravity Conversations", "Agent conversation history"),
+            (".gemini/antigravity/brain", "Antigravity Agent Memory", "Plans, notes, and artifacts kept by the agent")
         ]
         for location in aiArtifactLocations {
             appendDirectory(
@@ -556,8 +582,102 @@ public actor DeveloperStorageAnalyzer {
         }
     }
 
+    /// A closed Claude session's temporary folder (screenshots, videos,
+    /// builds, scratch files) is one recommended item. Live sessions, folders
+    /// not named after a session, and every folder when the session registry
+    /// cannot be read keep the narrower Xcode-build-only scan.
     private func appendAgentTemporaryBuilds(items: inout [DeveloperStorageItem], issues: inout [DeveloperStorageAccessIssue]) {
         guard fileManager.fileExists(atPath: agentTemporaryRoot.path) else { return }
+        let liveSessions = sessionRegistry.liveSessionIDs()
+        var sessionFolders: [URL] = []
+        if let liveSessions {
+            for project in subdirectories(of: agentTemporaryRoot) {
+                for session in subdirectories(of: project) {
+                    guard UUID(uuidString: session.lastPathComponent) != nil,
+                          !liveSessions.contains(session.lastPathComponent.lowercased()) else { continue }
+                    appendClosedSession(session, project: project, items: &items, issues: &issues)
+                    sessionFolders.append(session.standardizedFileURL)
+                }
+            }
+        }
+        appendAgentTemporaryBuilds(excluding: sessionFolders, items: &items, issues: &issues)
+    }
+
+    private func subdirectories(of url: URL) -> [URL] {
+        ((try? fileManager.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []).filter { child in
+            let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            return values?.isDirectory == true && values?.isSymbolicLink != true
+        }
+    }
+
+    private func appendClosedSession(
+        _ session: URL,
+        project: URL,
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) {
+        let lastActivity = latestModification(in: session)
+        let isRecent = lastActivity.map { now().timeIntervalSince($0) < 3_600 } ?? true
+        let decision = isRecent ? policy.recentClaudeSessionDecision() : policy.closedClaudeSessionDecision()
+        let lastUsed = lastActivity.map { " · last used \($0.formatted(date: .abbreviated, time: .shortened))" } ?? ""
+        let item = makeItem(
+            id: "path:\(session.standardizedFileURL.path)",
+            category: .aiGeneratedArtifacts,
+            name: "Claude session · \(claudeProjectName(project.lastPathComponent))",
+            detail: "Closed session \(session.lastPathComponent.prefix(8))\(lastUsed)",
+            url: session,
+            externalIdentifier: ClaudeSessionRegistry.itemIdentifierPrefix + session.lastPathComponent.lowercased(),
+            isAvailable: true,
+            decision: decision,
+            issues: &issues
+        )
+        // Most short sessions leave almost nothing behind; listing dozens of
+        // empty rows would bury the large ones.
+        if item.bytes >= 1_000_000 {
+            items.append(item)
+        }
+    }
+
+    /// Newest modification among the folder and two levels below it: enough to
+    /// notice recent writes to images, scratchpad, or tasks without a full walk.
+    private func latestModification(in folder: URL) -> Date? {
+        var dates: [Date] = []
+        func record(_ url: URL) {
+            if let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate {
+                dates.append(date)
+            }
+        }
+        record(folder)
+        for child in (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
+            record(child)
+            for grandchild in (try? fileManager.contentsOfDirectory(at: child, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
+                record(grandchild)
+            }
+        }
+        return dates.max()
+    }
+
+    /// "-Users-name-PetroCheck" becomes "PetroCheck"; spare sessions read
+    /// "spare session". Folder names flatten paths, so this is a label only.
+    private func claudeProjectName(_ folderName: String) -> String {
+        let homePrefix = homeDirectory.standardizedFileURL.path.replacingOccurrences(of: "/", with: "-") + "-"
+        var name = folderName.hasPrefix(homePrefix) ? String(folderName.dropFirst(homePrefix.count)) : folderName
+        if name.hasPrefix("-claude-spares-") { return "spare session" }
+        if let worktree = name.range(of: "--claude-worktrees-") {
+            name = String(name[..<worktree.lowerBound]) + " worktree"
+        }
+        return name.isEmpty ? "home folder" : name
+    }
+
+    private func appendAgentTemporaryBuilds(
+        excluding sessionFolders: [URL],
+        items: inout [DeveloperStorageItem],
+        issues: inout [DeveloperStorageAccessIssue]
+    ) {
         var accessErrors: [DeveloperStorageAccessIssue] = []
         guard let enumerator = fileManager.enumerator(
             at: agentTemporaryRoot,
@@ -575,7 +695,7 @@ public actor DeveloperStorageAnalyzer {
             if Task.isCancelled { break }
             let depth = enumerator.level
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            if values?.isSymbolicLink == true || depth > 4 {
+            if values?.isSymbolicLink == true || depth > 4 || sessionFolders.contains(url.standardizedFileURL) {
                 enumerator.skipDescendants(); continue
             }
             guard values?.isDirectory == true else { continue }

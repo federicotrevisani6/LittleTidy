@@ -98,19 +98,22 @@ public actor DeveloperStorageCleanupExecutor {
     private let activityChecker: any DeveloperToolActivityChecking
     private let homebrewRunner: any DeveloperToolCommandRunning
     private let freeSpace: @Sendable () -> Int64?
+    private let sessionRegistry: ClaudeSessionRegistry
 
     public init(
         fileManager: FileManager = .default,
         commandRunner: any DeveloperToolCommandRunning = DeveloperToolCommandClient(),
         activityChecker: (any DeveloperToolActivityChecking)? = nil,
         homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 900, environment: HomebrewCleanup.environment),
-        freeSpace: @escaping @Sendable () -> Int64? = DeveloperStorageCleanupExecutor.homeVolumeFreeBytes
+        freeSpace: @escaping @Sendable () -> Int64? = DeveloperStorageCleanupExecutor.homeVolumeFreeBytes,
+        sessionRegistry: ClaudeSessionRegistry = ClaudeSessionRegistry()
     ) {
         self.fileManager = fileManager
         self.commandRunner = commandRunner
         self.activityChecker = activityChecker ?? DeveloperToolActivityChecker()
         self.homebrewRunner = homebrewRunner
         self.freeSpace = freeSpace
+        self.sessionRegistry = sessionRegistry
     }
 
     @Sendable public static func homeVolumeFreeBytes() -> Int64? {
@@ -127,6 +130,10 @@ public actor DeveloperStorageCleanupExecutor {
             if Task.isCancelled { break }
             // Rechecked before every item: Xcode can open, or a project can
             // start building, while an earlier item is being removed.
+            if let blockingReason = await activityBlockingReason(for: item) {
+                results.append(result(item, status: .skipped, message: blockingReason))
+                continue
+            }
             if let blockingReason = await xcodeBlockingReason(for: item) {
                 results.append(result(item, status: .skipped, message: blockingReason))
                 continue
@@ -154,6 +161,29 @@ public actor DeveloperStorageCleanupExecutor {
             freeBytesBefore: freeBytesBefore,
             freeBytesAfter: freeSpace()
         )
+    }
+
+    /// Fail-closed guard for items an app or agent may be using. A Claude
+    /// session that became live again, or any open file inside the item,
+    /// blocks it; so does a registry or snapshot that cannot be read.
+    private func activityBlockingReason(for item: DeveloperStorageItem) async -> String? {
+        guard item.requiresOpenFileCheck else { return nil }
+        if item.isClosedClaudeSession {
+            let sessionID = String(item.externalIdentifier?.dropFirst(ClaudeSessionRegistry.itemIdentifierPrefix.count) ?? "")
+            guard let live = sessionRegistry.liveSessionIDs() else {
+                return "LittleTidy could not read the Claude session list, so it cannot confirm this session is closed. No data was removed."
+            }
+            if live.contains(sessionID) {
+                return "This Claude session is running again. No data was removed."
+            }
+        }
+        guard let snapshot = await activityChecker.openFileSnapshot() else {
+            return "LittleTidy could not check for open files, so it cannot confirm nothing is using this item. No data was removed."
+        }
+        if let url = item.url, snapshot.containsPath(within: url) {
+            return "An app or agent has files open inside this item. Quit it and try again. No data was removed."
+        }
+        return nil
     }
 
     /// Fail-closed Xcode guard. Items Xcode owns are blocked while it runs,

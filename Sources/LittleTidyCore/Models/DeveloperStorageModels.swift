@@ -182,10 +182,22 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
         )
     }
 
+    public var isClosedClaudeSession: Bool {
+        externalIdentifier?.hasPrefix(ClaudeSessionRegistry.itemIdentifierPrefix) == true
+    }
+
+    /// Items an app may be using at any time, so cleanup always requires a
+    /// fresh open-file snapshot showing nothing open inside them.
+    public var requiresOpenFileCheck: Bool {
+        isClosedClaudeSession || category == .aiCaches
+    }
+
     /// How a running Xcode affects cleanup of this item.
     public var xcodeActivityRule: XcodeActivityRule {
-        if cleanupMechanism == .homebrewCleanup { return .independent }
+        if cleanupMechanism == .homebrewCleanup || isClosedClaudeSession { return .independent }
         switch category {
+        case .aiCaches:
+            return .independent
         case .derivedData, .simulatorDevices, .xctestDevices:
             return .openFileCheck
         default:
