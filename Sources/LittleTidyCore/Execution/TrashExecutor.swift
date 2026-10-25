@@ -41,7 +41,11 @@ public final class TrashExecutor: @unchecked Sendable {
             }
 
             do {
-                if deletionMode == .permanentDelete {
+                // Files of another user or locked files would stop a permanent
+                // delete halfway; such items go to the Trash instead, which
+                // the reported Trash URL makes visible.
+                if deletionMode == .permanentDelete,
+                   DeletionPreflight.obstacles(at: item.sourceURL).isEmpty {
                     try fileManager.removeItem(at: item.sourceURL)
                     trashed.append(TrashedItem(
                         sourceURL: item.sourceURL,
@@ -71,6 +75,14 @@ public final class TrashExecutor: @unchecked Sendable {
         for url in urls {
             guard fileManager.fileExists(atPath: url.path) else {
                 skipped.append(url)
+                continue
+            }
+            let obstacles = DeletionPreflight.obstacles(at: url)
+            guard obstacles.isEmpty else {
+                // Refuse up front rather than delete part of the item.
+                failed.append((url, CocoaError(.fileWriteNoPermission, userInfo: [
+                    NSLocalizedDescriptionKey: "\(url.lastPathComponent) was not deleted: \(obstacles.explanation), which only an administrator can delete."
+                ])))
                 continue
             }
             do {
