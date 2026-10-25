@@ -99,6 +99,7 @@ public actor DeveloperStorageCleanupExecutor {
     private let homebrewRunner: any DeveloperToolCommandRunning
     private let freeSpace: @Sendable () -> Int64?
     private let sessionRegistry: ClaudeSessionRegistry
+    private let deletionPreflight: @Sendable (URL) -> DeletionObstacles
 
     public init(
         fileManager: FileManager = .default,
@@ -106,7 +107,8 @@ public actor DeveloperStorageCleanupExecutor {
         activityChecker: (any DeveloperToolActivityChecking)? = nil,
         homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 900, environment: HomebrewCleanup.environment),
         freeSpace: @escaping @Sendable () -> Int64? = DeveloperStorageCleanupExecutor.homeVolumeFreeBytes,
-        sessionRegistry: ClaudeSessionRegistry = ClaudeSessionRegistry()
+        sessionRegistry: ClaudeSessionRegistry = ClaudeSessionRegistry(),
+        deletionPreflight: @escaping @Sendable (URL) -> DeletionObstacles = { DeletionPreflight.obstacles(at: $0) }
     ) {
         self.fileManager = fileManager
         self.commandRunner = commandRunner
@@ -114,6 +116,7 @@ public actor DeveloperStorageCleanupExecutor {
         self.homebrewRunner = homebrewRunner
         self.freeSpace = freeSpace
         self.sessionRegistry = sessionRegistry
+        self.deletionPreflight = deletionPreflight
     }
 
     @Sendable public static func homeVolumeFreeBytes() -> Int64? {
@@ -225,8 +228,16 @@ public actor DeveloperStorageCleanupExecutor {
             return result(item, status: .skipped, message: "The item no longer exists.")
         }
 
+        // A permanent delete stops halfway on files of another user or locked
+        // files. Moving the folder to the Trash renames only the top folder,
+        // so it still works; Finder asks for a password when emptying it.
+        var fellBackToTrash: DeletionObstacles?
+        if deletionMode == .permanentDelete {
+            let obstacles = deletionPreflight(url)
+            if !obstacles.isEmpty { fellBackToTrash = obstacles }
+        }
         do {
-            if deletionMode == .permanentDelete {
+            if deletionMode == .permanentDelete, fellBackToTrash == nil {
                 try fileManager.removeItem(at: url)
             } else {
                 var resultingURL: NSURL?
@@ -237,6 +248,14 @@ public actor DeveloperStorageCleanupExecutor {
         }
         guard !fileManager.fileExists(atPath: url.path) else {
             return result(item, status: .failed, message: "The item is still present after cleanup. Another process may have recreated it.")
+        }
+        if let obstacles = fellBackToTrash {
+            return result(
+                item,
+                status: .removed,
+                message: "Moved to Trash instead of deleting permanently: \(obstacles.explanation), which only an administrator can delete. Finder asks for your password when you empty the Trash.",
+                movedToTrash: true
+            )
         }
         return deletionMode == .permanentDelete
             ? result(item, status: .removed, message: "Permanently deleted.")

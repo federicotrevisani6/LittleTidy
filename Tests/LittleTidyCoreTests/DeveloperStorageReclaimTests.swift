@@ -502,6 +502,47 @@ struct DeveloperStorageReclaimTests {
         #expect(FileManager.default.fileExists(atPath: codex.path))
     }
 
+    // MARK: Permanent delete obstacles
+
+    @Test("preflight finds locked files and files owned by another user without deleting anything")
+    func preflightFindsObstacles() throws {
+        let root = try TemporaryDirectory().url
+        let locked = root.appendingPathComponent("nested/locked.bin")
+        try FileManager.default.createDirectory(at: locked.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(repeating: 1, count: 16).write(to: locked)
+        #expect(chflags(locked.path, UInt32(UF_IMMUTABLE)) == 0)
+        defer { chflags(locked.path, 0) }
+
+        let mine = DeletionPreflight.obstacles(at: root)
+        #expect(mine.lockedCount == 1)
+        #expect(mine.foreignOwnedCount == 0)
+        // Seen from another user's ID, every entry belongs to someone else.
+        let asOtherUser = DeletionPreflight.obstacles(at: root, userID: getuid() + 1)
+        #expect(asOtherUser.foreignOwnedCount == 3)
+        #expect(FileManager.default.fileExists(atPath: locked.path))
+    }
+
+    @Test("permanent delete falls back to the Trash when files cannot be deleted without an administrator")
+    func permanentDeleteFallsBackToTrash() async throws {
+        let root = try TemporaryDirectory().url
+        let cache = root.appendingPathComponent("SomeCache", isDirectory: true)
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        try Data(repeating: 1, count: 1_024).write(to: cache.appendingPathComponent("blob"))
+        let obstacles = DeletionObstacles(foreignOwnedCount: 3, owners: ["root"])
+
+        let result = await DeveloperStorageCleanupExecutor(
+            activityChecker: StubActivityChecker(isRunning: false),
+            freeSpace: { nil },
+            deletionPreflight: { _ in obstacles }
+        ).execute(items: [trashItem(category: .derivedData, url: cache, decision: DeveloperStoragePolicy().decision(for: .derivedData))], deletionMode: .permanentDelete)
+
+        let item = try #require(result.items.first)
+        #expect(item.status == .removed)
+        #expect(item.movedToTrash)
+        #expect(item.message.contains("3 files belong to root"))
+        #expect(!FileManager.default.fileExists(atPath: cache.path))
+    }
+
     // MARK: Symbolic links
 
     @Test("analyzer never lists a symbolic link, such as ~/.swiftpm/cache pointing at the SwiftPM cache")
