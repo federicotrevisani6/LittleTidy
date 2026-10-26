@@ -6,6 +6,22 @@
         <description>Most recent changes for LittleTidy.</description>
         <language>en</language>
         <item>
+            <title>0.8.3</title>
+            <pubDate>Mon, 26 Oct 2026 12:13:26 +0100</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.8.3
+
+- Added Project Build Folders detection across 20+ ecosystems (`.build`, `target`, `build`, `cmake-build-*`, `.gradle`, `node_modules`, `.next`, `.venv`, `Pods`, `Carthage/Build`, Unity `Library`, Unreal `Intermediate`, and `CACHEDIR.TAG` directories), verified via sibling project manifests and protected by open-file checks.
+- Expanded macOS cache discovery to include Group Container cache subdirectories, `HTTPStorages/fsCachedData`, WebKit network and cache storage, saved application states, app logs, creative/media caches (Adobe, Spotify, Steam), and Electron/Chromium GPU, shader, code, and service-worker caches.
+- Expanded Developer Storage with multi-platform Xcode DeviceSupport (`watchOS`, `tvOS`, `visionOS`, `macOS`, `CoreDeviceData`), 45+ package manager and build caches, and additional AI model and IDE cache locations.
+
+Requires macOS 26 or later.
+]]></description>
+            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.3/LittleTidy.zip" length="6379434" type="application/octet-stream" sparkle:edSignature="YUmwHtEaSVEdo+tK1kvNwCUZxftwxnB4Ec49YjC1wiYSXmlqm/0m0uCDpZCjQZMQdbUlcMi5P/inEEo9EfIRDg=="/>
+        </item>
+        <item>
             <title>0.8.2</title>
             <pubDate>Sun, 25 Oct 2026 11:37:39 +0100</pubDate>
             <sparkle:version>12</sparkle:version>
@@ -37,27 +53,6 @@ Requires macOS 26 or later.
 Requires macOS 26 or later.
 ]]></description>
             <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.1/LittleTidy.zip" length="6156117" type="application/octet-stream" sparkle:edSignature="ew6jMBz+u7uoQJR2Wq6ElsL6Qr3gVxTxI79//zTxiT5tAtjobh6K9MPHHa28KUhwgHoKHN5bhTdkXQF4UwzuAA=="/>
-        </item>
-        <item>
-            <title>0.8.0</title>
-            <pubDate>Sat, 24 Oct 2026 23:16:31 +0200</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.8.0
-
-- XCTest clones that Xcode creates for parallel testing are now recommended for cleanup and removed with `simctl`. While a test run is active, every clone is protected until it finishes.
-- Developer cleanup no longer stops entirely while Xcode is open. Build data of projects that are not open, and Simulator devices nothing is using, can be cleaned; everything else Xcode owns waits until you quit it. Derived Data is now listed per project.
-- Sizes now show how much space is freed right away. Simulator clones share storage, and a Time Machine local snapshot keeps older data until macOS releases it, so the app shows "at least X freed right away" and explains when a snapshot is holding space.
-- After a cleanup, you can ask macOS to release the space a local snapshot still holds. macOS removes local snapshots, oldest first, until that space is reclaimed; backups on a Time Machine disk are not affected.
-- Old Homebrew versions and downloads are estimated with `brew cleanup --dry-run` and reclaimed with `brew cleanup`.
-- Cleanup results show the total removed, the measured change in free space, what is still in the Trash, and the reason for every skipped or failed item. Removed items leave the list immediately.
-- Fixed: the deletion mode chosen in Settings now applies without relaunching, and is no longer overwritten by the previous value. Cleanup wording now matches permanent-delete mode.
-- Fixed: symbolic links, such as `~/.swiftpm/cache`, are no longer offered for cleanup.
-
-Requires macOS 26 or later. Releasing snapshot space removes local hourly restore points and cannot be undone. Homebrew cleanup requires Homebrew in `/opt/homebrew` or `/usr/local`.
-]]></description>
-            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.0/LittleTidy.zip" length="6099275" type="application/octet-stream" sparkle:edSignature="iL6qNs0gI8WsLb1c+Xc3UJIZCOYG20ApFCOyBN1GxOF063yYGOnPJmyW/LAwuLeFWjqOkFjSpUmocOokIBxgBw=="/>
         </item>
     </channel>
 </rss>
