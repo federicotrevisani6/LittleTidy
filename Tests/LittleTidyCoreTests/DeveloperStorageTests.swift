@@ -469,6 +469,47 @@ struct DeveloperStorageTests {
         #expect(!FileManager.default.fileExists(atPath: first.path))
         #expect(FileManager.default.fileExists(atPath: second.path))
     }
+
+    @Test("inventories multi-platform DeviceSupport, review-tier Maven repo, and per-project build folders")
+    func inventoriesExpandedDeveloperLocationsAndProjectBuildFolders() async throws {
+        let home = try TemporaryDirectory().url.resolvingSymlinksInPath()
+        let watchSupport = home.appendingPathComponent("Library/Developer/Xcode/watchOS DeviceSupport/11.0 (22R349)", isDirectory: true)
+        let visionSupport = home.appendingPathComponent("Library/Developer/Xcode/visionOS DeviceSupport/2.0 (22N320)", isDirectory: true)
+        let mavenRepo = home.appendingPathComponent(".m2/repository", isDirectory: true)
+        let swiftProject = home.appendingPathComponent("Developer/SamplePkg", isDirectory: true)
+        let swiftBuild = swiftProject.appendingPathComponent(".build", isDirectory: true)
+        let nodeProject = home.appendingPathComponent("Developer/WebApp", isDirectory: true)
+        let nodeModules = nodeProject.appendingPathComponent("node_modules", isDirectory: true)
+
+        for dir in [watchSupport, visionSupport, mavenRepo, swiftBuild, nodeModules] {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try Data(repeating: 4, count: 1_500_000).write(to: dir.appendingPathComponent("payload.bin"))
+        }
+        try Data("// swift-tools-version: 6.0\n".utf8).write(to: swiftProject.appendingPathComponent("Package.swift"))
+        try Data("{\"name\":\"webapp\"}\n".utf8).write(to: nodeProject.appendingPathComponent("package.json"))
+
+        let analyzer = DeveloperStorageAnalyzer(
+            homeDirectory: home,
+            commandRunner: ScriptedCommandRunner(results: [])
+        )
+        let inventory = try await analyzer.analyze()
+
+        #expect(inventory.items.contains { $0.category == .deviceSupport && $0.url?.standardizedFileURL == watchSupport.standardizedFileURL })
+        #expect(inventory.items.contains { $0.category == .deviceSupport && $0.url?.standardizedFileURL == visionSupport.standardizedFileURL })
+        let mavenItem = inventory.items.first { $0.url?.standardizedFileURL == mavenRepo.standardizedFileURL }
+        #expect(mavenItem?.category == .packageCaches)
+        #expect(mavenItem?.recommendation == .review)
+
+        let swiftBuildItem = inventory.items.first { $0.url?.standardizedFileURL == swiftBuild.standardizedFileURL }
+        #expect(swiftBuildItem?.category == .projectBuildFolders)
+        #expect(swiftBuildItem?.recommendation == .recommended)
+        #expect(swiftBuildItem?.requiresOpenFileCheck == true)
+
+        let nodeModulesItem = inventory.items.first { $0.url?.standardizedFileURL == nodeModules.standardizedFileURL }
+        #expect(nodeModulesItem?.category == .projectBuildFolders)
+        #expect(nodeModulesItem?.recommendation == .review)
+        #expect(nodeModulesItem?.requiresOpenFileCheck == true)
+    }
 }
 
 private struct FixtureCommandRunner: DeveloperToolCommandRunning {

@@ -5,6 +5,7 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
     case simulatorRuntimes
     case xctestDevices
     case derivedData
+    case projectBuildFolders
     case deviceSupport
     case packageCaches
     case aiModelsAndAgents
@@ -21,6 +22,7 @@ public enum DeveloperStorageCategory: String, Codable, CaseIterable, Sendable {
         case .simulatorRuntimes: "Simulator Runtimes"
         case .xctestDevices: "XCTest Devices"
         case .derivedData: "Derived Data"
+        case .projectBuildFolders: "Project Build Folders"
         case .deviceSupport: "Device Support"
         case .packageCaches: "Package Manager Caches"
         case .aiModelsAndAgents: "AI Models"
@@ -189,14 +191,14 @@ public struct DeveloperStorageItem: Identifiable, Codable, Hashable, Sendable {
     /// Items an app may be using at any time, so cleanup always requires a
     /// fresh open-file snapshot showing nothing open inside them.
     public var requiresOpenFileCheck: Bool {
-        isClosedClaudeSession || category == .aiCaches
+        isClosedClaudeSession || category == .aiCaches || category == .projectBuildFolders
     }
 
     /// How a running Xcode affects cleanup of this item.
     public var xcodeActivityRule: XcodeActivityRule {
         if cleanupMechanism == .homebrewCleanup || isClosedClaudeSession { return .independent }
         switch category {
-        case .aiCaches:
+        case .aiCaches, .projectBuildFolders:
             return .independent
         case .derivedData, .simulatorDevices, .xctestDevices:
             return .openFileCheck

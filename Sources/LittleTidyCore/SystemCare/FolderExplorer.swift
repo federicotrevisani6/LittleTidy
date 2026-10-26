@@ -120,6 +120,7 @@ public actor FolderExplorer {
         if regularFile(info), fm.fileExists(atPath: url.appendingPathComponent("Build").path),
            let data = readMetadata(info),
            let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any], plist["WorkspacePath"] is String { return .buildOutput }
+        if ProjectBuildScanner.classifyBuildDirectory(url, fileManager: fm) != nil { return .buildOutput }
         let candidatePath = url.resolvingSymlinksInPath().standardizedFileURL.path
         let cache = home.appendingPathComponent("Library/Caches").path
         if candidatePath == cache || candidatePath.hasPrefix(cache + "/") { return .cache }

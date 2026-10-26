@@ -59,7 +59,7 @@ public struct CleanupAnalysis {
         let apps = appUsageAnalyzer
             .classify(appUsageAnalyzer.scanApplications(in: appRoots))
             .filter { $0.category != .recentlyUsed }
-        let caches = options.includeCaches ? try cacheAnalyzer.findCaches() : []
+        let caches = options.includeCaches ? try cacheAnalyzer.findCaches(scanRoots: scanRoots) : []
         async let folderUsage = folderUsageAnalyzer.aggregate(files: files, roots: scanRoots)
 
         let resolved = try await (duplicates, largeFiles, folderUsage)

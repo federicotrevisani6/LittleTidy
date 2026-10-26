@@ -11,6 +11,7 @@ public actor DeveloperStorageAnalyzer {
     private let homebrewRunner: any DeveloperToolCommandRunning
     private let reclaimEstimator: APFSReclaimEstimator
     private let sessionRegistry: ClaudeSessionRegistry
+    private let projectRoots: [URL]?
     private let now: @Sendable () -> Date
 
     public init(
@@ -23,6 +24,7 @@ public actor DeveloperStorageAnalyzer {
         homebrewRunner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 120, environment: HomebrewCleanup.environment),
         reclaimEstimator: APFSReclaimEstimator = APFSReclaimEstimator(),
         sessionRegistry: ClaudeSessionRegistry? = nil,
+        projectRoots: [URL]? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.fileManager = fileManager
@@ -34,6 +36,7 @@ public actor DeveloperStorageAnalyzer {
         self.homebrewRunner = homebrewRunner
         self.reclaimEstimator = reclaimEstimator
         self.sessionRegistry = sessionRegistry ?? ClaudeSessionRegistry(homeDirectory: homeDirectory ?? fileManager.homeDirectoryForCurrentUser)
+        self.projectRoots = projectRoots
         self.now = now
     }
 
@@ -60,12 +63,22 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
-        appendChildren(
-            of: xcodeRoot.appendingPathComponent("iOS DeviceSupport", isDirectory: true),
-            category: .deviceSupport,
-            items: &items,
-            issues: &issues
-        )
+        let deviceSupportFolderNames = [
+            "iOS DeviceSupport",
+            "watchOS DeviceSupport",
+            "tvOS DeviceSupport",
+            "visionOS DeviceSupport",
+            "macOS DeviceSupport",
+            "CoreDeviceData"
+        ]
+        for folderName in deviceSupportFolderNames {
+            appendChildren(
+                of: xcodeRoot.appendingPathComponent(folderName, isDirectory: true),
+                category: .deviceSupport,
+                items: &items,
+                issues: &issues
+            )
+        }
         appendArchiveChildren(
             of: xcodeRoot.appendingPathComponent("Archives", isDirectory: true),
             items: &items,
@@ -77,40 +90,102 @@ public actor DeveloperStorageAnalyzer {
             issues: &issues
         )
 
-        // Package Manager Caches
-        let userLibraryCaches = homeDirectory.appendingPathComponent("Library/Caches", isDirectory: true)
-        appendDirectory(
-            userLibraryCaches.appendingPathComponent("org.swift.swiftpm", isDirectory: true),
-            category: .packageCaches,
-            name: "SwiftPM Package Cache",
-            detail: "Cloned repositories and package manifests",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            homeDirectory.appendingPathComponent(".swiftpm/cache", isDirectory: true),
-            category: .packageCaches,
-            name: "SwiftPM Binary Cache",
-            detail: "Precompiled binary targets and artifacts",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            userLibraryCaches.appendingPathComponent("CocoaPods", isDirectory: true),
-            category: .packageCaches,
-            name: "CocoaPods Cache",
-            detail: "Cached pod specifications and downloads",
-            items: &items,
-            issues: &issues
-        )
-        appendDirectory(
-            userLibraryCaches.appendingPathComponent("Carthage", isDirectory: true),
-            category: .packageCaches,
-            name: "Carthage Cache",
-            detail: "Binary frameworks and dependency cache",
-            items: &items,
-            issues: &issues
-        )
+        // Package Manager & Build Tool Caches
+        let packageCacheLocations: [(path: String, name: String, detail: String)] = [
+            ("Library/Caches/org.swift.swiftpm", "SwiftPM Package Cache", "Cloned repositories and package manifests"),
+            (".swiftpm/cache", "SwiftPM Binary Cache", "Precompiled binary targets and artifacts"),
+            ("Library/Caches/CocoaPods", "CocoaPods Cache", "Cached pod specifications and downloads"),
+            ("Library/Caches/Carthage", "Carthage Cache", "Binary frameworks and dependency cache"),
+            ("Library/Caches/org.carthage.CarthageKit", "CarthageKit Cache", "Downloaded binary frameworks and dependency archives"),
+            (".npm/_cacache", "npm Cache", "Content-addressable npm tarball cache"),
+            (".yarn/cache", "Yarn Cache", "Cached Yarn package archives"),
+            (".cache/yarn", "Yarn Global Cache", "Cached Yarn package archives"),
+            ("Library/Caches/Yarn", "Yarn Library Cache", "Cached Yarn package archives"),
+            ("Library/pnpm/store", "pnpm Content-Addressable Store", "Hard-linked Node package store"),
+            (".local/share/pnpm/store", "pnpm Local Store", "Hard-linked Node package store"),
+            (".bun/install/cache", "Bun Package Cache", "Downloaded Bun package tarballs"),
+            ("Library/Caches/deno", "Deno Cache", "Compiled TypeScript modules and remote dependencies"),
+            (".cache/deno", "Deno Dot-Cache", "Compiled TypeScript modules and remote dependencies"),
+            ("Library/Caches/turbo", "Turborepo Cache", "Cached monorepo build outputs"),
+            (".cache/turbo", "Turborepo Dot-Cache", "Cached monorepo build outputs"),
+            (".cache/pip", "pip Cache", "Downloaded Python wheels and source distributions"),
+            ("Library/Caches/pip", "pip Library Cache", "Downloaded Python wheels and source distributions"),
+            (".cache/uv", "uv Cache", "Cached Python wheels and unzipped environments"),
+            ("Library/Caches/uv", "uv Library Cache", "Cached Python wheels and unzipped environments"),
+            ("Library/Caches/pypoetry", "Poetry Cache", "Cached Python virtualenvs and wheels"),
+            (".cache/pypoetry", "Poetry Dot-Cache", "Cached Python virtualenvs and wheels"),
+            ("Library/Caches/pdm", "PDM Cache", "Cached Python packages and wheels"),
+            (".cache/pdm", "PDM Dot-Cache", "Cached Python packages and wheels"),
+            ("Library/Caches/pipenv", "Pipenv Cache", "Cached Python wheels and resolver metadata"),
+            (".cache/pipenv", "Pipenv Dot-Cache", "Cached Python wheels and resolver metadata"),
+            (".conda/pkgs", "Conda Package Cache", "Downloaded Conda package tarballs"),
+            ("miniconda3/pkgs", "Miniconda Package Cache", "Downloaded Conda package tarballs"),
+            ("anaconda3/pkgs", "Anaconda Package Cache", "Downloaded Conda package tarballs"),
+            ("miniforge3/pkgs", "Miniforge Package Cache", "Downloaded Conda package tarballs"),
+            (".cargo/registry/cache", "Cargo Registry Cache", "Downloaded Rust crate archives (.crate)"),
+            (".cargo/git/db", "Cargo Git Database", "Cloned Git dependencies for Cargo"),
+            ("go/pkg/mod/cache", "Go Module Cache", "Downloaded Go module archives and checksums"),
+            ("Library/Caches/go-build", "Go Build Cache", "Compiled Go package object cache"),
+            (".gradle/caches", "Gradle Global Cache", "Downloaded artifacts and task outputs"),
+            (".gradle/wrapper/dists", "Gradle Wrapper Distributions", "Downloaded Gradle runtime distributions"),
+            ("Library/Caches/Coursier", "Coursier JVM Cache", "Downloaded Scala and JVM artifacts"),
+            (".ivy2/cache", "Ivy2 Cache", "Downloaded JVM artifacts and metadata"),
+            ("Library/Caches/composer", "Composer Cache", "Downloaded PHP package archives"),
+            (".composer/cache", "Composer Home Cache", "Downloaded PHP package archives"),
+            ("Library/Caches/gem", "RubyGems Cache", "Downloaded Ruby gem packages"),
+            (".bundle/cache", "Bundler Cache", "Cached Ruby gem archives"),
+            (".pub-cache", "Dart & Flutter Pub Cache", "Downloaded pub.dev packages"),
+            ("Library/Caches/flutter", "Flutter Tool Cache", "Cached Flutter artifacts"),
+            (".nuget/packages", "NuGet Global Packages", "Downloaded .NET NuGet packages"),
+            (".local/share/NuGet/v3-cache", "NuGet HTTP Cache", "NuGet V3 API response cache"),
+            ("Library/Caches/bazel", "Bazel Cache", "Bazel action and repository cache"),
+            (".cache/bazel", "Bazel Dot-Cache", "Bazel action and repository cache"),
+            (".tuist/Cache", "Tuist Binary Cache", "Cached Tuist precompiled frameworks"),
+            ("Library/Caches/tuist", "Tuist Library Cache", "Cached Tuist artifacts"),
+            ("Library/Caches/ccache", "ccache Compiler Cache", "Cached C/C++ compilation objects"),
+            (".cache/ccache", "ccache Dot-Cache", "Cached C/C++ compilation objects"),
+            ("Library/Caches/Mozilla.sccache", "sccache Compiler Cache", "Cached Rust and C/C++ compilation objects"),
+            (".cache/vcpkg", "vcpkg Archive Cache", "Cached C/C++ port archives"),
+            (".conan2/p/b", "Conan Build Cache", "Compiled C/C++ package binaries"),
+            (".terraform.d/plugin-cache", "Terraform Provider Cache", "Shared Terraform provider binaries"),
+            ("Library/Caches/helm", "Helm Chart Cache", "Downloaded Kubernetes Helm charts"),
+            (".kube/cache", "Kubernetes Discovery Cache", "kubectl API discovery cache"),
+            (".kube/http-cache", "Kubernetes HTTP Cache", "kubectl HTTP response cache")
+        ]
+        for location in packageCacheLocations {
+            appendDirectory(
+                homeDirectory.appendingPathComponent(location.path, isDirectory: true),
+                category: .packageCaches,
+                name: location.name,
+                detail: location.detail,
+                items: &items,
+                issues: &issues
+            )
+        }
+
+        // Package and browser-automation caches that require review before removal
+        let reviewPackageCacheLocations: [(path: String, name: String, detail: String, reason: String)] = [
+            (".m2/repository", "Maven Local Repository", "Downloaded JARs and locally installed Maven artifacts (~/.m2/repository)", "Contains downloaded Maven dependencies and any local mvn install artifacts. Review before moving to Trash."),
+            ("Library/Caches/ms-playwright", "Playwright Browser Binaries", "Downloaded Chromium, Firefox, and WebKit test browsers", "Removing Playwright browser binaries requires running npx playwright install before the next browser test."),
+            ("Library/Caches/Cypress", "Cypress Test Runner Binaries", "Downloaded Cypress desktop application binaries", "Removing Cypress binaries requires redownloading them before running Cypress tests."),
+            (".cache/puppeteer", "Puppeteer Browser Binaries", "Downloaded headless Chrome binaries for Puppeteer", "Removing Puppeteer browsers requires redownloading them when needed.")
+        ]
+        for location in reviewPackageCacheLocations {
+            let url = homeDirectory.appendingPathComponent(location.path, isDirectory: true)
+            guard fileManager.fileExists(atPath: url.path) else { continue }
+            let decision = policy.reinstallablePackageCacheDecision(reason: location.reason)
+            items.append(makeItem(
+                id: "path:\(url.standardizedFileURL.path)",
+                category: .packageCaches,
+                name: location.name,
+                detail: location.detail,
+                url: url,
+                externalIdentifier: nil,
+                isAvailable: true,
+                decision: decision,
+                issues: &issues
+            ))
+        }
 
         // Android Virtual Devices
         appendAndroidAVDChildren(
@@ -171,19 +246,79 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
-        // AI caches and logs. Keep exact paths so settings, credentials, and
+        appendDirectory(
+            dotCache.appendingPathComponent("whisper", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "OpenAI Whisper Models",
+            detail: "Downloaded speech-to-text model weights",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            dotCache.appendingPathComponent("clip", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "CLIP Vision Models",
+            detail: "Downloaded multimodal embedding weights",
+            items: &items,
+            issues: &issues
+        )
+        appendDirectory(
+            homeDirectory.appendingPathComponent("Library/Caches/llama.cpp", isDirectory: true),
+            category: .aiModelsAndAgents,
+            name: "llama.cpp Model Cache",
+            detail: "Cached GGUF model files",
+            items: &items,
+            issues: &issues
+        )
+
+        // AI and IDE caches and logs. Keep exact paths so settings, credentials, and
         // memory files in the same product roots are never cleanup candidates.
         let aiCacheLocations: [(path: String, name: String, detail: String)] = [
             (".claude/cache", "Claude Code Cache", "Downloaded and generated cache data"),
             (".claude/debug", "Claude Code Debug Logs", "Regenerable diagnostic logs"),
+            ("Library/Application Support/Claude/Cache", "Claude Desktop Cache", "Regenerable application cache"),
+            ("Library/Application Support/Claude/Code Cache", "Claude Desktop Code Cache", "Regenerable code cache"),
+            ("Library/Application Support/Claude/GPUCache", "Claude Desktop GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Claude/DawnWebGPUCache", "Claude Desktop WebGPU Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Claude/DawnGraphiteCache", "Claude Desktop Graphics Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Claude/logs", "Claude Desktop Logs", "Regenerable diagnostic logs"),
+            ("Library/Application Support/Claude/Crashpad", "Claude Desktop Crash Reports", "Generated crash reports"),
+            ("Library/Logs/Claude", "Claude System Logs", "Regenerable MCP and desktop logs"),
             (".codex/log", "Codex Logs", "Regenerable local diagnostic logs"),
             (".codex/tmp", "Codex Temporary Data", "Temporary agent files"),
             ("Library/Application Support/Cursor/Cache", "Cursor Cache", "Regenerable application cache"),
             ("Library/Application Support/Cursor/Code Cache", "Cursor Code Cache", "Regenerable code cache"),
             ("Library/Application Support/Cursor/GPUCache", "Cursor GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Cursor/DawnWebGPUCache", "Cursor WebGPU Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Cursor/DawnGraphiteCache", "Cursor Graphics Cache", "Regenerable graphics cache"),
             ("Library/Application Support/Cursor/CachedData", "Cursor Cached Data", "Regenerable editor data"),
+            ("Library/Application Support/Cursor/CachedExtensionVSIXs", "Cursor Extension Package Cache", "Downloaded VSIX extension installers"),
             ("Library/Application Support/Cursor/logs", "Cursor Logs", "Regenerable diagnostic logs"),
             ("Library/Application Support/Cursor/Crashpad", "Cursor Crash Reports", "Generated crash reports"),
+            ("Library/Application Support/Windsurf/Cache", "Windsurf Cache", "Regenerable application cache"),
+            ("Library/Application Support/Windsurf/Code Cache", "Windsurf Code Cache", "Regenerable code cache"),
+            ("Library/Application Support/Windsurf/GPUCache", "Windsurf GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Windsurf/DawnWebGPUCache", "Windsurf WebGPU Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Windsurf/DawnGraphiteCache", "Windsurf Graphics Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Windsurf/CachedData", "Windsurf Cached Data", "Regenerable editor data"),
+            ("Library/Application Support/Windsurf/CachedExtensionVSIXs", "Windsurf Extension Package Cache", "Downloaded VSIX extension installers"),
+            ("Library/Application Support/Windsurf/logs", "Windsurf Logs", "Regenerable diagnostic logs"),
+            ("Library/Application Support/Windsurf/Crashpad", "Windsurf Crash Reports", "Generated crash reports"),
+            ("Library/Application Support/Code/Cache", "VS Code Cache", "Regenerable application cache"),
+            ("Library/Application Support/Code/Code Cache", "VS Code Code Cache", "Regenerable code cache"),
+            ("Library/Application Support/Code/GPUCache", "VS Code GPU Cache", "Regenerable GPU cache"),
+            ("Library/Application Support/Code/DawnWebGPUCache", "VS Code WebGPU Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Code/DawnGraphiteCache", "VS Code Graphics Cache", "Regenerable graphics cache"),
+            ("Library/Application Support/Code/CachedData", "VS Code Cached Data", "Regenerable editor data"),
+            ("Library/Application Support/Code/CachedExtensionVSIXs", "VS Code Extension Package Cache", "Downloaded VSIX extension installers"),
+            ("Library/Application Support/Code/logs", "VS Code Logs", "Regenerable diagnostic logs"),
+            ("Library/Application Support/Code/Crashpad", "VS Code Crash Reports", "Generated crash reports"),
+            ("Library/Caches/dev.zed.Zed", "Zed Editor Cache", "Regenerable editor and language server cache"),
+            ("Library/Logs/Zed", "Zed Editor Logs", "Regenerable diagnostic logs"),
+            ("Library/Caches/JetBrains", "JetBrains IDE Caches", "Indexes and caches for IntelliJ, PyCharm, WebStorm, CLion, and Fleet"),
+            ("Library/Logs/JetBrains", "JetBrains IDE Logs", "Diagnostic logs and thread dumps for JetBrains IDEs"),
+            (".android/cache", "Android SDK Cache", "Cached Android SDK metadata and downloads"),
+            (".android/build-cache", "Android Build Cache", "Cached Android build intermediates"),
             (".continue/index", "Continue IDE Code Index", "Local vector database and codebase index"),
             (".codex/cache", "Codex Cache", "Plugin catalog and app tool metadata, downloaded again when needed"),
             ("Library/Caches/com.openai.codex", "Codex App Cache", "Network cache and downloaded app updates"),
@@ -246,6 +381,15 @@ public actor DeveloperStorageAnalyzer {
             items: &items,
             issues: &issues
         )
+        appendDirectory(
+            xcodeRoot.appendingPathComponent("UserData/IB Support", isDirectory: true),
+            category: .derivedData,
+            name: "Xcode Interface Builder Cache",
+            detail: "Interface Builder simulator rendering cache",
+            items: &items,
+            issues: &issues
+        )
+        appendProjectBuildFolders(items: &items)
 
         let simulatorResult = await simulatorInventory()
         items.append(contentsOf: simulatorResult.items)
@@ -259,7 +403,7 @@ public actor DeveloperStorageAnalyzer {
         )
         appendUnknownChildren(
             of: xcodeRoot,
-            excludingNames: ["DerivedData", "iOS DeviceSupport", "Archives"],
+            excludingNames: Set(["DerivedData", "Archives"] + deviceSupportFolderNames),
             items: &items,
             issues: &issues
         )
@@ -722,6 +866,53 @@ public actor DeveloperStorageAnalyzer {
             ))
         }
         issues.append(contentsOf: accessErrors)
+    }
+
+    private static let defaultProjectRootNames = [
+        "Developer",
+        "Projects",
+        "Code",
+        "Workspace",
+        "Repos",
+        "GitHub"
+    ]
+
+    private func appendProjectBuildFolders(items: inout [DeveloperStorageItem]) {
+        let roots: [URL]
+        if let projectRoots {
+            roots = projectRoots
+        } else {
+            roots = Self.defaultProjectRootNames.map { homeDirectory.appendingPathComponent($0, isDirectory: true) }
+        }
+        let existingPaths = Set(items.compactMap { $0.url?.standardizedFileURL.path })
+        let candidates = (try? ProjectBuildScanner().scan(
+            roots: roots,
+            minimumSize: 1_000_000,
+            fileManager: fileManager
+        )) ?? []
+        for candidate in candidates {
+            let canonicalPath = candidate.url.standardizedFileURL.path
+            guard !existingPaths.contains(canonicalPath) else { continue }
+            let decision = policy.decision(forProjectBuild: candidate.classification)
+            let item = DeveloperStorageItem(
+                id: "path:\(canonicalPath)",
+                category: .projectBuildFolders,
+                name: candidate.displayName,
+                detail: "\(candidate.classification.ecosystem) · \(abbreviatingHome(candidate.projectURL.path))",
+                url: candidate.url,
+                bytes: candidate.sizeBytes,
+                createdAt: nil,
+                modifiedAt: candidate.lastModified,
+                activity: decision.activity,
+                recoverability: decision.recoverability,
+                cleanupMechanism: decision.mechanism,
+                consequence: decision.consequence,
+                recommendation: decision.recommendation,
+                recommendationReason: decision.reason,
+                isAvailable: true
+            )
+            items.append(item)
+        }
     }
 
     private func appendDirectory(

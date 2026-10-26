@@ -39,6 +39,15 @@ public struct DeveloperStoragePolicy: Sendable {
                 recommendation: .recommended,
                 reason: "Xcode rebuilds this data automatically. The first build may take longer."
             )
+        case .projectBuildFolders:
+            return DeveloperStorageDecision(
+                activity: .inactive,
+                recoverability: .recreatable,
+                mechanism: .trash,
+                consequence: .temporarySlowdown,
+                recommendation: .recommended,
+                reason: "Project build output verified by a sibling manifest. Rebuilt automatically on the next build."
+            )
         case .simulatorDevices:
             if !isAvailable {
                 return DeveloperStorageDecision(
@@ -224,6 +233,31 @@ public struct DeveloperStoragePolicy: Sendable {
             consequence: .negligible,
             recommendation: .recommended,
             reason: "Outdated formula versions and cached downloads. Homebrew removes them with brew cleanup, skips pinned formulae, and can reinstall any version later."
+        )
+    }
+
+    /// Decision for a verified per-project build or dependency directory.
+    public func decision(forProjectBuild classification: ProjectBuildClassification) -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .inactive,
+            recoverability: classification.recoverability,
+            mechanism: .trash,
+            consequence: classification.consequence,
+            recommendation: classification.recommendation,
+            reason: classification.reason
+        )
+    }
+
+    /// Package or browser-automation caches that require a larger redownload
+    /// or may hold locally installed artifacts (such as ~/.m2/repository).
+    public func reinstallablePackageCacheDecision(reason: String) -> DeveloperStorageDecision {
+        DeveloperStorageDecision(
+            activity: .inactive,
+            recoverability: .reinstallable,
+            mechanism: .trash,
+            consequence: .redownloadRequired,
+            recommendation: .review,
+            reason: reason
         )
     }
 }

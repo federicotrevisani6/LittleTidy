@@ -22,20 +22,21 @@ LittleTidy takes the opposite approach:
 
 ## 2. Taxonomy of Developer Storage Categories
 
-LittleTidy tracks 11 distinct categories of developer storage:
+LittleTidy tracks 14 distinct categories of developer storage:
 
 | Category | Default Location | Default Recommendation | Cleanup Mechanism | Recoverability |
 |---|---|---|---|---|
 | **Derived Data** | `~/Library/Developer/Xcode/DerivedData/*` (one item per project) | `Recommended` | `.trash` | `recreatable` |
+| **Project Build Folders** | Verified per-project build/dependency dirs under `~/Developer`, `~/Projects`, `~/Code`, etc. (`.build`, `target`, `build`, `.next`, `node_modules`, `.venv`, Unity `Library`, `CACHEDIR.TAG`, …) | `Recommended` (build intermediates) / `Review` (`node_modules`, `.venv`, `Pods`) | `.trash` (with `lsof` open-file check) | `recreatable` / `reinstallable` |
 | **Simulator Devices** | `~/Library/Developer/CoreSimulator/Devices` | `Review` (or `Recommended` if unavailable) | `.simctl` | `irreversible` |
 | **Simulator Runtimes** | `~/Library/Developer/CoreSimulator/Profiles/Runtimes` or disk images | `Review` (Protected if default) | `.xcodeManaged` (`simctl runtime`) | `reinstallable` |
 | **XCTest Devices** | `~/Library/Developer/XCTestDevices/<UDID>` registered in `simctl --set testing` | `Recommended` (Protected if booted; Unclassified if not registered) | `.simctl` (`--set testing`) | `recreatable` |
-| **Device Support** | `~/Library/Developer/Xcode/iOS DeviceSupport` | `Review` | `.trash` | `recreatable` |
-| **Package Caches** | `~/Library/Caches/org.swift.swiftpm`, `~/.swiftpm/cache`, CocoaPods, Carthage | `Recommended` | `.trash` | `recreatable` |
+| **Device Support** | `~/Library/Developer/Xcode/{iOS,watchOS,tvOS,visionOS,macOS} DeviceSupport`, `CoreDeviceData` | `Review` | `.trash` | `recreatable` |
+| **Package Caches** | SwiftPM, CocoaPods, Carthage, npm, Yarn, pnpm, Bun, pip, uv, Poetry, Cargo, Gradle, Maven, SBT, Go, Pub, NuGet, Conan, ccache, Bazel, Tuist, Playwright/Cypress/Puppeteer | `Recommended` (`Review` for `.m2/repository` and browser binaries) | `.trash` | `recreatable` / `reinstallable` |
 | **Homebrew** | Old kegs and downloads reported by `brew cleanup --dry-run -s --prune=all` | `Recommended` | `.homebrewCleanup` | `reinstallable` |
-| **AI Models** | Ollama, Hugging Face, PyTorch, MLX, LM Studio, Jan | `Review` | `.trash` | `reinstallable` |
-| **AI Caches & Logs** | Exact cache/log paths for Claude, Cursor, Codex, Continue, Gemini | `Recommended` | `.trash` | `recreatable` |
-| **AI Sessions & Artifacts** | Claude/Codex sessions and Cursor workspace storage | `Review` | `.trash` | `trashRestorable` |
+| **AI Models** | Ollama, Hugging Face, PyTorch, MLX, Whisper, CLIP, llama.cpp, LM Studio, Jan | `Review` | `.trash` | `reinstallable` |
+| **AI Caches & Logs** | Exact cache/log paths for Claude, Cursor, Codex, Antigravity, Windsurf, Continue, Gemini, VS Code, Zed, JetBrains | `Recommended` | `.trash` (with `lsof` open-file check) | `recreatable` |
+| **AI Sessions & Artifacts** | Claude/Codex/Antigravity sessions and Cursor workspace storage | `Review` | `.trash` | `trashRestorable` |
 | **Archives & Symbols**| `~/Library/Developer/Xcode/Archives` | `Protected` | `.trash` (explicit user opt-in only) | `trashRestorable` |
 | **Android Emulators** | `~/.android/avd/*.avd` | `Review` | `.trash` | `reinstallable` |
 | **Test Artifacts** | `~/Library/Developer/Xcode/DerivedData/*/Logs/Test` | `Review` | `.trash` | `trashRestorable` |

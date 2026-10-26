@@ -202,6 +202,12 @@ public final class FileInventoryScanner: @unchecked Sendable {
         if !options.followSymbolicLinks, isSymbolicLink(url) {
             return true
         }
+        // Verified per-project build and dependency directories are surfaced as
+        // whole-folder cache/developer storage candidates rather than individual
+        // duplicate or large-file targets.
+        if ProjectBuildScanner.classifyBuildDirectory(url, fileManager: fileManager) != nil {
+            return true
+        }
         return false
     }
 
