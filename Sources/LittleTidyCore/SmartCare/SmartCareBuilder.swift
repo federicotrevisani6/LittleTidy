@@ -73,7 +73,7 @@ public enum SmartCareBuilder {
         hasInfo: Bool
     ) -> SmartCareCardState {
         switch requested {
-        case .scanning, .needsAccess, .failed, .blocked:
+        case .scanning, .needsAccess, .needsFolder, .failed, .blocked:
             // Unknown is never zero: these states keep their message.
             return requested ?? .ready
         case .ready, .empty, nil:

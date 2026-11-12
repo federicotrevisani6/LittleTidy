@@ -467,7 +467,7 @@ struct PermissionGuideTests {
     }
 
     @Test func affectedCardsAreListedOnlyForMissingPermissions() {
-        #expect(PermissionGuide.affectedCards(in: PermissionGuide.items(fullDiskAccessConfirmed: false)) == [.trash])
+        #expect(PermissionGuide.affectedCards(in: PermissionGuide.items(fullDiskAccessConfirmed: false)) == [.trash, .iosBackups, .mailAttachments])
         #expect(PermissionGuide.affectedCards(in: PermissionGuide.items(fullDiskAccessConfirmed: true)).isEmpty)
     }
 

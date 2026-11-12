@@ -6,6 +6,9 @@ extension SmartCareCardID {
         switch self {
         case .developer: "hammer"
         case .aiTools: "brain"
+        case .mailAttachments: "envelope"
+        case .iosBackups: "iphone"
+        case .installers: "arrow.down.circle"
         case .caches: "shippingbox"
         case .trash: "trash"
         case .unusedApps: "square.grid.2x2"

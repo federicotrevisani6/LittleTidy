@@ -151,6 +151,13 @@ Numbered and falsifiable. Each is covered by a test in `LittleTidyCoreTests` unl
 - UI: one new review list per area in `Features/ReviewList` and an entry in `SidebarView`. No new settings except the Downloads approval prompt.
 - Docs: update `docs/FILE_MAP.md`, `docs/SAFETY_AND_PERMISSIONS.md` and record the new rules in `docs/SAFETY_AND_PERMISSIONS.md` after review.
 
-## 10. Change log
+## 10. Implementation status (first version)
+
+- Done: the three analyzers, the shared item model, the cleanup executor and three Smart Care cards with a review sheet. Everything is review tier and nothing is preselected. Downloads is read only when approved as a scan root; otherwise the card asks to choose the folder.
+- Deviations, all on the cautious side: the executor always moves to the Trash and ignores the permanent-delete setting; Downloads is scanned at its top level only; age uses the modified date (not Spotlight's last-opened date); a mounted disk image is detected through the open-file snapshot, not by asking `hdiutil`.
+- Not done: promoting any installer to `recommended` (question 1 below), a card for Mail's trash (out of scope by design), and a run against real backups and attachments: tests use fixtures, and Full Disk Access was missing on the test Mac.
+
+## 11. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 10.

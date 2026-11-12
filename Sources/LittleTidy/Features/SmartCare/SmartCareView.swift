@@ -9,6 +9,7 @@ struct SmartCareView: View {
     @State private var showTrashSheet = false
     @State private var showCleanAllSheet = false
     @State private var openTrashSheetAfterCleanAll = false
+    @State private var openTrashSheetAfterEveryday = false
 
     private var cards: [SmartCareCard] {
         store.smartCareCards(startupItemCount: systemCare.startup.count)
@@ -58,6 +59,17 @@ struct SmartCareView: View {
                 showCleanAllSheet = false
             }
         }
+        .sheet(item: $store.everydayReviewKind, onDismiss: {
+            if openTrashSheetAfterEveryday {
+                openTrashSheetAfterEveryday = false
+                showTrashSheet = true
+            }
+        }) { kind in
+            EverydayReviewSheet(kind: kind, store: store) {
+                openTrashSheetAfterEveryday = true
+                store.dismissEverydayReview()
+            }
+        }
         .sheet(isPresented: $store.showPermissionGuide, onDismiss: { store.recheckPermissions() }) {
             PermissionGuideSheet(store: store)
         }
@@ -68,12 +80,19 @@ struct SmartCareView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             store.recheckPermissions()
         }
+        .onChange(of: store.scanRoots) { _, _ in
+            // A newly approved Downloads folder shows up without pressing Scan.
+            if hasResults { store.scanEverydaySpace() }
+        }
     }
 
     // MARK: - Toolbar
 
     private var subtitle: String {
-        guard hasResults, !store.isScanning, store.hasCompletedScan else { return "" }
+        // Until the developer scan has produced something, its date is not a
+        // real "last scanned" time.
+        guard hasResults, !store.isScanning, store.hasCompletedScan,
+              !store.isScanningDeveloperStorage, !store.developerStorageInventory.items.isEmpty else { return "" }
         let date = store.developerStorageInventory.scannedAt
         return "Scanned \(date.formatted(.relative(presentation: .named)))"
     }
@@ -168,7 +187,15 @@ struct SmartCareView: View {
             HStack(alignment: .top, spacing: 12) {
                 SmartCareTile(symbol: "checkmark.shield", tint: Color.cleanerSuccessText, fill: Color.cleanerSuccess.opacity(0.18), size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    SmartCareNumber(bytes: headline.safeBytes, size: 34)
+                    if store.isScanningDeveloperStorage {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Scanning…").font(.system(size: 22, weight: .semibold)).foregroundStyle(Color.cleanerSecondaryText)
+                        }
+                        .frame(height: 40, alignment: .leading)
+                    } else {
+                        SmartCareNumber(bytes: headline.safeBytes, size: 34)
+                    }
                     Text("you can clean safely").font(.body.weight(.medium))
                 }
             }
@@ -278,7 +305,8 @@ struct SmartCareView: View {
                             isBusy: isBusy,
                             review: { store.reviewSmartCare(card) },
                             clean: { store.prepareSmartCareClean(card) },
-                            allowAccess: { store.showPermissionGuide = true }
+                            allowAccess: { store.showPermissionGuide = true },
+                            chooseFolder: { store.chooseFolders() }
                         )
                     }
                 }

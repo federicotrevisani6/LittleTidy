@@ -41,6 +41,15 @@ public struct CleanupSummary: Equatable, Sendable {
         items: [DeveloperStorageItem]
     ) -> CleanupSummary {
         let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return make(from: result) { id in byID[id].map(SmartCareCleanPlanner.cardID(for:)) }
+    }
+
+    /// `cardFor` says which Smart Care card an item belonged to; items it does
+    /// not know are counted under Developer storage.
+    public static func make(
+        from result: DeveloperStorageCleanupResult,
+        cardFor: (String) -> SmartCareCardID?
+    ) -> CleanupSummary {
         let removed = result.items.filter { $0.status == .removed }
 
         let removedForGood = removed.filter { !$0.movedToTrash }.reduce(Int64(0)) { $0 + $1.bytes }
@@ -51,7 +60,7 @@ public struct CleanupSummary: Equatable, Sendable {
 
         let cards = SmartCareCardID.allCases.compactMap { card -> CardLine? in
             let members = removed.filter { entry in
-                byID[entry.itemID].map(SmartCareCleanPlanner.cardID(for:)).map { $0 == card } ?? (card == .developer)
+                (cardFor(entry.itemID) ?? .developer) == card
             }
             guard !members.isEmpty else { return nil }
             return CardLine(cardID: card, removedCount: members.count, bytes: members.reduce(0) { $0 + $1.bytes })

@@ -17,13 +17,13 @@ public enum PermissionKind: String, CaseIterable, Identifiable, Sendable {
     public var unlocks: String {
         switch self {
         case .fullDiskAccess:
-            "Lets LittleTidy read the Trash and other folders macOS protects. Without it those cards say \"Needs access\" and nothing else changes."
+            "Lets LittleTidy read the Trash, iPhone and iPad backups and Mail attachments. Without it those cards say \"Needs access\" and nothing else changes."
         }
     }
 
     public var affectedCards: [SmartCareCardID] {
         switch self {
-        case .fullDiskAccess: [.trash]
+        case .fullDiskAccess: [.trash, .iosBackups, .mailAttachments]
         }
     }
 

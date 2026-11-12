@@ -16,6 +16,7 @@ struct SmartCareCardView: View {
     let review: () -> Void
     let clean: () -> Void
     let allowAccess: () -> Void
+    var chooseFolder: () -> Void = {}
 
     private var totalBytes: Int64 { card.recommendedBytes + card.reviewBytes + card.protectedBytes }
     private var title: String { card.cardID.title }
@@ -49,6 +50,8 @@ struct SmartCareCardView: View {
         switch card.state {
         case .needsAccess:
             SmartCareChip(text: "Needs access", tint: Color.cleanerWarningText, fill: Color.cleanerWarning)
+        case .needsFolder:
+            SmartCareChip(text: "Needs a folder", tint: Color.cleanerWarningText, fill: Color.cleanerWarning)
         case .failed:
             SmartCareChip(text: "Failed", tint: Color.cleanerDangerText, fill: Color.cleanerDanger)
         default:
@@ -72,6 +75,9 @@ struct SmartCareCardView: View {
             }
         case .needsAccess(let message):
             Label(message, systemImage: "lock")
+                .font(.callout)
+        case .needsFolder(let message):
+            Label(message, systemImage: "folder.badge.plus")
                 .font(.callout)
         case .blocked(let message):
             Label(message, systemImage: "hand.raised")
@@ -150,6 +156,8 @@ struct SmartCareCardView: View {
             switch card.state {
             case .needsAccess:
                 Button("Allow Access…", action: allowAccess)
+            case .needsFolder:
+                Button("Choose Folder…", action: chooseFolder)
             case .scanning, .failed, .blocked:
                 EmptyView()
             case .empty, .ready:
