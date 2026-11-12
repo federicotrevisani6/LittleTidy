@@ -24,7 +24,7 @@ public struct StartupItemAnalyzer: Sendable {
     private let home: String
 
     public init(
-        entries: @escaping EntryProvider = { await SystemCareAnalyzer().startupEntries() },
+        entries: @escaping EntryProvider = { SystemCareAnalyzer().startupEntries() },
         runner: any DeveloperToolCommandRunning = BoundedCommandRunner(timeout: 10),
         uid: uid_t = getuid(),
         home: String = NSHomeDirectory(),
