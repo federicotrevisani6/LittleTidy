@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LittleTidy Smart Care screens</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Tokens. Names map to the semantic roles in HANDOFF.md. Hex values only approximate
+   the dynamic system colors the app really uses; the app must use the NSColor-backed ones. */
+:root{
+  --window:#F3F3F4; --sidebar:#E9E9EC; --card:#FFFFFF; --inset:rgba(60,60,67,.06);
+  --label:#1D1D1F; --label2:rgba(60,60,67,.66); --label3:rgba(60,60,67,.34);
+  --sep:rgba(60,60,67,.2); --accent:#007AFF; --on-accent:#fff;
+  --safe:#34C759; --safe-text:#1B7F3B;
+  --review:#007AFF; --review-text:#0A5FC4;
+  --warn:#FF9500; --warn-text:#8F4A00;
+  --danger:#FF3B30; --danger-text:#C0261B;
+  --protected:#8E8E93;
+  --desk:#D6D9DF; --scrim:rgba(0,0,0,.28); --shadow:0 20px 60px rgba(0,0,0,.28), 0 0 0 .5px rgba(0,0,0,.25);
+  --btn:#FFFFFF; --btn-border:rgba(60,60,67,.22);
+}
+:root[data-theme="dark"]{
+  --window:#2B2B2D; --sidebar:#232325; --card:#1F1F21; --inset:rgba(255,255,255,.06);
+  --label:#F5F5F7; --label2:rgba(235,235,245,.66); --label3:rgba(235,235,245,.32);
+  --sep:rgba(255,255,255,.14); --accent:#0A84FF;
+  --safe:#30D158; --safe-text:#4BDE76;
+  --review:#0A84FF; --review-text:#6CB0FF;
+  --warn:#FF9F0A; --warn-text:#FFB84D;
+  --danger:#FF453A; --danger-text:#FF8A80;
+  --protected:#98989D;
+  --desk:#0E0E10; --scrim:rgba(0,0,0,.45); --shadow:0 20px 60px rgba(0,0,0,.7), 0 0 0 .5px rgba(255,255,255,.18);
+  --btn:rgba(255,255,255,.12); --btn-border:rgba(255,255,255,.14);
+}
+/* Increased contrast: opaque separators, darker secondary text, no reliance on tints. */
+:root[data-contrast="high"]{
+  --sep:rgba(0,0,0,.62); --label2:rgba(0,0,0,.84); --label3:rgba(0,0,0,.6);
+  --btn-border:rgba(0,0,0,.7); --card:#FFFFFF; --window:#F3F3F4;
+}
+:root[data-theme="dark"][data-contrast="high"]{ --sep:rgba(255,255,255,.7); --label2:rgba(255,255,255,.92); --label3:rgba(255,255,255,.7); --btn-border:rgba(255,255,255,.75); }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--desk)}
+body{font:13px/1.3 -apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--label);-webkit-font-smoothing:antialiased;padding:32px;width:max-content}
+.shot{display:block;width:max-content;padding:0;margin:0 0 40px}
+.sf{display:inline-block;width:1em;height:1em;flex:none;background:currentColor;-webkit-mask:var(--img) center/contain no-repeat;mask:var(--img) center/contain no-repeat}
+.num{font-variant-numeric:tabular-nums}
+
+/* window */
+.win{position:relative;display:flex;background:var(--window);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.sb{width:220px;flex:none;background:var(--sidebar);padding:14px 10px;display:flex;flex-direction:column;gap:2px;border-right:.5px solid var(--sep)}
+.lights{display:flex;gap:8px;padding:2px 8px 22px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.sb .sec{font-size:11px;font-weight:600;color:var(--label2);padding:14px 10px 4px}
+.sb .it{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;font-size:13px}
+.sb .it .sf{font-size:14px;color:var(--label2)}
+.sb .it.sel{background:var(--accent);color:#fff}.sb .it.sel .sf{color:#fff}
+.main{flex:1;min-width:0;overflow:hidden}
+.pane{padding:24px 24px 28px;display:flex;flex-direction:column;gap:24px}
+
+/* header */
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px}
+h1{font-size:26px;font-weight:700;letter-spacing:.2px;line-height:1.15}
+.sub{font-size:12px;color:var(--label2);margin-top:3px}
+.panel{background:var(--card);border:.5px solid var(--sep);border-radius:14px}
+.summary{display:grid;grid-template-columns:1fr 1fr;padding:0}
+.stat{padding:20px 22px;display:flex;gap:14px;align-items:flex-start}
+.stat+.stat{border-left:.5px solid var(--sep)}
+.tile{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;font-size:17px}
+.tile.safe{background:color-mix(in srgb,var(--safe) 18%,transparent);color:var(--safe-text)}
+.tile.review{background:color-mix(in srgb,var(--review) 16%,transparent);color:var(--review-text)}
+.tile.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn-text)}
+.tile.danger{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.tile.neutral{background:var(--inset);color:var(--label2)}
+.big{font-size:34px;font-weight:600;line-height:1.05;letter-spacing:-.3px}
+.statlabel{font-size:13px;color:var(--label);margin-top:3px;font-weight:500}
+.stathelp{font-size:11px;color:var(--label2);margin-top:2px}
+.foot{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--label2);margin-top:-12px;padding-left:2px}
+.foot .sf{font-size:12px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px;border-radius:6px;font:500 12px/1 -apple-system,system-ui;color:var(--label);background:var(--btn);border:.5px solid var(--btn-border);box-shadow:0 .5px 1px rgba(0,0,0,.1);white-space:nowrap}
+.btn.prom{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.btn.dest{color:var(--danger-text)}
+.btn.destfill{background:var(--danger);border-color:transparent;color:#fff}
+.btn.off{opacity:.45}
+.btn.link{background:none;border:none;box-shadow:none;color:var(--accent);padding:0 4px}
+.btn.lg{height:32px;padding:0 16px;border-radius:16px;font-size:13px}
+.btn.md{height:28px;padding:0 14px;border-radius:14px;font-size:13px}
+.btn .sf{font-size:13px}
+.btn.focus,.focusring{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+
+/* groups and cards */
+.group>h2{font-size:15px;font-weight:600;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px 14px;align-items:start}.row3 .grid{grid-template-columns:1fr}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:stretch}
+.card{background:var(--card);border:.5px solid var(--sep);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:196px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card .head{display:flex;align-items:center;gap:9px}
+.card .ct{width:26px;height:26px;border-radius:7px;background:var(--inset);color:var(--label2);display:grid;place-items:center;font-size:13px}
+.card .title{font-size:13px;font-weight:600;flex:1}
+.card .n{font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.2px}
+.tiers{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:12px}
+.tiers span{display:inline-flex;align-items:center;gap:5px}
+.tiers .sf{font-size:12px}
+.tiers .s .sf{color:var(--safe-text)}.tiers .r .sf{color:var(--review-text)}.tiers .p .sf{color:var(--protected)}
+.bar{display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px}
+.bar .s{background:var(--safe)}.bar .r{background:var(--review)}.bar .p{background:var(--protected)}
+.expl{font-size:11px;line-height:1.38;color:var(--label2)}
+.acts{margin-top:auto;display:flex;justify-content:flex-end;gap:8px;padding-top:2px}
+.msg{display:flex;gap:8px;font-size:12px;line-height:1.35;align-items:flex-start}
+.msg .sf{font-size:14px;margin-top:0}
+.msg.warn{color:var(--label)}.msg.warn .sf{color:var(--warn-text)}
+.msg.danger .sf{color:var(--danger-text)}
+.chip{font-size:11px;font-weight:500;padding:2px 8px;border-radius:9px;display:inline-flex;gap:4px;align-items:center}
+.chip.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn-text)}
+.chip.danger{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.chip.neutral{background:var(--inset);color:var(--label2)}
+.chip .sf{font-size:11px}
+.notice{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border-radius:8px;font-size:12px;line-height:1.35;background:color-mix(in srgb,var(--warn) 14%,transparent);border:.5px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.notice .sf{color:var(--warn-text);font-size:14px}
+.skel{height:9px;border-radius:5px;background:var(--inset)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--label3);border-top-color:var(--label2);display:inline-block;flex:none}
+.card.wait .title,.card.wait .ct{opacity:.55}
+.collapsed{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--label2);padding:2px 2px}
+.collapsed .sf{font-size:14px;color:var(--label3)}
+.collapsed b{font-weight:500;color:var(--accent)}
+
+/* progress */
+.progress{height:6px;border-radius:3px;background:var(--inset);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.path{font-size:12px;color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* sheets */
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheetwrap{position:absolute;left:0;right:0;top:0;display:flex;justify-content:center}
+.sheet{background:var(--window);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.4),0 0 0 .5px var(--sep);padding:24px;display:flex;flex-direction:column;gap:14px}
+:root[data-theme="dark"] .sheet{background:#323234}
+.sheet h3{font-size:17px;font-weight:600;line-height:1.2}
+.sheet .lead{font-size:13px;color:var(--label2);line-height:1.4}
+.sheet .btns{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
+.block{border-radius:12px;border:.5px solid var(--sep);background:var(--card);overflow:hidden}
+.block .bh{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;font-weight:600}
+.block .bh .sf{font-size:15px}
+.block .bh .r{margin-left:auto}
+.block .bh .sub2{font-size:11px;font-weight:400;color:var(--label2)}
+.row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:.5px solid var(--sep);font-size:12px}
+.row .rt{flex:1;min-width:0}
+.row .rs{font-size:11px;color:var(--label2);margin-top:1px}
+.row .rv{color:var(--label2)}
+.block.perm{border-color:color-mix(in srgb,var(--danger) 55%,transparent);background:color-mix(in srgb,var(--danger) 8%,var(--card))}
+.block.perm .bh{color:var(--danger-text)}
+.block.skip{background:transparent}
+.tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:7px;background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.fine{font-size:11px;color:var(--label2);line-height:1.4}
+
+/* result */
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.res{padding:18px;display:flex;flex-direction:column;gap:8px;min-height:198px}
+.res .rl{font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px}
+.res .acts{justify-content:flex-start;flex-wrap:wrap}
+.sechead{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;margin-bottom:10px}
+.sechead .cnt{font-size:12px;font-weight:400;color:var(--label2)}
+.mini{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin-left:14px}
+.mini .sf{font-size:12px}
+.mini.t .sf{color:var(--label2)}.mini.f .sf{color:var(--safe-text)}
+.cap{font:600 12px -apple-system,system-ui;color:var(--label2);margin:4px 0 8px}
+.sheetgrid{display:grid;grid-template-columns:repeat(3,340px);gap:18px 18px;align-items:start}
+.cell .cap{margin:0 0 6px}
+.backdrop{padding:28px;background:var(--window);border-radius:16px;box-shadow:var(--shadow)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const P = new URLSearchParams(location.search);
+const root = document.documentElement;
+root.dataset.theme = P.get('theme') || 'light';
+if (P.get('contrast')) root.dataset.contrast = 'high';
+
+const sf = (n, size) => `<i class="sf" style="--img:url(${(window.SYMBOLS&&window.SYMBOLS[n])||'symbols/'+n+'.png'})${size ? `;font-size:${size}px` : ''}"></i>`;
+const ICON = { developer:'hammer', aiTools:'brain', caches:'shippingbox', trash:'trash', unusedApps:'square.grid.2x2', snapshots:'clock.arrow.circlepath', startupItems:'power' };
+const TITLE = { developer:'Developer storage', aiTools:'AI tools', caches:'System and app caches', trash:'Trash', unusedApps:'Unused applications', snapshots:'Time Machine snapshots', startupItems:'Login and background items' };
+const EXPL = {
+  developer:'Simulators, build data, device support files and package caches.',
+  aiTools:'Caches, logs, session data and local models of AI tools.',
+  caches:'Files apps and macOS can rebuild. Apps may start a little slower once.',
+  trash:'Items you already moved to the Trash. Emptying it cannot be undone.',
+  unusedApps:'Apps you have not opened for a long time.',
+  snapshots:'Local Time Machine copies macOS can release when space is needed.',
+  startupItems:'Apps and helpers that start with your Mac.'
+};
+const btn = (label, cls = '', icon) => `<span class="btn ${cls}">${icon ? sf(icon) : ''}${label}</span>`;
+
+/* ---------- card ---------- */
+function card(id, c) {
+  const head = (chip) => `<div class="head"><span class="ct">${sf(ICON[id])}</span><span class="title">${TITLE[id]}</span>${chip || ''}</div>`;
+  const expl = `<div class="expl">${EXPL[id]}</div>`;
+  const s = c.state || 'ready';
+  if (s === 'wait') return `<div class="card wait">${head()}<div class="msg" style="color:var(--label3)">Waiting to scan</div><div class="skel" style="width:60%"></div>${expl}</div>`;
+  if (s === 'scanning') return `<div class="card">${head()}<div class="msg"><span class="spin"></span><span style="color:var(--label2)">Scanning…</span></div><div class="skel" style="width:48%;height:22px"></div><div class="skel" style="width:78%"></div>${expl}</div>`;
+  if (s === 'needsAccess') return `<div class="card">${head('<span class="chip warn">'+sf('lock')+'Needs access</span>')}<div class="msg warn">${sf('lock')}<span>${c.message}</span></div>${expl}<div class="acts">${btn('Allow Access…','')}</div></div>`;
+  if (s === 'failed') return `<div class="card">${head('<span class="chip danger">'+sf('exclamationmark.triangle')+'Failed</span>')}<div class="msg danger">${sf('exclamationmark.triangle.fill')}<span>${c.message}</span></div>${expl}</div>`;
+  const tiers = [];
+  if (c.safe) tiers.push(`<span class="s">${sf('checkmark.circle.fill')}${c.safe} safe</span>`);
+  if (c.review) tiers.push(`<span class="r">${sf('eye')}${c.review} to review</span>`);
+  if (c.prot) tiers.push(`<span class="p">${sf('lock')}${c.prot} protected</span>`);
+  const bar = c.bar ? `<div class="bar" aria-hidden="true">${c.bar.map(([k,w]) => `<i class="${k}" style="width:${w}%"></i>`).join('')}</div>` : '';
+  const blocked = s === 'blocked' ? `<div class="notice">${sf('hand.raised')}<span>${c.message}</span></div>` : '';
+  let acts = '';
+  if (id === 'trash') acts = btn('Open Trash') + btn('Empty Trash…', 'dest', 'trash');
+  else acts = btn('Review') + (c.clean ? btn(`Clean ${c.clean}…`, 'prom' + (s === 'blocked' ? ' off' : '')) : '');
+  return `<div class="card">${head()}<div><div class="n num">${c.total}</div></div>${c.tiersText ? `<div class="tiers"><span>${c.tiersText}</span></div>` : `<div class="tiers">${tiers.join('')}</div>`}${bar}${blocked}${expl}<div class="acts">${acts}</div></div>`;
+}
+
+const CARDS = {
+  developer:{ total:'38.2 GB', safe:'24.6 GB', review:'13.6 GB', clean:'24.6 GB', bar:[['s',64],['r',36]] },
+  aiTools:{ total:'9.4 GB', safe:'1.8 GB', review:'7.6 GB', clean:'1.8 GB', bar:[['s',19],['r',81]] },
+  caches:{ total:'6.8 GB', review:'6.8 GB', bar:[['r',100]] },
+  trash:{ total:'3.1 GB', tiersText:'47 items' },
+  unusedApps:{ total:'14.9 GB', review:'14.9 GB', bar:[['r',100]], tiersText:'6 apps · 14.9 GB to review' },
+  snapshots:{ total:'About 8 GB', tiersText:'4 snapshots · estimate, not counted in a total' },
+  startupItems:{ total:'14 items', tiersText:'Read only. Review lists what starts at login.' },
+};
+const LOCK = (id) => card(id, CARDS[id]);
+
+/* ---------- window ---------- */
+function sidebar() {
+  const it = (ic, t, sel) => `<div class="it ${sel ? 'sel' : ''}">${sf(ic)}<span>${t}</span></div>`;
+  return `<div class="sb"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    ${it('sparkles','Smart Care',true)}
+    <div class="sec">Storage</div>${it('externaldrive','Overview')}${it('folder','Large Files')}${it('doc.on.doc','Duplicates')}
+    <div class="sec">Developer</div>${it('hammer','Developer Storage')}
+    <div class="sec">System</div>${it('gearshape','System Care')}${it('clock.arrow.circlepath','History')}</div>`;
+}
+const win = (w, h, inner, overlay = '') => `<div class="win" style="width:${w}px;${h?`height:${h}px`:''}">${sidebar()}<div class="main">${inner}</div>${overlay}</div>`;
+
+function summary() {
+  return `<div class="panel summary">
+    <div class="stat"><span class="tile safe">${sf('checkmark.shield')}</span><div>
+      <div class="big num">26.4 GB</div><div class="statlabel">you can clean safely</div>
+      <div class="stathelp">Recommended items only. Most are rebuilt by the tools that made them.</div>
+      <div style="margin-top:12px">${btn('Clean 26.4 GB Safely…','prom lg')}</div></div></div>
+    <div class="stat"><span class="tile review">${sf('eye')}</span><div>
+      <div class="big num">42.9 GB</div><div class="statlabel">to review first</div>
+      <div class="stathelp">You decide item by item. Open Review on a card.</div></div></div>
+  </div>
+  <div class="foot">${sf('info.circle')}The Trash (3.1 GB) is not counted in either total.</div>`;
+}
+function head(scanBtn) {
+  return `<div class="titlerow"><div><h1>Smart Care</h1></div>${scanBtn}</div>`;
+}
+const group = (t, cards, extra = '') => `<section class="group"><h2>${t}</h2>${cards ? `<div class="grid">${cards}</div>` : ''}${extra}</section>`;
+
+function homeReady(w, h) {
+  const body = `<div class="pane">${head(btn('Scan Again','lg','arrow.clockwise'))}${summary()}
+    ${group('Cleanup', LOCK('developer')+LOCK('aiTools')+LOCK('caches')+LOCK('trash'))}
+    <div class="row3">${group('Applications', LOCK('unusedApps'))}
+    ${group('Maintenance', LOCK('startupItems'), `<div class="collapsed" style="margin-top:12px">${sf('checkmark.circle')}<span>Nothing to clean in <b>Time Machine snapshots</b>.</span></div>`)}</div>
+  </div>`;
+  return win(w, h, body);
+}
+function homeScanning(w, h) {
+  const body = `<div class="pane">${head(btn('Cancel','lg','xmark.circle'))}
+    <div class="panel" style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span class="spin"></span><div style="min-width:0;flex:1"><div style="font-weight:600">Scanning 3 of 7</div><div class="path">Reading ~/Library/Caches/com.example.Editor/…/Thumbnails</div></div></div>
+      <div class="progress"><i style="width:43%"></i></div>
+      <div class="fine">Nothing is removed during a scan. Cards that finish stay when you cancel.</div>
+    </div>
+    ${group('Cleanup', LOCK('developer')+LOCK('aiTools')+card('caches',{state:'scanning'})+card('trash',{state:'wait'}))}
+    ${group('Applications', card('unusedApps',{state:'wait'}))}
+    ${group('Maintenance', card('snapshots',{state:'wait'})+card('startupItems',{state:'wait'}))}
+  </div>`;
+  return win(w, h, body);
+}
+function homePre(w, h) {
+  const li = (ic, t) => `<div style="display:flex;gap:12px;align-items:center"><span class="tile neutral">${sf(ic)}</span><span style="font-size:13px">${t}</span></div>`;
+  const body = `<div class="pane">${head(btn('Scan','prom lg','sparkle.magnifyingglass'))}
+    <div class="sub" style="margin-top:-18px;font-size:13px">One scan looks at caches, developer data, AI tools, the Trash, apps and snapshots.</div>
+    <div class="panel" style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;max-width:560px">
+      ${li('checkmark.shield','Nothing is removed during a scan.')}
+      ${li('text.bubble','Each card explains what it found and what removing it means.')}
+      ${li('arrow.triangle.2.circlepath','Clean only acts on items LittleTidy considers safe to rebuild.')}
+    </div></div>`;
+  return win(w, h, body);
+}
+
+/* ---------- sheets ---------- */
+function confirmSheet(w, h) {
+  const base = homeReady(w, h).replace(/<div class="win"([^>]*)>/, '<div class="win"$1>');
+  const sheet = `<div class="sheetwrap"><div class="sheet" style="width:600px">
+    <div><h3>Clean 26.4 GB safely?</h3><div class="lead" style="margin-top:6px">Only items marked safe are included. Items you would review first are not touched.</div></div>
+    <div class="block"><div class="bh"><span style="color:var(--safe-text)">${sf('checkmark.circle.fill')}</span>Moved to the Trash<span class="sub2">You can restore these until you empty the Trash.</span><span class="r num">19.3 GB</span></div>
+      <div class="row"><span class="ct tile neutral" style="width:26px;height:26px;font-size:13px;border-radius:7px">${sf('hammer')}</span><div class="rt">Developer storage<div class="rs">22 items</div></div><span class="rv num">17.5 GB</span></div>
+      <div class="row"><span class="tile neutral" style="width:26px;height:26px;font-size:13px;border-radius:7px">${sf('brain')}</span><div class="rt">AI tools<div class="rs">9 items</div></div><span class="rv num">1.8 GB</span></div></div>
+    <div class="block perm"><div class="bh">${sf('exclamationmark.triangle.fill')}Removed for good<span class="sub2" style="color:var(--label)">These cannot be restored.</span><span class="r num">7.1 GB</span></div>
+      <div class="row"><span class="tile danger" style="width:26px;height:26px;font-size:13px;border-radius:7px">${sf('hammer')}</span><div class="rt">Simulators<div class="rs">Developer storage · removed with simctl</div></div><span class="rv num" style="color:var(--label)">5.9 GB</span></div>
+      <div class="row"><span class="tile danger" style="width:26px;height:26px;font-size:13px;border-radius:7px">${sf('hammer')}</span><div class="rt">Homebrew downloads<div class="rs">Developer storage · removed with brew cleanup</div></div><span class="rv num" style="color:var(--label)">1.2 GB</span></div></div>
+    <div class="block skip"><div class="bh">${sf('hand.raised')}Skipped, not included<span class="sub2">2 groups</span></div>
+      <div class="row"><div class="rt">Xcode build data · 1.2 GB<div class="rs">Xcode is running. Quit it to include this.</div></div></div>
+      <div class="row"><div class="rt">3 AI session files<div class="rs">Open in another app right now.</div></div></div></div>
+    <div class="fine">Moved items free no space until the Trash is emptied. You will see exactly what was freed afterwards.</div>
+    <div class="btns">${btn('Cancel','md')}${btn('Clean 26.4 GB (7.1 GB permanent)','prom md focus')}</div>
+  </div></div>`;
+  return base.replace(/<\/div>$/, `<div class="scrim"></div>${sheet}</div>`);
+}
+function trashSheet(w, h, done) {
+  const base = homeReady(w, h);
+  const rows = [['Project-export-final.zip','last cleanup','1.1 GB'],['DerivedData-old','last cleanup','640 MB'],['simulator-logs','last cleanup','212 MB'],['Screenshot 2026-10-03.png','','4 MB'],['notes-draft.txt','','12 KB']];
+  const list = rows.map(r => `<div class="row" style="padding:6px 12px"><span class="rt" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r[0]}</span>${r[1] ? `<span class="tag" style="background:var(--inset);color:var(--label2);font-weight:500">${r[1]}</span>` : ''}<span class="rv num">${r[2]}</span></div>`).join('');
+  const confirm = `<div style="display:flex;gap:14px"><span class="tile danger" style="width:44px;height:44px;border-radius:22px;font-size:20px">${sf('trash.fill')}</span><div style="flex:1">
+      <h3>Empty the Trash?</h3>
+      <div style="font-size:13px;font-weight:600;margin-top:6px" class="num">47 items, 3.1 GB. This cannot be undone.</div></div></div>
+    <div class="block perm" style="padding:11px 14px;display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.4">
+      <span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill',15)}</span><span>Includes <b>31 items</b> LittleTidy moved here in its last cleanup. Emptying removes your only way to restore them.</span></div>
+    <div class="block"><div style="max-height:190px;overflow:hidden">${list.replace('class="row"','class="row" style="border-top:none;padding:6px 12px"')}</div>
+      <div class="row" style="color:var(--label2);padding:6px 12px">and 42 more</div></div>
+    <div class="fine">Items in use, locked or owned by another account are skipped.</div>
+    <div class="btns">${btn('Cancel','md focus')}${btn('Empty Trash','destfill md','trash')}</div>`;
+  const result = `<div style="display:flex;gap:14px"><span class="tile safe" style="width:44px;height:44px;border-radius:22px;font-size:20px">${sf('checkmark.circle.fill')}</span><div style="flex:1">
+      <h3>Trash emptied</h3><div style="font-size:13px;margin-top:6px" class="num">44 items removed, 2.9 GB freed.</div></div></div>
+    <div class="block skip"><div class="row" style="border-top:none"><span style="color:var(--warn-text)">${sf('hand.raised',14)}</span><div class="rt">3 items skipped<div class="rs">In use by another app: render-cache, sync-lock, session.db</div></div></div>
+      <div class="row"><span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill',14)}</span><div class="rt">0 items could not be removed</div></div></div>
+    <div class="btns">${btn('Done','prom md focus')}</div>`;
+  const sheet = `<div class="sheetwrap"><div class="sheet" style="width:480px">${done ? result : confirm}</div></div>`;
+  return base.replace(/<\/div>$/, `<div class="scrim"></div>${sheet}</div>`);
+}
+
+/* ---------- result ---------- */
+function resultView(w, h) {
+  const rowc = (id, items, tr, rm) => `<div class="row" style="padding:10px 16px"><span class="tile neutral" style="width:28px;height:28px;font-size:14px;border-radius:8px">${sf(ICON[id])}</span><div class="rt" style="font-size:13px">${TITLE[id]}<div class="rs">${items}</div></div>${tr ? `<span class="mini t">${sf('trash')}<span class="num">${tr}</span> in the Trash</span>` : ''}${rm ? `<span class="mini f">${sf('checkmark.circle.fill')}<span class="num">${rm}</span> removed</span>` : ''}</div>`;
+  const body = `<div class="pane" style="gap:22px">
+    <div class="titlerow"><div style="display:flex;flex-direction:column;gap:10px"><span class="btn link" style="padding:0;height:auto;font-size:13px">${sf('chevron.left')}Smart Care</span>
+      <div style="display:flex;align-items:center;gap:12px"><span class="tile safe" style="width:40px;height:40px;border-radius:20px;font-size:22px">${sf('checkmark.circle.fill')}</span><div><h1>Cleanup finished</h1><div class="sub">53 items handled. This is where the space went.</div></div></div></div></div>
+    <div class="three">
+      <div class="panel res"><div class="rl"><span class="tile safe">${sf('checkmark.circle.fill')}</span>Freed now</div><div class="big num">4.5 GB</div><div class="expl" style="font-size:12px">Removed for good and available on your disk now.</div></div>
+      <div class="panel res"><div class="rl"><span class="tile neutral">${sf('trash')}</span>In the Trash</div><div class="big num">19.3 GB</div><div class="expl" style="font-size:12px">Moved, not freed yet. The space comes back when you empty the Trash.</div>
+        <div class="acts" style="gap:6px;margin-top:auto">${btn('Restore All','',  'arrow.uturn.backward')}${btn('Open Trash')}<span style="flex:1"></span>${btn('Empty Trash…','dest','trash')}</div></div>
+      <div class="panel res"><div class="rl"><span class="tile warn">${sf('clock.arrow.circlepath')}</span>Held by a snapshot</div><div class="big num">2.6 GB</div><div class="expl" style="font-size:12px">Time Machine still keeps a copy of these removed files. macOS releases it when it needs the space.</div></div>
+    </div>
+    <section><div class="sechead">By card</div><div class="panel" style="overflow:hidden">
+      ${rowc('developer','31 items',  '17.5 GB','7.1 GB').replace('border-top','border-top:none;border-top')}
+      ${rowc('aiTools','9 items','1.8 GB','')}</div></section>
+    <section><div class="sechead"><span style="color:var(--warn-text)">${sf('hand.raised',16)}</span>Skipped<span class="cnt">2 · nothing was changed</span></div><div class="panel" style="overflow:hidden">
+      <div class="row" style="border-top:none;padding:10px 16px"><div class="rt" style="font-size:13px">Xcode build data · 1.2 GB<div class="rs">Xcode was running. Quit it and clean again.</div></div></div>
+      <div class="row" style="padding:10px 16px"><div class="rt" style="font-size:13px">3 AI session files<div class="rs">Open in another app when the cleanup ran.</div></div></div></div></section>
+    <section><div class="sechead"><span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill',16)}</span>Failed<span class="cnt">1</span></div><div class="panel" style="overflow:hidden">
+      <div class="row" style="border-top:none;padding:10px 16px"><div class="rt" style="font-size:13px">1 simulator runtime<div class="rs">simctl reported an error. It was not removed.</div></div></div></div></section>
+    <div class="titlerow"><div class="fine">Restore only works for items that are still in the Trash.</div>${btn('Back to Smart Care','prom lg')}</div>
+  </div>`;
+  return win(w, h, body);
+}
+
+/* ---------- states sheet ---------- */
+function states() {
+  const cell = (cap, html) => `<div class="cell"><div class="cap">${cap}</div>${html}</div>`;
+  return `<div class="backdrop" style="width:1180px"><div class="sheetgrid">
+    ${cell('Ready, two tiers', LOCK('developer'))}
+    ${cell('Ready, review only (no Clean)', LOCK('caches'))}
+    ${cell('Ready, count only', LOCK('startupItems'))}
+    ${cell('Scanning', card('caches',{state:'scanning'}))}
+    ${cell('Waiting (queued during a scan)', card('unusedApps',{state:'wait'}))}
+    ${cell('Needs access (never “0 bytes”)', card('trash',{state:'needsAccess',message:'Needs Full Disk Access to read the Trash. Nothing was read.'}))}
+    ${cell('Blocked, Clean disabled with the reason', card('developer',{state:'blocked',total:'38.2 GB',safe:'24.6 GB',review:'13.6 GB',clean:'24.6 GB',bar:[['s',64],['r',36]],message:'Xcode is running. Quit it to clean 6.2 GB of build data.'}))}
+    ${cell('Failed', card('aiTools',{state:'failed',message:'Could not read the AI tools folders. Try Scan Again.'}))}
+    ${cell('Trash: permanent action is separate and red', LOCK('trash'))}
+  </div></div>`;
+}
+
+const SCREENS = {
+  'home-ready': () => homeReady(1280, 0),
+  'home-min-window': () => homeReady(980, 640),
+  'home-scanning': () => homeScanning(1280, 900),
+  'home-before-scan': () => homePre(1280, 520),
+  'card-states': states,
+  'confirm-clean-safely': () => confirmSheet(1280, 900),
+  'cleanup-result': () => resultView(1280, 0),
+  'empty-trash-confirm': () => trashSheet(1280, 900, false),
+  'empty-trash-done': () => trashSheet(1280, 640, true),
+};
+const which = P.get('screen') || 'home-ready';
+document.getElementById('root').innerHTML = `<div class="shot" id="shot">${SCREENS[which]()}</div>`;
+</script>
+</body>
+</html>
