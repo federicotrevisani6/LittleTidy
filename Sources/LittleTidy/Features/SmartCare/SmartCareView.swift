@@ -6,6 +6,7 @@ struct SmartCareView: View {
     let systemCare: SystemCareStore
 
     @State private var showTrashSheet = false
+    @State private var showCleanAllSheet = false
 
     private var cards: [SmartCareCard] {
         store.smartCareCards(startupItemCount: systemCare.startup.count)
@@ -32,6 +33,9 @@ struct SmartCareView: View {
         }
         .sheet(isPresented: $showTrashSheet) {
             TrashEmptySheet(store: store, isPresented: $showTrashSheet)
+        }
+        .sheet(isPresented: $showCleanAllSheet, onDismiss: { store.dismissCleanAllSafe() }) {
+            CleanAllSafeSheet(store: store, isPresented: $showCleanAllSheet)
         }
         .onAppear {
             if store.trashPreview == nil && !store.trashNeedsAccess { store.refreshTrashPreview() }
@@ -68,24 +72,47 @@ struct SmartCareView: View {
                     }
                 }
                 Spacer()
-                Button {
-                    if store.isScanning {
-                        store.startOrCancelScan()
-                    } else {
-                        store.startSmartCareScan()
-                        if !systemCare.isScanning { systemCare.scan() }
+                HStack(spacing: 10) {
+                    if hasResults && !store.isScanning {
+                        let candidate = store.cleanAllCandidate
+                        Button {
+                            store.prepareCleanAllSafe()
+                            showCleanAllSheet = store.cleanAllPlan != nil
+                        } label: {
+                            Label(candidate.isEmpty ? "Nothing safe to clean" : "Clean \(ByteCountFormatter.cleanerString(from: candidate.totalBytes)) Safely",
+                                  systemImage: "sparkles")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(!store.canCleanAllSafe)
+                        .help("Cleans only items LittleTidy considers safe to rebuild. You confirm first.")
                     }
-                } label: {
-                    Label(store.isScanning ? "Cancel" : (hasResults ? "Scan Again" : "Scan"),
-                          systemImage: store.isScanning ? "xmark.circle" : "sparkle.magnifyingglass")
+                    if hasResults && !store.isScanning {
+                        scanButton.buttonStyle(.bordered)
+                    } else {
+                        scanButton.buttonStyle(.borderedProminent)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             }
             if store.isScanning {
                 ProgressView(value: store.progress)
             }
         }
+    }
+
+    private var scanButton: some View {
+        Button {
+            if store.isScanning {
+                store.startOrCancelScan()
+            } else {
+                store.startSmartCareScan()
+                if !systemCare.isScanning { systemCare.scan() }
+            }
+        } label: {
+            Label(store.isScanning ? "Cancel" : (hasResults ? "Scan Again" : "Scan"),
+                  systemImage: store.isScanning ? "xmark.circle" : "sparkle.magnifyingglass")
+        }
+        .controlSize(.large)
     }
 
     private func headlineText(_ headline: SmartCareHeadline) -> String {
@@ -330,5 +357,164 @@ private struct TrashEmptySheet: View {
                 }
             }
         }
+    }
+}
+
+/// One confirmation for everything LittleTidy classes as safe. It lists what
+/// will run per card, what is skipped and why, and says plainly what cannot be
+/// restored from the Trash. The executor rechecks every safety rule per item.
+private struct CleanAllSafeSheet: View {
+    @ObservedObject var store: ScanReviewStore
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let result = store.cleanAllResult {
+                resultView(result)
+            } else if store.isCleaningDeveloperStorage {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Cleaning…")
+                }
+            } else if let plan = store.cleanAllPlan {
+                confirmView(plan)
+            }
+        }
+        .padding(20)
+        .frame(width: 500)
+    }
+
+    // MARK: - Confirm
+
+    private func confirmView(_ plan: SmartCareCleanPlan) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Clean \(ByteCountFormatter.cleanerString(from: plan.totalBytes)) safely?")
+                .font(.title3.weight(.semibold))
+
+            Text("\(plan.itemCount == 1 ? "1 item" : "\(plan.itemCount) items") LittleTidy considers safe to rebuild. Nothing else is touched, and the Trash is not emptied.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 0) {
+                ForEach(plan.groups) { group in
+                    HStack {
+                        Text(group.cardID.title)
+                        Spacer()
+                        Text(group.itemCount == 1 ? "1 item" : "\(group.itemCount) items")
+                            .foregroundStyle(.secondary)
+                        Text(ByteCountFormatter.cleanerString(from: group.bytes))
+                            .monospacedDigit()
+                            .frame(minWidth: 70, alignment: .trailing)
+                    }
+                    .font(.callout)
+                    .padding(.vertical, 6)
+                    Divider()
+                }
+            }
+
+            if plan.hasIrreversibleItems {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(plan.irreversibleItems.count == 1
+                          ? "1 item cannot be restored from the Trash."
+                          : "\(plan.irreversibleItems.count) items cannot be restored from the Trash.",
+                          systemImage: "exclamationmark.triangle")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(Color.cleanerWarning)
+                    Text(plan.irreversibleItems.prefix(4).map(\.name).joined(separator: ", ")
+                         + (plan.irreversibleItems.count > 4 ? ", and \(plan.irreversibleItems.count - 4) more" : "")
+                         + ". They are removed with the tool that manages them, such as simctl or Homebrew, and are downloaded again when needed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Label("Everything goes to the Trash and can be restored until you empty it.", systemImage: "arrow.uturn.backward.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !plan.skipped.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Skipped now")
+                        .font(.callout.weight(.medium))
+                    ForEach(plan.skipped.prefix(4)) { item in
+                        Text("\(item.name): \(item.reason)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if plan.skipped.count > 4 {
+                        Text("and \(plan.skipped.count - 4) more")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Text("Safety checks run again for each item. Anything in use is skipped, never forced.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
+                Button(plan.hasIrreversibleItems ? "Clean, Including Irreversible Items" : "Clean") {
+                    store.confirmCleanAllSafe()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(plan.isEmpty)
+            }
+        }
+    }
+
+    // MARK: - Result
+
+    private func resultView(_ result: DeveloperStorageCleanupResult) -> some View {
+        let removed = result.items.filter { $0.status == .removed }.count
+        let unresolved = result.unresolvedItems
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(removed > 0 ? "Cleanup finished" : "Nothing was removed")
+                .font(.title3.weight(.semibold))
+
+            if removed > 0 {
+                Label("\(removed) items removed, \(ByteCountFormatter.cleanerString(from: result.removedBytes)) freed for sure.",
+                      systemImage: "checkmark.circle")
+                    .foregroundStyle(Color.cleanerSuccess)
+                if result.bytesInTrash > 0 {
+                    Text("\(ByteCountFormatter.cleanerString(from: result.bytesInTrash)) is in the Trash and is freed when you empty it.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if !unresolved.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(unresolved.count) not removed")
+                        .font(.callout.weight(.medium))
+                    ForEach(Array(unresolved.prefix(5)), id: \.itemID) { item in
+                        Text("\(item.name): \(item.message)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if unresolved.count > 5 {
+                        Text("and \(unresolved.count - 5) more")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Open Developer Storage") {
+                    close()
+                    store.selectedSection = .developerStorage
+                }
+                Button("Done") { close() }.keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+
+    private func close() {
+        isPresented = false
     }
 }

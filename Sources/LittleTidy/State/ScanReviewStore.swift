@@ -98,6 +98,9 @@ final class ScanReviewStore: ObservableObject {
     @Published var trashEmptyResult: TrashEmptyResult?
     /// Where LittleTidy's last cleanup put items in the Trash: the user's undo.
     @Published var lastCleanupTrashPaths: Set<String> = []
+    // Smart Care: "Clean all safe".
+    @Published var cleanAllPlan: SmartCareCleanPlan?
+    @Published var cleanAllResult: DeveloperStorageCleanupResult?
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
@@ -254,19 +257,7 @@ final class ScanReviewStore: ObservableObject {
     }
 
     func canSelectDeveloperStorageItem(_ item: DeveloperStorageItem) -> Bool {
-        guard item.activity != .active, item.recommendation != .unclassified else { return false }
-        switch item.cleanupMechanism {
-        case .trash:
-            return true
-        case .simctl:
-            return item.category == .simulatorDevices || item.category == .xctestDevices
-        case .xcodeManaged:
-            return item.category == .simulatorRuntimes && item.recommendation == .review
-        case .homebrewCleanup:
-            return true
-        case .manual, .unsupported:
-            return false
-        }
+        item.isUserSelectable
     }
 
     func isDeveloperStorageItemSelected(_ item: DeveloperStorageItem) -> Bool {
@@ -375,7 +366,7 @@ final class ScanReviewStore: ObservableObject {
 
     /// Drops removed items right away, so the list does not show them with
     /// their old sizes while the follow-up rescan runs.
-    private func removeCleanedDeveloperItems(_ result: DeveloperStorageCleanupResult) {
+    func removeCleanedDeveloperItems(_ result: DeveloperStorageCleanupResult) {
         let removedIDs = Set(result.items.filter { $0.status == .removed }.map(\.itemID))
         guard !removedIDs.isEmpty else { return }
         let inventory = developerStorageInventory
