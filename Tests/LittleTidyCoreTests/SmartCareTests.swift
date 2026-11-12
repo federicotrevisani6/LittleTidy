@@ -449,3 +449,32 @@ struct SmartCareLeftOutTests {
         #expect(card.canClean == false)
     }
 }
+
+@Suite("Permission guide")
+struct PermissionGuideTests {
+    @Test func confirmedOnlyWhenTheProbeSucceeds() {
+        #expect(PermissionGuide.items(fullDiskAccessConfirmed: true).first?.state == .confirmed)
+        #expect(PermissionGuide.items(fullDiskAccessConfirmed: false).first?.state == .notConfirmed)
+        #expect(PermissionState.notConfirmed.label == "Not confirmed")
+    }
+
+    @Test func theGuideAppearsOnlyWhenSomethingIsNotConfirmedAndNotDismissed() {
+        let missing = PermissionGuide.items(fullDiskAccessConfirmed: false)
+        let granted = PermissionGuide.items(fullDiskAccessConfirmed: true)
+        #expect(PermissionGuide.shouldPresent(items: missing, dismissedBefore: false))
+        #expect(!PermissionGuide.shouldPresent(items: missing, dismissedBefore: true))
+        #expect(!PermissionGuide.shouldPresent(items: granted, dismissedBefore: false))
+    }
+
+    @Test func affectedCardsAreListedOnlyForMissingPermissions() {
+        #expect(PermissionGuide.affectedCards(in: PermissionGuide.items(fullDiskAccessConfirmed: false)) == [.trash])
+        #expect(PermissionGuide.affectedCards(in: PermissionGuide.items(fullDiskAccessConfirmed: true)).isEmpty)
+    }
+
+    @Test func everyPermissionExplainsItselfAndOpensSettings() {
+        for kind in PermissionKind.allCases {
+            #expect(!kind.unlocks.isEmpty)
+            #expect(kind.settingsURL.absoluteString.hasPrefix("x-apple.systempreferences:"))
+        }
+    }
+}
