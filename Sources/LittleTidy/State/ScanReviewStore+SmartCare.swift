@@ -62,14 +62,17 @@ extension ScanReviewStore {
         }
 
         if let date = developerStorageInventory.latestLocalSnapshotAt {
-            inputs.infoText[.snapshots] = "Latest local snapshot \(date.formatted(date: .abbreviated, time: .shortened)). macOS releases this space itself when it is needed."
+            inputs.headlineText[.snapshots] = date.formatted(date: .abbreviated, time: .omitted)
+            inputs.infoText[.snapshots] = "Latest local snapshot. macOS releases this space itself when it is needed."
         }
         let startupCount = startupItems.isEmpty ? startupItemCount : startupItems.count
         if startupCount > 0 {
             let broken = startupItems.filter(\.isBroken).count
-            var text = "\(startupCount) launchd items start with your Mac."
-            if broken > 0 { text += " \(broken) point\(broken == 1 ? "s" : "") to something that is gone." }
-            inputs.infoText[.startupItems] = text
+            inputs.headlineText[.startupItems] = startupCount == 1 ? "1 item" : "\(startupCount) items"
+            inputs.infoText[.startupItems] = broken > 0
+                ? "launchd items start with your Mac. \(broken) point\(broken == 1 ? "s" : "") to something that is gone."
+                : "launchd items start with your Mac."
+            
         }
 
         return SmartCareBuilder.cards(from: inputs)

@@ -78,3 +78,12 @@ Alternatives considered and not chosen:
 
 - **A full-bleed colour per area.** Looks lively, but every card would read as a different promise, and colour could not carry "safe" versus "review". Rejected for the meaning-first rule above.
 - **A single big dial with one total.** Simple, but it merges safe and review, which the product forbids.
+
+## Revision after use on a real Mac
+
+With real data the home was too busy. Changes made in the implementation, which supersede the mock where they differ:
+
+- **Every category is one box.** The same card, in the same places, whether it has something to clean or not. No collapsed "Nothing to clean in…" lines, no full-width Trash row, no mixed rows and boxes. An empty card says "Nothing to clean"; the Trash, Time Machine snapshots and login items are cards too.
+- **One value per card:** the amount that can be acted on (the safe part, otherwise what is left to review) with one short line under it. The safe, review and protected split, the tier bar and the detail live in the review sheets.
+- **Notices are small chips:** "removed for good" and "items left out", with a glyph and words. The full list stays in the confirmation sheet.
+- **The summary panel is calmer:** two blocks, the Clean button, and one line if something is removed for good. The reversibility bar and the Trash footnote are gone.

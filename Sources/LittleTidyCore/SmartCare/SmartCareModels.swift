@@ -109,17 +109,21 @@ public struct SmartCareCard: Identifiable, Equatable, Sendable {
     /// Informational size for cards whose bytes are not made of entries
     /// (for example a snapshot estimate). Never added to a total.
     public let infoText: String?
+    /// The big value for cards that are not made of bytes, for example "13 items".
+    public let headlineText: String?
 
     public init(
         cardID: SmartCareCardID,
         state: SmartCareCardState,
         entries: [SmartCareEntry] = [],
-        infoText: String? = nil
+        infoText: String? = nil,
+        headlineText: String? = nil
     ) {
         self.cardID = cardID
         self.state = state
         self.entries = entries
         self.infoText = infoText
+        self.headlineText = headlineText
     }
 
     public var recommendedBytes: Int64 { bytes(for: .recommended) }
