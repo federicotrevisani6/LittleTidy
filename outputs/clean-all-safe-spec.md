@@ -43,6 +43,14 @@ One button in the Smart Care header, "Clean X safely", that acts on everything L
 
 `SmartCareView` header, `ScanReviewStore+SmartCare` (plan assembly across both pipelines), `DeveloperStorageCleanupExecutor`, `TrashPlanBuilder`, `TrashExecutor`. Tests in `LittleTidyTests` and `LittleTidyCoreTests`.
 
-## 7. Change log
+## 7. Implementation status (first version)
+
+- Done: header button, one confirmation sheet with per-card totals, an irreversible-items warning, skipped items with reasons, and a short result. Execution goes through `DeveloperStorageCleanupExecutor`, which rechecks every rule per item.
+- Today the safe total consists of developer and AI items only, because caches and apps are `review`. The file (Trash) pipeline is therefore not wired: it is added when a card produces `recommended` file entries.
+- Criterion 1 holds when every recommended item has an automatic mechanism. Recommended items without one (for example a manual cleanup) count in the headline but not in the button; the sheet does not list them yet.
+- Not done: a history entry per run, and the full result screen (see the result screen spec).
+
+## 8. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 7.

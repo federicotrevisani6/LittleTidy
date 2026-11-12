@@ -155,4 +155,51 @@ extension ScanReviewStore {
         if !isScanningDeveloperStorage { refreshDeveloperStorage() }
         refreshTrashPreview()
     }
+
+    // MARK: - Clean all safe
+
+    /// What the header button would clean right now. Cheap, so views can read it.
+    var cleanAllCandidate: SmartCareCleanPlan {
+        SmartCareCleanPlanner.plan(from: developerStorageInventory.items, xcodeIsRunning: isXcodeRunning)
+    }
+
+    var canCleanAllSafe: Bool {
+        !isScanning && !isScanningDeveloperStorage && !isCleaningDeveloperStorage && !cleanAllCandidate.isEmpty
+    }
+
+    /// Builds the preview shown in the confirmation sheet. Nothing is removed.
+    func prepareCleanAllSafe() {
+        guard !isScanning, !isScanningDeveloperStorage, !isCleaningDeveloperStorage else { return }
+        refreshXcodeRunningState()
+        cleanAllResult = nil
+        cleanAllPlan = SmartCareCleanPlanner.plan(from: developerStorageInventory.items, xcodeIsRunning: isXcodeRunning)
+    }
+
+    func dismissCleanAllSafe() {
+        cleanAllPlan = nil
+        cleanAllResult = nil
+    }
+
+    /// Runs the previewed items through the existing executor. It rechecks
+    /// every safety rule (Xcode lock guard, open files, simctl state) for each
+    /// item at execution time, so the preview is never a permission.
+    func confirmCleanAllSafe() {
+        guard let plan = cleanAllPlan, !plan.isEmpty, !isCleaningDeveloperStorage else { return }
+        isCleaningDeveloperStorage = true
+        developerCleanupResult = nil
+        let mode = deletionMode
+        let items = plan.items
+        Task { [weak self] in
+            let result = await DeveloperStorageCleanupExecutor().execute(items: items, deletionMode: mode)
+            guard let self else { return }
+            self.removeCleanedDeveloperItems(result)
+            self.developerCleanupResult = result
+            self.cleanAllResult = result
+            self.snapshotReleaseResult = nil
+            self.snapshotReleaseErrorMessage = nil
+            self.isCleaningDeveloperStorage = false
+            self.selectedDeveloperStorageItemIDs = []
+            self.refreshDeveloperStorage()
+        }
+    }
 }

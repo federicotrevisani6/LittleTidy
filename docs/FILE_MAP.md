@@ -79,6 +79,7 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
 #### Smart Care (`Sources/LittleTidyCore/SmartCare/`)
 - [`SmartCareModels.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareModels.swift): `SmartCareCardID` (declaration order is the count-once precedence), `SmartCareCard`, `SmartCareEntry`, `SmartCareCardState`, `SmartCareHeadline`.
 - [`SmartCareBuilder.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareBuilder.swift): Pure mapping from analyzer output to cards. Removes paths a higher card already owns and computes the headline (safe total excludes review, protected, unclassified and the Trash).
+- [`SmartCareCleanPlanner.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareCleanPlanner.swift): Preview of "Clean all safe". Only `recommended`, selectable developer and AI items with a trash, simctl or Homebrew mechanism; items that need Xcode closed are listed as skipped while Xcode runs; irreversible items are flagged. The executor rechecks every rule at run time. Also holds `DeveloperStorageItem.isUserSelectable`, shared with the Developer Storage list.
 - [`TrashEmptier.swift`](../Sources/LittleTidyCore/Execution/TrashEmptier.swift): Empties the user's `~/.Trash` (the one permanent removal in the app). Direct children only, symlinks removed as links, nil open-file snapshot blocks, locked or foreign-owned items skipped.
 
 #### Watchers (`Sources/LittleTidyCore/Watchers/`)

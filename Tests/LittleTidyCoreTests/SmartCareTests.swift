@@ -143,3 +143,115 @@ struct TrashEmptierTests {
         }
     }
 }
+
+@Suite("Smart Care clean all safe")
+struct SmartCareCleanPlannerTests {
+    private func item(
+        _ id: String,
+        category: DeveloperStorageCategory = .derivedData,
+        bytes: Int64 = 1_000,
+        recommendation: StorageRecommendation = .recommended,
+        mechanism: DeveloperCleanupMechanism = .trash,
+        recoverability: StorageRecoverability = .recreatable,
+        activity: StorageActivityState = .inactive
+    ) -> DeveloperStorageItem {
+        DeveloperStorageItem(
+            id: id,
+            category: category,
+            name: id,
+            detail: "",
+            url: URL(fileURLWithPath: "/tmp/\(id)"),
+            bytes: bytes,
+            activity: activity,
+            recoverability: recoverability,
+            cleanupMechanism: mechanism,
+            consequence: .negligible,
+            recommendation: recommendation,
+            recommendationReason: ""
+        )
+    }
+
+    @Test func onlyRecommendedItemsAreIncluded() {
+        let plan = SmartCareCleanPlanner.plan(from: [
+            item("safe"),
+            item("review", recommendation: .review),
+            item("protected", recommendation: .protected),
+            item("unclassified", recommendation: .unclassified)
+        ], xcodeIsRunning: false)
+        #expect(plan.items.map(\.id) == ["safe"])
+    }
+
+    @Test func activeAndEmptyItemsAreLeftOut() {
+        let plan = SmartCareCleanPlanner.plan(from: [
+            item("busy", activity: .active),
+            item("empty", bytes: 0),
+            item("ok")
+        ], xcodeIsRunning: false)
+        #expect(plan.items.map(\.id) == ["ok"])
+    }
+
+    @Test func runtimeDeletionAndManualMechanismsAreNeverIncluded() {
+        let plan = SmartCareCleanPlanner.plan(from: [
+            item("runtime", category: .simulatorRuntimes, mechanism: .xcodeManaged),
+            item("manual", mechanism: .manual),
+            item("unsupported", mechanism: .unsupported)
+        ], xcodeIsRunning: false)
+        #expect(plan.isEmpty)
+    }
+
+    @Test func itemsThatNeedXcodeClosedAreSkippedWhileXcodeRuns() {
+        let items = [
+            item("device-support", category: .deviceSupport),
+            item("derived", category: .derivedData),
+            item("ai-cache", category: .aiCaches)
+        ]
+        let running = SmartCareCleanPlanner.plan(from: items, xcodeIsRunning: true)
+        #expect(running.skipped.map(\.itemID) == ["device-support"])
+        #expect(Set(running.items.map(\.id)) == ["derived", "ai-cache"])
+
+        let closed = SmartCareCleanPlanner.plan(from: items, xcodeIsRunning: false)
+        #expect(closed.skipped.isEmpty)
+        #expect(closed.items.count == 3)
+    }
+
+    @Test func irreversibleItemsAreFlagged() {
+        let trashOnly = SmartCareCleanPlanner.plan(from: [item("a")], xcodeIsRunning: false)
+        #expect(trashOnly.hasIrreversibleItems == false)
+
+        let withSimctl = SmartCareCleanPlanner.plan(from: [
+            item("a"),
+            item("device", category: .simulatorDevices, mechanism: .simctl, recoverability: .irreversible)
+        ], xcodeIsRunning: false)
+        #expect(withSimctl.hasIrreversibleItems)
+        #expect(withSimctl.irreversibleItems.map(\.id) == ["device"])
+    }
+
+    @Test func groupsSplitDeveloperFromAITools() {
+        let plan = SmartCareCleanPlanner.plan(from: [
+            item("derived", bytes: 300),
+            item("ai", category: .aiCaches, bytes: 200),
+            item("derived2", bytes: 100)
+        ], xcodeIsRunning: false)
+        #expect(plan.groups.map(\.cardID) == [.developer, .aiTools])
+        #expect(plan.groups.first { $0.cardID == .developer }?.bytes == 400)
+        #expect(plan.groups.first { $0.cardID == .aiTools }?.itemCount == 1)
+        #expect(plan.totalBytes == 600)
+    }
+
+    @Test func itemsAreOrderedLargestFirst() {
+        let plan = SmartCareCleanPlanner.plan(from: [item("small", bytes: 1), item("big", bytes: 9)], xcodeIsRunning: false)
+        #expect(plan.items.map(\.id) == ["big", "small"])
+    }
+
+    @Test func planTotalMatchesTheHeadlineSafeTotalForTheSameItems() {
+        let items = [item("a", bytes: 700), item("b", category: .aiCaches, bytes: 300), item("r", bytes: 50, recommendation: .review)]
+        let plan = SmartCareCleanPlanner.plan(from: items, xcodeIsRunning: false)
+        var inputs = SmartCareInputs()
+        inputs.entries[.developer] = items.filter { SmartCareCleanPlanner.cardID(for: $0) == .developer }
+            .map { SmartCareEntry(path: $0.url!.path, bytes: $0.bytes, tier: $0.recommendation) }
+        inputs.entries[.aiTools] = items.filter { SmartCareCleanPlanner.cardID(for: $0) == .aiTools }
+            .map { SmartCareEntry(path: $0.url!.path, bytes: $0.bytes, tier: $0.recommendation) }
+        let headline = SmartCareBuilder.headline(for: SmartCareBuilder.cards(from: inputs))
+        #expect(plan.totalBytes == headline.safeBytes)
+    }
+}
