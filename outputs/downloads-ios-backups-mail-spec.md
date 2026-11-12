@@ -1,7 +1,7 @@
 # Spec: Downloads, iOS Backups and Mail Downloads cleanup
 
 Status: draft, 2026-11-12. Nothing here is implemented.
-Origin: review of CleanMyMac 5.7.4 (module names and UI strings only). We take three of its cleanup areas and fit them to LittleTidy's rules. We do not copy its wording or behavior.
+Origin: a review of the everyday-cleanup areas that commercial Mac cleaners cover. We take three of them and fit them to LittleTidy's rules, in our own wording and behavior.
 
 If this spec disagrees with the safety invariants in [AGENTS.md](../AGENTS.md), the invariants win and this spec gets fixed.
 

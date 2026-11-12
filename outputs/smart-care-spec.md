@@ -2,7 +2,7 @@
 
 Status: draft, 2026-11-12. Nothing here is implemented.
 Supersedes the scope of [downloads-ios-backups-mail-spec.md](downloads-ios-backups-mail-spec.md), which becomes Phase 2 of this spec.
-Origin: comparison with CleanMyMac 5.7.4 (screens and module names only). We borrow the idea of a goal-based home, not its wording, art or behavior.
+Origin: a comparison with how commercial Mac cleaners organise their home screen. We borrow the idea of a goal-based home, not anyone's wording, art or behavior.
 
 If this spec disagrees with the safety invariants in [AGENTS.md](../AGENTS.md), the invariants win and this spec gets fixed.
 
@@ -167,7 +167,7 @@ Leftovers of removed apps (exact bundle ID, scanned in the background as the car
 2. **External volumes' Trash** (`/Volumes/*/.Trashes`): out of scope for now (criterion 10h). Revisit only with a safe preview.
 3. **Naming.** English strings are assumed. Final copy for card titles and explanations needs review through the ux-writing pass, and an Italian localization decision.
 4. **Headline wording.** Whether to show the review total on the home or only inside cards.
-5. **Visual identity.** CleanMyMac uses a different colored full-screen background per area. LittleTidy should keep its own Tahoe-styled surfaces (`CleanerSurface`) unless a design pass says otherwise.
+5. **Visual identity.** Some commercial cleaners use a different colored full-screen background per area. LittleTidy should keep its own Tahoe-styled surfaces (`CleanerSurface`) unless a design pass says otherwise.
 
 ## 10. Code touchpoints
 
@@ -180,5 +180,5 @@ Leftovers of removed apps (exact bundle ID, scanned in the background as the car
 
 ## 11. Change log
 
-- 2026-11-12: first draft, written after a side-by-side with CleanMyMac screenshots from the user.
+- 2026-11-12: first draft, written after comparing the home screen with commercial cleaners.
 - 2026-11-12: Trash card now has an Empty action (user decision). Added section 5a, criteria 10a to 10h, the proposed AGENTS.md invariant, and resolved open question 1. Trash moves into Phase 1 as a full card, not read-only.
