@@ -6,6 +6,31 @@
         <description>Most recent changes for LittleTidy.</description>
         <language>en</language>
         <item>
+            <title>0.9.0</title>
+            <pubDate>Thu, 12 Nov 2026 21:34:36 +0000</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# Smart Care replaces the Overview as the home screen, with one scan and one box per area
+
+Smart Care is now the first item in the sidebar and opens by default. One Scan reads your Mac and fills a box for each area, grouped as Cleanup (developer storage, AI tools, Mail attachments, iPhone and iPad backups, installers and archives, system and app caches, the Trash), Applications (unused apps, leftovers of removed apps) and Maintenance (Time Machine snapshots, login and background items). Each box shows one number, the amount you can act on. At the top there are two totals that are never added together: what you can clean safely, and what is left to review. "Clean X Safely…" cleans everything in the first total after a single confirmation.
+
+I built it because the old Overview told you where the space was, not what you could free. I kept the two totals apart on purpose: the safe number only counts what LittleTidy can rebuild or already knows is orphaned, so it is smaller than what some cleaners promise. System and app caches, installers, backups, Mail attachments and app leftovers are always "to review" and never preselected.
+
+The confirmation lists what will be removed for good (Simulator devices and Homebrew downloads, through their own tools), what moves to the Trash, and what is left out right now and why. Every item still passes the checks it always had when it runs: Xcode lock guard, open files, simctl state. After a cleanup you see three separate numbers: freed now, in the Trash (freed when you empty it) and held by a Time Machine snapshot, with a Restore button for anything that went to the Trash; it never overwrites. The Trash box can also empty the Trash. It is the one permanent action besides the opt-in setting, so it has its own confirmation that says it cannot be undone and lists first what your last cleanup moved there. Anything in use, locked or owned by another account is skipped, and only your own `~/.Trash` is touched.
+
+The Trash, the backups and Mail attachments need Full Disk Access. The first time, a short guide explains what each permission unlocks, and "Not Now" is remembered. Installers and archives only looks in Downloads if you approved that folder. The login items list covers launchd items only, not the ones apps register in System Settings, and you can switch off only your own, never Apple's; nothing is deleted. Leftovers are matched by exact bundle identifier, never listed if they changed in the last 90 days, and not listed at all when Spotlight cannot confirm which apps are installed.
+
+Nothing from before is gone. The previous Overview is still there as Storage Overview, and Duplicate Files, Large Files, Application Caches, Developer Storage and the Cleanup Plan work as in 0.8.3, including the permanent-delete setting.
+
+## Other Changes
+
+- Addresses an issue where LittleTidy could quit by itself about a minute after a System Care scan finished, when administrator access was enabled.
+- Adds a notarized disk image (DMG) to each release, next to the ZIP.
+]]></description>
+            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.9.0/LittleTidy.zip" length="7214444" type="application/octet-stream" sparkle:edSignature="nfQql+fEvKp7vG4PcH/GytDWP5LXYUIAv0luZQTmgMnD7ZsENJwMpCKzqfNPY//SlFB9+RoJwNMRJEoocPl2DQ=="/>
+        </item>
+        <item>
             <title>0.8.3</title>
             <pubDate>Mon, 26 Oct 2026 12:13:26 +0100</pubDate>
             <sparkle:version>13</sparkle:version>
@@ -34,25 +59,6 @@ Requires macOS 26 or later.
 Requires macOS 26 or later.
 ]]></description>
             <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.2/LittleTidy.zip" length="6185540" type="application/octet-stream" sparkle:edSignature="EUDE2bUOlM2EMW60uuHYWAHHqwL1B9m3OyfUHAZhJHnnhFST+YZQdpSM7puFlwNeuVIXdKofIBV0Zo34l4WZCg=="/>
-        </item>
-        <item>
-            <title>0.8.1</title>
-            <pubDate>Sat, 24 Oct 2026 23:41:24 +0200</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# LittleTidy 0.8.1
-
-- Temporary folders of closed Claude sessions (screenshots, videos, builds, and scratch files) are now offered for cleanup, one item per session. Running sessions are never offered, and each session is checked again right before cleanup. Conversation transcripts are kept.
-- Codex and Antigravity caches, including downloaded app updates, are now recognized. AI app caches are cleaned only when no app has files open inside them.
-- Simulator devices now include the OS version in their name, so the same model on two runtimes no longer looks duplicated.
-- Empty items, such as XCTest clones whose folder is already gone, are no longer preselected.
-- The Overview total no longer counts space that Simulator clones share with their source device.
-- Developer Storage scans finish sooner: the Homebrew estimate runs alongside the rest of the scan.
-
-Requires macOS 26 or later.
-]]></description>
-            <enclosure url="https://github.com/federicotrevisani6/LittleTidy/releases/download/v0.8.1/LittleTidy.zip" length="6156117" type="application/octet-stream" sparkle:edSignature="ew6jMBz+u7uoQJR2Wq6ElsL6Qr3gVxTxI79//zTxiT5tAtjobh6K9MPHHa28KUhwgHoKHN5bhTdkXQF4UwzuAA=="/>
         </item>
     </channel>
 </rss>
