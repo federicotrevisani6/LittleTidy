@@ -70,6 +70,9 @@ struct SmartCareView: View {
                 store.dismissEverydayReview()
             }
         }
+        .sheet(isPresented: $store.showStartupItems) {
+            StartupItemsSheet(store: store)
+        }
         .sheet(isPresented: $store.showPermissionGuide, onDismiss: { store.recheckPermissions() }) {
             PermissionGuideSheet(store: store)
         }

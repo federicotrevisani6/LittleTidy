@@ -63,8 +63,12 @@ extension ScanReviewStore {
         if let date = developerStorageInventory.latestLocalSnapshotAt {
             inputs.infoText[.snapshots] = "Latest local snapshot \(date.formatted(date: .abbreviated, time: .shortened)). macOS releases this space itself when it is needed."
         }
-        if startupItemCount > 0 {
-            inputs.infoText[.startupItems] = "\(startupItemCount) items start with your Mac."
+        let startupCount = startupItems.isEmpty ? startupItemCount : startupItems.count
+        if startupCount > 0 {
+            let broken = startupItems.filter(\.isBroken).count
+            var text = "\(startupCount) launchd items start with your Mac."
+            if broken > 0 { text += " \(broken) point\(broken == 1 ? "s" : "") to something that is gone." }
+            inputs.infoText[.startupItems] = text
         }
 
         return SmartCareBuilder.cards(from: inputs)
@@ -115,7 +119,8 @@ extension ScanReviewStore {
         case .caches: selectedSection = .caches
         case .trash: openTrash()
         case .unusedApps: selectedSection = .unusedApps
-        case .snapshots, .startupItems: selectedSection = .maintenance
+        case .snapshots: selectedSection = .maintenance
+        case .startupItems: showStartupItems = true
         case .mailAttachments: reviewEveryday(.mailDownloads)
         case .iosBackups: reviewEveryday(.iosBackups)
         case .installers: reviewEveryday(.installers)
@@ -169,6 +174,7 @@ extension ScanReviewStore {
 
     func startSmartCareScan() {
         scanEverydaySpace()
+        scanStartupItems()
         if !isScanning { startOrCancelScan() }
         // A scan already running must not be restarted: that made the card
         // look finished while it was still working.
