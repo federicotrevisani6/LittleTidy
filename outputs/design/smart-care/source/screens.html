@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LittleTidy Smart Care screens</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Tokens. Names map to the semantic roles in HANDOFF.md. Hex values only approximate
+   the dynamic system colors the app really uses; the app must use the NSColor-backed ones. */
+:root{
+  --window:#F3F3F4; --sidebar:#E9E9EC; --card:#FFFFFF; --inset:rgba(60,60,67,.06);
+  --label:#1D1D1F; --label2:rgba(60,60,67,.80); --label3:rgba(60,60,67,.34);
+  --sep:rgba(60,60,67,.2); --accent:#007AFF; --on-accent:#fff;
+  --safe:#34C759; --safe-text:#1B7F3B;
+  --review:#007AFF; --review-text:#0A5FC4;
+  --warn:#FF9500; --warn-text:#8F4A00;
+  --danger:#FF3B30; --danger-text:#C0261B;
+  --protected:#8E8E93;
+  --desk:#D6D9DF; --scrim:rgba(0,0,0,.28); --shadow:0 20px 60px rgba(0,0,0,.28), 0 0 0 .5px rgba(0,0,0,.25);
+  --btn:#FFFFFF; --btn-border:rgba(60,60,67,.22);
+}
+:root[data-theme="dark"]{
+  --window:#2B2B2D; --sidebar:#232325; --card:#1F1F21; --inset:rgba(255,255,255,.06);
+  --label:#F5F5F7; --label2:rgba(235,235,245,.66); --label3:rgba(235,235,245,.32);
+  --sep:rgba(255,255,255,.14); --accent:#0A84FF;
+  --safe:#30D158; --safe-text:#4BDE76;
+  --review:#0A84FF; --review-text:#6CB0FF;
+  --warn:#FF9F0A; --warn-text:#FFB84D;
+  --danger:#FF453A; --danger-text:#FF8A80;
+  --protected:#98989D;
+  --desk:#0E0E10; --scrim:rgba(0,0,0,.45); --shadow:0 20px 60px rgba(0,0,0,.7), 0 0 0 .5px rgba(255,255,255,.18);
+  --btn:rgba(255,255,255,.12); --btn-border:rgba(255,255,255,.14);
+}
+/* Increased contrast: opaque separators, darker secondary text, no reliance on tints. */
+:root[data-contrast="high"]{
+  --sep:rgba(0,0,0,.62); --label2:rgba(0,0,0,.84); --label3:rgba(0,0,0,.6);
+  --btn-border:rgba(0,0,0,.7); --card:#FFFFFF; --window:#F3F3F4;
+}
+:root[data-theme="dark"][data-contrast="high"]{ --sep:rgba(255,255,255,.7); --label2:rgba(255,255,255,.92); --label3:rgba(255,255,255,.7); --btn-border:rgba(255,255,255,.75); }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--desk)}
+body{font:13px/1.3 -apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--label);-webkit-font-smoothing:antialiased;padding:32px;width:max-content}
+.shot{display:block;width:max-content;padding:0;margin:0 0 40px}
+.sf{display:inline-block;width:1em;height:1em;flex:none;background:currentColor;-webkit-mask:var(--img) center/contain no-repeat;mask:var(--img) center/contain no-repeat}
+.num{font-variant-numeric:tabular-nums}
+
+/* window */
+.win{position:relative;display:flex;background:var(--window);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.sb{width:208px;flex:none;background:var(--sidebar);margin:8px 0 8px 8px;border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;gap:2px;border:.5px solid var(--sep)}
+.tb{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 22px}
+.tbt{font-size:15px;font-weight:600;line-height:1.2}.tbs{font-size:12px;color:var(--label2)}
+.u{font-size:.58em;font-weight:500;color:var(--label2);margin-left:.2em;letter-spacing:0}
+.lights{display:flex;gap:8px;padding:2px 8px 22px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.sb .sec{font-size:11px;font-weight:600;color:var(--label2);padding:14px 10px 4px}
+.sb .it{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;font-size:13px}
+.sb .it .sf{font-size:14px;color:var(--label2)}
+.sb .it.sel{background:var(--accent);color:#fff}.sb .it.sel .sf{color:#fff}
+.main{flex:1;min-width:0;overflow:hidden}
+.pane{padding:6px 24px 28px;display:flex;flex-direction:column;gap:24px}
+
+/* header */
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px}
+h1{font-size:26px;font-weight:700;letter-spacing:.2px;line-height:1.15}
+.sub{font-size:12px;color:var(--label2);margin-top:3px}
+.panel{background:var(--card);border:.5px solid var(--sep);border-radius:14px}
+.summary{display:grid;grid-template-columns:1fr 1fr;padding:0}
+.stat{padding:20px 22px;display:flex;gap:14px;align-items:flex-start}
+.stat+.stat{border-left:.5px solid var(--sep)}
+.tile{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;font-size:17px}
+.tile.safe{background:color-mix(in srgb,var(--safe) 18%,transparent);color:var(--safe-text)}
+.tile.review{background:color-mix(in srgb,var(--review) 22%,transparent);color:var(--review-text)}
+.tile.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn-text)}
+.tile.danger{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.tile.neutral{background:var(--inset);color:var(--label2)}
+.big{font-size:34px;font-weight:600;line-height:1.05;letter-spacing:-.3px}
+.statlabel{font-size:13px;color:var(--label);margin-top:3px;font-weight:500}
+.stathelp{font-size:11px;color:var(--label2);margin-top:2px}
+.foot{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--label2);margin-top:-12px;padding-left:2px}
+.foot .sf{font-size:12px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px;border-radius:6px;font:500 12px/1 -apple-system,system-ui;color:var(--label);background:var(--btn);border:.5px solid var(--btn-border);white-space:nowrap}
+.btn.prom{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.btn.acc{color:var(--accent);font-weight:600}.btn.dest{color:var(--danger-text)}
+.btn.destfill{background:var(--danger);border-color:transparent;color:#fff}
+.btn.off{background:var(--inset);color:var(--label2);border-color:transparent;box-shadow:none}
+.btn.link{background:none;border:none;box-shadow:none;color:var(--accent);padding:0 4px}
+.btn.lg{height:32px;padding:0 16px;border-radius:16px;font-size:13px}
+.btn.reg{height:26px;border-radius:7px;padding:0 12px;font-size:13px}.btn.md{height:28px;padding:0 14px;border-radius:14px;font-size:13px}
+.btn .sf{font-size:13px}
+.btn.focus,.focusring{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+
+/* groups and cards */
+.group>h2{font-size:15px;font-weight:600;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px 14px;align-items:stretch}.row3>.group{display:flex;flex-direction:column}.row3 .grid{grid-template-columns:1fr;flex:1}.row3 .card{height:100%}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:stretch}
+.card{background:var(--card);border:.5px solid var(--sep);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:196px;}
+.card .head{display:flex;align-items:center;gap:9px}
+.card .ct{width:30px;height:30px;border-radius:8px;background:var(--inset);color:color-mix(in srgb,var(--label) 72%,transparent);display:grid;place-items:center;font-size:16px}
+.card.slim{flex-direction:row;align-items:center;gap:18px;min-height:0;padding:14px 16px}
+.card.slim .meta{flex:1;min-width:0}.card.slim .t1{display:flex;align-items:center;gap:10px}.card.slim .expl{margin-top:3px}
+.card .title{font-size:13px;font-weight:600;flex:1}
+.card .n{font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.2px}
+.tiers{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:12px}
+.tiers span{display:inline-flex;align-items:center;gap:5px}
+.tiers .sf{font-size:12px}
+.tiers .s .sf{color:var(--safe-text)}.tiers .r .sf{color:var(--review-text)}.tiers .p .sf{color:var(--protected)}
+.track{height:4px;border-radius:2px;background:var(--inset)}.bar{display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px}
+.bar .s{background:var(--safe)}.bar .r{background:var(--review)}.bar .p{background:var(--protected)}
+.expl{font-size:12px;line-height:1.38;color:var(--label2)}
+.acts{margin-top:auto;display:flex;justify-content:flex-end;gap:8px;padding-top:2px}
+.msg{display:flex;gap:8px;font-size:12px;line-height:1.35;align-items:flex-start}
+.msg .sf{font-size:14px;margin-top:0}
+.msg.warn{color:var(--label)}.msg.warn .sf{color:var(--warn-text)}
+.msg.danger .sf{color:var(--danger-text)}
+.chip{white-space:nowrap;flex:none;font-size:11px;font-weight:500;padding:2px 8px;border-radius:9px;display:inline-flex;gap:4px;align-items:center}
+.chip.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn-text)}
+.chip.danger{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.chip.neutral{background:var(--inset);color:var(--label2)}
+.chip .sf{font-size:11px}
+.notice{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border-radius:8px;font-size:12px;line-height:1.35;background:color-mix(in srgb,var(--warn) 14%,transparent);border:.5px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.notice .sf{color:var(--warn-text);font-size:14px}
+.skel{height:9px;border-radius:5px;background:var(--inset)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--label3);border-top-color:var(--label2);display:inline-block;flex:none}
+.card.wait .title,.card.wait .ct{opacity:.7}
+.collapsed{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--label2);padding:2px 2px}
+.collapsed .sf{font-size:14px;color:var(--label3)}
+.collapsed b{font-weight:500;color:var(--accent)}
+
+/* progress */
+.progress{height:6px;border-radius:3px;background:var(--inset);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.path{font-size:12px;color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* sheets */
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheetwrap{position:absolute;left:0;right:0;top:0;display:flex;justify-content:center}
+.sheet{background:var(--window);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.4),0 0 0 .5px var(--sep);padding:24px;display:flex;flex-direction:column;gap:14px}
+:root[data-theme="dark"] .sheet{background:#323234}
+.sheet h3{font-size:17px;font-weight:600;line-height:1.2}
+.sheet .lead{font-size:13px;color:var(--label2);line-height:1.4}
+.sheet .btns{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
+.block{border-radius:12px;border:.5px solid var(--sep);background:var(--card);overflow:hidden}
+.block .bh{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;font-weight:600}
+.block .bh .sf{font-size:15px}
+.block .bh .r{margin-left:auto}
+.block .bh .sub2{font-size:11px;font-weight:400;color:var(--label2)}
+.row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:.5px solid var(--sep);font-size:12px}
+.row .rt{flex:1;min-width:0}
+.row .rs{font-size:11px;color:var(--label2);margin-top:1px}
+.row .rv{color:var(--label2)}
+.block.perm{border-color:color-mix(in srgb,var(--danger) 55%,transparent);background:color-mix(in srgb,var(--danger) 8%,var(--card))}
+.block.perm .bh{color:var(--danger-text)}
+.block.skip{background:transparent}
+.tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:7px;background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger-text)}
+.fine{font-size:11px;color:var(--label2);line-height:1.4}
+
+/* result */
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.res{padding:18px;display:flex;flex-direction:column;gap:8px;min-height:198px}
+.res .rl{font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px}
+.res .acts{justify-content:flex-start;flex-wrap:wrap}
+.sechead{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;margin-bottom:10px}
+.sechead .cnt{font-size:12px;font-weight:400;color:var(--label2)}
+.mini{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin-left:14px}
+.mini .sf{font-size:12px}
+.mini.t .sf{color:var(--label2)}.mini.f .sf{color:var(--safe-text)}
+.cap{font:600 12px -apple-system,system-ui;color:var(--label2);margin:4px 0 8px}
+.sheetgrid{display:grid;grid-template-columns:repeat(3,340px);gap:18px 18px;align-items:start}
+.cell .cap{margin:0 0 6px}
+.backdrop{padding:28px;background:var(--window);border-radius:16px;box-shadow:var(--shadow)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const P = new URLSearchParams(location.search);
+const root = document.documentElement;
+root.dataset.theme = P.get('theme') || 'light';
+if (P.get('contrast')) root.dataset.contrast = 'high';
+
+const sf = (n, size) => `<i class="sf" style="--img:url(${(window.SYMBOLS && window.SYMBOLS[n]) || 'symbols/' + n + '.png'})${size ? `;font-size:${size}px` : ''}"></i>`;
+/* "26.4 GB" -> big number plus a smaller unit */
+const nu = (v) => v.replace(/^(.*?)\s?(GB|MB|KB|items)$/, (m, a, u) => `${a}<span class="u">${u}</span>`);
+const ICON = { developer:'hammer', aiTools:'brain', caches:'shippingbox', trash:'trash', unusedApps:'square.grid.2x2', snapshots:'clock.arrow.circlepath', startupItems:'power' };
+const TITLE = { developer:'Developer storage', aiTools:'AI tools', caches:'System and app caches', trash:'Trash', unusedApps:'Unused applications', snapshots:'Time Machine snapshots', startupItems:'Login and background items' };
+const EXPL = {
+  developer:'Simulators, build data, device support files and package caches.',
+  aiTools:'Caches, logs, session data and local models of AI tools.',
+  caches:'Files that apps and macOS rebuild when needed. Apps may open a little slower once.',
+  trash:'Items you already moved to the Trash. Emptying it cannot be undone.',
+  unusedApps:'Apps you have not opened for a long time.',
+  snapshots:'Local Time Machine copies macOS can release when space is needed.',
+  startupItems:'Apps and helpers that start with your Mac.'
+};
+const btn = (label, cls = '', icon) => `<span class="btn ${cls}">${icon ? sf(icon) : ''}${label}</span>`;
+const MAXTOTAL = 38.2;
+
+/* ---------- cards ---------- */
+function tierLine(c) {
+  if (c.tiersText) return `<div class="tiers"><span>${c.tiersText}</span></div>`;
+  const t = [];
+  if (c.safe) t.push(`<span class="s">${sf('checkmark.circle.fill')}${c.safe} safe</span>`);
+  if (c.review && c.safe) t.push(`<span class="r">${sf('eye')}${c.review} to review</span>`);
+  if (c.review && !c.safe) t.push(`<span class="r">${sf('eye')}All of it to review</span>`);
+  return `<div class="tiers">${t.join('')}</div>`;
+}
+function bar(c) {
+  if (!c.bar) return '';
+  const w = Math.max(14, Math.round(parseFloat(c.total) / MAXTOTAL * 100));
+  return `<div class="track" aria-hidden="true"><div class="bar" style="width:${w}%">${c.bar.map(([k, v]) => `<i class="${k}" style="width:${v}%"></i>`).join('')}</div></div>`;
+}
+function card(id, c) {
+  const s = c.state || 'ready';
+  const head = (chip) => `<div class="head"><span class="ct">${sf(ICON[id])}</span><span class="title">${TITLE[id]}</span>${chip || ''}</div>`;
+  const expl = `<div class="expl">${EXPL[id]}</div>`;
+  if (id === 'trash') return trashRow(c);
+  if (s === 'wait') return `<div class="card wait">${head()}<div class="msg" style="color:var(--label2)">${window.NOSCAN ? 'Not scanned' : 'Waiting to scan'}</div><div class="skel" style="width:60%"></div>${expl}</div>`;
+  if (s === 'scanning') return `<div class="card">${head()}<div class="msg"><span class="spin"></span><span style="color:var(--label2)">Scanning…</span></div><div class="skel" style="width:48%;height:22px"></div><div class="skel" style="width:78%"></div>${expl}</div>`;
+  if (s === 'needsAccess') return `<div class="card">${head('<span class="chip warn">' + sf('lock') + 'Needs access</span>')}<div class="msg warn">${sf('lock')}<span>${c.message}</span></div>${expl}<div class="acts">${btn('Allow Access…')}</div></div>`;
+  if (s === 'failed') return `<div class="card">${head('<span class="chip danger">' + sf('exclamationmark.triangle') + 'Failed</span>')}<div class="msg danger">${sf('exclamationmark.triangle.fill')}<span>${c.message}</span></div>${expl}</div>`;
+  const notice = c.notice ? `<div class="notice">${sf('hand.raised')}<span>${c.notice}</span></div>` : '';
+  const perm = c.perm ? `<div class="msg danger" style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill', 13)}<span>${c.perm} of this is removed for good.</span></div>` : '';
+  const off = c.busy ? ' off' : '';
+  const acts = btn('Review', off ? 'off' : '') + (c.clean ? btn(`${c.perm && !off ? '<span style="color:var(--danger-text);display:inline-flex">' + sf('exclamationmark.triangle.fill', 12) + '</span>' : ''}Clean ${c.clean}…`, off ? 'off' : 'acc') : '');
+  return `<div class="card">${head()}<div class="n num">${nu(c.total)}</div>${tierLine(c)}${bar(c)}${perm}${notice}${expl}<div class="acts">${acts}</div></div>`;
+}
+function trashRow(c) {
+  const s = c.state || 'ready';
+  const bz = c.busy ? ' off' : '';
+  const ct = `<span class="ct">${sf('trash')}</span>`;
+  if (s === 'wait') return `<div class="card slim wait">${ct}<div class="meta"><div class="t1"><span class="title">Trash</span></div><div class="msg" style="color:var(--label2);margin-top:3px">${window.NOSCAN ? 'Not scanned' : 'Waiting to scan'}</div></div></div>`;
+  if (s === 'needsAccess') return `<div class="card slim">${ct}<div class="meta"><div class="t1"><span class="title">Trash</span><span class="chip warn">${sf('lock')}Needs access</span></div><div class="msg warn" style="margin-top:4px">${sf('lock')}<span>${c.message}</span></div></div>${btn('Allow Access…')}</div>`;
+  return `<div class="card slim">${ct}<div class="meta"><div class="t1"><span class="title">Trash</span></div><div class="expl">${EXPL.trash}</div></div>
+    <div style="text-align:right"><div class="n num" style="font-size:26px;font-weight:600">${nu(c.total)}</div><div class="tiers" style="justify-content:flex-end"><span>${c.busy ? 'Updating after the cleanup…' : c.items + ' items · not in either total'}</span></div></div>
+    <div style="display:flex;gap:8px;margin-left:8px">${btn('Open Trash', bz.trim())}${btn('Empty Trash…', c.busy ? 'off' : 'dest', 'trash')}</div></div>`;
+}
+const CARDS = {
+  developer:{ total:'38.2 GB', safe:'24.6 GB', review:'13.6 GB', clean:'24.6 GB', bar:[['s',64],['r',36]], perm:'7.1 GB', notice:'Xcode is running: 2 items (1.2 GB) skipped.' },
+  aiTools:{ total:'9.4 GB', safe:'1.8 GB', review:'7.6 GB', clean:'1.8 GB', bar:[['s',19],['r',81]] },
+  caches:{ total:'6.8 GB', review:'6.8 GB', bar:[['r',100]] },
+  trash:{ total:'3.1 GB', items:47 },
+  unusedApps:{ total:'14.9 GB', review:'14.9 GB', bar:[['r',100]], tiersText:`<span class="r" style="display:inline-flex;gap:5px;align-items:center">${'EYE'}6 apps, all to review</span>` },
+  startupItems:{ total:'14 items', tiersText:'Read only for now' },
+};
+CARDS.unusedApps.tiersText = `<span style="display:inline-flex;gap:5px;align-items:center"><span style="color:var(--review-text);display:inline-flex">${sf('eye', 12)}</span>6 apps, all to review</span>`;
+const C = (id, extra = {}) => card(id, { ...CARDS[id], ...extra });
+
+/* ---------- window ---------- */
+function sidebar() {
+  const it = (ic, t, sel) => `<div class="it ${sel ? 'sel' : ''}">${sf(ic)}<span>${t}</span></div>`;
+  return `<div class="sb"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    ${it('sparkles', 'Smart Care', true)}
+    <div class="sec">Storage</div>${it('externaldrive', 'Overview')}${it('folder', 'Large Files')}${it('doc.on.doc', 'Duplicates')}
+    <div class="sec">Developer</div>${it('hammer', 'Developer Storage')}
+    <div class="sec">System</div>${it('gearshape', 'System Care')}${it('clock.arrow.circlepath', 'History')}</div>`;
+}
+const toolbar = (sub, action) => `<div class="tb"><div><div class="tbt">Smart Care</div><div class="tbs">${sub}</div></div>${action}</div>`;
+const win = (w, h, inner, overlay = '') => `<div class="win" style="width:${w}px;${h ? `height:${h}px` : ''}">${sidebar()}<div class="main">${inner}</div>${overlay}</div>`;
+const group = (t, cards, extra = '', after = '') => `<section class="group"><h2>${t}</h2>${extra}${cards ? `<div class="grid">${cards}</div>` : ''}${after}</section>`;
+
+function summary(o = {}) {
+  const help = o.compact ? '' : `<div class="stathelp" style="margin-top:2px">Safe to rebuild. Some of this is removed for good.</div>`;
+  const rev = [['Developer storage', '13.6 GB'], ['AI tools', '7.6 GB'], ['Unused applications', '14.9 GB'], ['System and app caches', '6.8 GB']];
+  return `<div class="panel summary">
+    <div class="stat"><span class="tile safe">${sf('checkmark.shield')}</span><div style="flex:1">
+      <div class="big num">${nu('26.4 GB')}</div><div class="statlabel">you can clean safely</div>${help}
+      <div style="margin-top:12px">${btn(sf('exclamationmark.triangle.fill') + 'Clean 26.4 GB Safely…', 'prom lg' + (o.off ? ' off' : ''))}</div>
+      <div style="margin-top:12px"><div class="bar" aria-hidden="true" style="height:6px;border-radius:3px"><i style="width:73%;background:color-mix(in srgb,var(--safe) 45%,transparent)"></i><i style="width:27%;background:var(--danger)"></i></div></div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:12px">
+        <span style="display:flex;gap:6px;align-items:center;color:var(--label2)">${sf('trash', 12)}<span><b class="num" style="color:var(--label)">19.3 GB</b> goes to the Trash (can be restored).</span></span>
+        <span style="display:flex;gap:6px;align-items:center;color:var(--danger-text)">${sf('exclamationmark.triangle.fill', 12)}<span><b class="num">7.1 GB</b> is removed for good.</span></span></div></div></div>
+    <div class="stat"><span class="tile review">${sf('eye')}</span><div style="flex:1">
+      <div class="big num">${nu('42.9 GB')}</div><div class="statlabel">to review first</div>
+      ${o.compact ? '' : '<div class="stathelp" style="margin-top:2px">Pick what to remove on each card.</div>'}
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;font-size:12px">${rev.map(r => `<div style="display:flex;justify-content:space-between;color:var(--label2);border-top:.5px solid var(--sep);padding-top:5px"><span>${r[0]}</span><span class="num">${r[1]}</span></div>`).join('')}</div></div></div>
+  </div>
+  <div class="foot">${o.access ? sf('lock') + 'The Trash needs Full Disk Access, so it is not read or counted.' : sf('info.circle') + 'The Trash (3.1 GB) is not counted in either total.'}</div>`;
+}
+const scanBtn = (t = 'Scan Again', icon = 'arrow.clockwise', cls = '') => btn(t, 'reg ' + cls, icon);
+
+function homeReady(w, h, o = {}) {
+  const trash = o.access ? card('trash', { id: 'trash', state: 'needsAccess', message: 'Needs Full Disk Access to read the Trash. Nothing was read.' }) : C('trash');
+  const body = `<div class="pane">${summary({ compact: w < 1000, access: o.access })}
+    ${group('Cleanup', `${C('developer')}${C('aiTools')}${C('caches')}`, '')}
+    <div style="margin-top:-10px">${trash}</div>
+    <div class="row3">${group('Applications', C('unusedApps'))}
+    ${group('Maintenance', C('startupItems'), '', `<div class="collapsed" style="margin:12px 0 0">${sf('checkmark.circle')}<span>Time Machine snapshots: nothing to clean.</span></div>`)}</div>
+  </div>`;
+  return win(w, h, toolbar('Scanned 2 minutes ago', scanBtn()) + body);
+}
+function homeScanning(w, h) {
+  const body = `<div class="pane">
+    <div class="panel" style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span class="spin"></span><div style="min-width:0;flex:1"><div style="font-weight:600">Scanning 3 of 7</div><div class="path">Reading ~/Library/Caches/com.example.Editor/…/Thumbnails</div></div></div>
+      <div class="progress"><i style="width:43%"></i></div>
+      <div class="fine">Nothing is removed during a scan. Cards that finish stay if you cancel.</div>
+    </div>
+    ${group('Cleanup', `${C('developer', { busy: 1 })}${C('aiTools', { busy: 1 })}${card('caches', { state: 'scanning' })}`)}
+    <div style="margin-top:-10px">${card('trash', { state: 'wait' })}</div>
+    <div class="row3">${group('Applications', card('unusedApps', { state: 'wait' }))}${group('Maintenance', card('startupItems', { state: 'wait' }))}</div>
+  </div>`;
+  return win(w, h, toolbar('Scanning…', scanBtn('Cancel', 'xmark.circle')) + body);
+}
+function homeRunning(w, h) {
+  const body = `<div class="pane">
+    <div class="panel" style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span class="spin"></span><div style="min-width:0;flex:1"><div style="font-weight:600">Cleaning, 14 of 36 items</div><div class="path">Moving to the Trash: iOS device support files</div></div></div>
+      <div class="progress"><i style="width:39%"></i></div>
+      <div class="fine">Items moved to the Trash can be restored afterwards. Leave LittleTidy open until this finishes.</div>
+    </div>
+    ${group('Cleanup', `${C('developer', { busy: 1 })}${C('aiTools', { busy: 1 })}${C('caches', { busy: 1 })}`)}
+    <div style="margin-top:-10px">${C('trash', { busy: 1 })}</div>
+  </div>`;
+  return win(w, h, toolbar('Cleaning…', scanBtn('Scan Again', 'arrow.clockwise', 'off')) + body);
+}
+function homePre(w, h) {
+  const body = `<div class="pane" style="align-items:center;justify-content:center;gap:14px;padding-top:70px;text-align:center">
+    <span class="tile neutral" style="width:64px;height:64px;border-radius:18px;font-size:30px;color:var(--accent)">${sf('sparkles')}</span>
+    <h1 style="font-size:26px">Find what you can clean</h1>
+    <div class="sub" style="font-size:13px;max-width:420px;line-height:1.45;margin:0">One scan reads caches, developer data, AI tools, the Trash, apps and snapshots. Nothing is removed during a scan.</div>
+    <div style="margin-top:6px">${btn('Scan', 'prom lg', 'sparkle.magnifyingglass')}</div></div>`;
+  return win(w, h, toolbar('Not scanned yet', '') + body);
+}
+
+/* ---------- confirm sheet ---------- */
+function confirmSheet(w, h) {
+  const base = homeReady(w, h);
+  const tileSm = (ic, cls = 'neutral') => `<span class="tile ${cls}" style="width:28px;height:28px;font-size:14px;border-radius:8px">${sf(ic)}</span>`;
+  const sheet = `<div class="sheetwrap"><div class="sheet" style="width:600px">
+    <div><h3>Clean 26.4 GB safely?</h3><div class="lead" style="margin-top:6px">Only items marked safe are included. Items you would review first are not touched.</div></div>
+    <div class="block perm"><div class="bh">${sf('exclamationmark.triangle.fill')}Removed for good<span class="sub2" style="color:var(--label)">These cannot be restored.</span><span class="r num">7.1 GB</span></div>
+      <div class="row">${tileSm('hammer', 'danger')}<div class="rt">Simulators<div class="rs">Developer storage · 4 items · removed with Xcode's simulator tool</div></div><span class="rv num" style="color:var(--label)">5.9 GB</span></div>
+      <div class="row">${tileSm('hammer', 'danger')}<div class="rt">Homebrew downloads<div class="rs">Developer storage · 1 item · removed by Homebrew's own cleanup</div></div><span class="rv num" style="color:var(--label)">1.2 GB</span></div></div>
+    <div class="block"><div class="bh"><span style="color:var(--safe-text)">${sf('checkmark.circle.fill')}</span>Moved to the Trash<span class="sub2">You can restore these until you empty the Trash.</span><span class="r num">19.3 GB</span></div>
+      <div class="row">${tileSm('hammer')}<div class="rt">Developer storage<div class="rs">22 items</div></div><span class="rv num">17.5 GB</span></div>
+      <div class="row">${tileSm('brain')}<div class="rt">AI tools<div class="rs">9 items</div></div><span class="rv num">1.8 GB</span></div></div>
+    <div class="block skip"><div class="bh">${sf('hand.raised')}Skipped<span class="sub2">2 items, not part of the 26.4 GB</span></div>
+      <div class="row"><div class="rt">Xcode build data (in use) · 2 items · 1.2 GB<div class="rs">Xcode is running. Quit it and clean again to include these.</div></div></div></div>
+    <div class="fine">Moved items free no space until the Trash is emptied. You will see exactly what was freed afterwards.</div>
+    <div class="btns">${btn('Cancel', 'md')}${btn(sf('exclamationmark.triangle.fill') + 'Clean 26.4 GB (7.1 GB permanent)', 'prom md focus')}</div>
+  </div></div>`;
+  return base.replace(/<\/div>$/, `<div class="scrim"></div>${sheet}</div>`);
+}
+
+/* ---------- result ---------- */
+const rowc = (id, items, tr, rm, first) => `<div class="row" style="padding:10px 16px;${first ? 'border-top:none' : ''}"><span class="tile neutral" style="width:30px;height:30px;font-size:16px;border-radius:8px">${sf(ICON[id])}</span><div class="rt" style="font-size:13px">${TITLE[id]}<div class="rs">${items}</div></div>${tr ? `<span class="mini t">${sf('trash')}<span class="num">${tr}</span> in the Trash</span>` : ''}${rm ? `<span class="mini f">${sf('checkmark.circle.fill')}<span class="num">${rm}</span> removed</span>` : ''}</div>`;
+const lrow = (t, r, first) => `<div class="row" style="padding:10px 16px;${first ? 'border-top:none' : ''}"><div class="rt" style="font-size:13px">${t}<div class="rs">${r}</div></div></div>`;
+function resultView(w, h) {
+  const body = `<div class="pane" style="gap:22px">
+    <div style="display:flex;flex-direction:column;gap:10px"><span class="btn link" style="padding:0;height:auto;font-size:13px">${sf('chevron.left')}Smart Care</span>
+      <div style="display:flex;align-items:center;gap:12px"><span class="tile warn" style="width:40px;height:40px;border-radius:20px;font-size:22px">${sf('exclamationmark.triangle.fill')}</span><div><h1>Cleanup finished with problems</h1><div class="sub">35 of 36 items done. 1 failed. 2 more were skipped. Here is where the space went.</div></div></div></div>
+    <div class="three">
+      <div class="panel res"><div class="rl"><span class="tile safe">${sf('checkmark.circle.fill')}</span>Freed now</div><div class="big num">${nu('3.0 GB')}</div><div class="expl" style="font-size:12px">Removed for good and available on your disk now.</div></div>
+      <div class="panel res"><div class="rl"><span class="tile neutral">${sf('trash')}</span>In the Trash</div><div class="big num">${nu('19.3 GB')}</div><div class="expl" style="font-size:12px">Moved, not freed yet. The space comes back when you empty the Trash.</div>
+        <div class="acts" style="gap:6px;margin-top:auto">${btn('Restore All', '', 'arrow.uturn.backward')}${btn('Open Trash')}<span style="flex:1"></span>${btn('Empty Trash…', 'dest', 'trash')}</div></div>
+      <div class="panel res"><div class="rl"><span class="tile warn">${sf('clock.arrow.circlepath')}</span>Held by a snapshot</div><div class="big num">${nu('2.6 GB')}</div><div class="expl" style="font-size:12px">Time Machine still keeps a copy of these removed files. macOS releases it when it needs the space.</div></div>
+    </div>
+    <section><div class="sechead">By card</div><div class="panel" style="overflow:hidden">${rowc('developer', '26 items done · 1 failed', '17.5 GB', '5.6 GB', 1)}${rowc('aiTools', '9 items done', '1.8 GB', '')}</div></section>
+    <section><div class="sechead"><span style="color:var(--warn-text)">${sf('hand.raised', 16)}</span>Skipped<span class="cnt">2 items · nothing was changed</span></div><div class="panel" style="overflow:hidden">${lrow('Xcode build data (in use) · 2 items · 1.2 GB', 'Xcode was running. Quit it and clean again.', 1)}</div></section>
+    <section><div class="sechead"><span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill', 16)}</span>Failed<span class="cnt">1 item</span></div><div class="panel" style="overflow:hidden">${lrow('1 simulator runtime · 1.5 GB', 'The simulator tool reported an error. It was not removed.', 1)}</div></section>
+    <div class="titlerow"><div class="fine">Restore only works for items that are still in the Trash.</div>${btn('Back to Smart Care', 'prom lg')}</div>
+  </div>`;
+  return win(w, h, toolbar('Cleanup result', '') + body);
+}
+function resultFailed(w, h) {
+  const body = `<div class="pane" style="gap:22px">
+    <div style="display:flex;flex-direction:column;gap:10px"><span class="btn link" style="padding:0;height:auto;font-size:13px">${sf('chevron.left')}Smart Care</span>
+      <div style="display:flex;align-items:center;gap:12px"><span class="tile danger" style="width:40px;height:40px;border-radius:20px;font-size:22px">${sf('exclamationmark.triangle.fill')}</span><div><h1>Nothing was cleaned</h1><div class="sub">All 36 items failed. Nothing was changed on your Mac.</div></div></div></div>
+    <section><div class="sechead"><span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill', 16)}</span>Failed<span class="cnt">36 items</span></div><div class="panel" style="overflow:hidden">
+      ${lrow('Developer storage · 27 items', 'macOS did not allow LittleTidy to change these items. Check access in System Settings.', 1)}
+      ${lrow('AI tools · 9 items', 'macOS did not allow LittleTidy to change these items. Check access in System Settings.')}</div></section>
+    <div class="titlerow"><div class="fine">Scan again after changing access. Nothing needs restoring.</div><div style="display:flex;gap:10px">${btn('Open System Settings', 'lg')}${btn('Back to Smart Care', 'prom lg')}</div></div></div>`;
+  return win(w, h, toolbar('Cleanup result', '') + body);
+}
+
+/* ---------- empty trash (opened from the result view, 31 items just moved there) ---------- */
+function trashSheet(done) {
+  const base = resultView(1280, 0);
+  const rows = [['Xcode build data, 12 items', 'last cleanup', '11.2 GB'], ['iOS device support files, 9 items', 'last cleanup', '4.8 GB'], ['Package caches, 1 item', 'last cleanup', '1.5 GB'], ['AI tool logs, 9 items', 'last cleanup', '1.8 GB'], ['Screenshot 2026-10-03.png', '', '4 MB'], ['notes-draft.txt', '', '12 KB']];
+  const list = rows.map((r, i) => `<div class="row" style="padding:6px 12px;${i === 0 ? 'border-top:none' : ''}"><span class="rt" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r[0]}</span>${r[1] ? `<span class="tag" style="background:var(--inset);color:var(--label2);font-weight:500">${r[1]}</span>` : ''}<span class="rv num">${r[2]}</span></div>`).join('');
+  const confirm = `<div style="display:flex;gap:14px"><span class="tile danger" style="width:44px;height:44px;border-radius:22px;font-size:20px">${sf('trash.fill')}</span><div style="flex:1">
+      <h3>Empty the Trash?</h3><div style="font-size:13px;font-weight:600;margin-top:6px" class="num">78 items, 22.4 GB. This cannot be undone.</div></div></div>
+    <div class="block perm" style="padding:11px 14px;display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.4">
+      <span style="color:var(--danger-text)">${sf('exclamationmark.triangle.fill', 15)}</span><span>Includes <b>31 items (19.3 GB)</b> LittleTidy moved here in its last cleanup. Emptying removes your only way to restore them.</span></div>
+    <div class="block"><div style="overflow:hidden">${list}</div><div class="row" style="color:var(--label2);padding:6px 12px">and 45 more</div></div>
+    <div class="fine">Items in use, locked or owned by another account are skipped.</div>
+    <div class="btns">${btn('Cancel', 'md focus')}${btn('Empty Trash', 'destfill md', 'trash')}</div>`;
+  const result = `<div style="display:flex;gap:14px"><span class="tile safe" style="width:44px;height:44px;border-radius:22px;font-size:20px">${sf('checkmark.circle.fill')}</span><div style="flex:1">
+      <h3>Trash emptied</h3><div style="font-size:13px;margin-top:6px" class="num">75 items removed, 22.3 GB.</div></div></div>
+    <div class="block skip"><div class="row" style="border-top:none"><span style="color:var(--warn-text)">${sf('hand.raised', 14)}</span><div class="rt">3 items skipped<div class="rs">In use by another app: render-cache, sync-lock, session.db</div></div></div></div>
+    <div class="fine">A Time Machine snapshot may still hold some of this space for a while.</div>
+    <div class="btns">${btn('Done', 'prom md focus')}</div>`;
+  return base.replace(/<\/div>$/, `<div class="scrim"></div><div class="sheetwrap"><div class="sheet" style="width:480px">${done ? result : confirm}</div></div></div>`);
+}
+
+/* ---------- states sheet ---------- */
+function states() {
+  const cell = (cap, html) => `<div class="cell"><div class="cap">${cap}</div>${html}</div>`;
+  const wide = (cap, html) => `<div class="cell" style="grid-column:1/-1"><div class="cap">${cap}</div>${html}</div>`;
+  return `<div class="backdrop" style="width:1180px"><div class="sheetgrid">
+    ${cell('Ready, two tiers, includes permanent removal', C('developer', { notice: null }))}
+    ${cell('Ready, review only (no Clean)', C('caches'))}
+    ${cell('Ready, count only', C('startupItems'))}
+    ${cell('Scanning', card('caches', { state: 'scanning' }))}
+    ${cell('Waiting (queued during a scan)', card('unusedApps', { state: 'wait' }))}
+    ${cell('Scan or cleanup running: Clean disabled', C('aiTools', { busy: 1 }))}
+    ${cell('Blocked item left out, rest still cleanable', C('developer'))}
+    ${cell('Failed', card('aiTools', { state: 'failed', message: 'Could not read the AI tools folders. Try Scan Again.' }))}
+    ${cell('Needs access (never “0 bytes”)', card('caches', { state: 'needsAccess', message: 'Needs Full Disk Access to read these caches. Nothing was read.' }))}
+    ${wide('Trash: a full-width row, and the only place a red button appears', C('trash'))}
+    ${wide('Trash, needs access', card('trash', { state: 'needsAccess', message: 'Needs Full Disk Access to read the Trash. Nothing was read.' }))}
+  </div></div>`;
+}
+
+
+function homeNothingSafe(w, h) {
+  const sum = `<div class="panel summary">
+    <div class="stat"><span class="tile safe">${sf('checkmark.shield')}</span><div style="flex:1"><div class="big num">${nu('0 GB')}</div><div class="statlabel">you can clean safely</div><div class="stathelp" style="margin-top:2px">Nothing qualifies for one-tap cleaning. You can still review each card.</div></div></div>
+    <div class="stat"><span class="tile review">${sf('eye')}</span><div style="flex:1"><div class="big num">${nu('21.7 GB')}</div><div class="statlabel">to review first</div><div class="stathelp" style="margin-top:2px">Pick what to remove on each card.</div></div></div></div>
+    <div class="foot">${sf('info.circle')}The Trash (3.1 GB) is not counted in either total.</div>`;
+  const body = `<div class="pane">${sum}
+    ${group('Cleanup', C('caches'), `<div class="collapsed">${sf('checkmark.circle')}<span>Developer storage and AI tools: nothing to clean.</span></div>`)}
+    <div style="margin-top:-10px">${C('trash')}</div>
+    <div class="row3">${group('Applications', C('unusedApps'))}${group('Maintenance', C('startupItems'))}</div></div>`;
+  return win(w, h, toolbar('Scanned just now', scanBtn()) + body);
+}
+function homeCancelled(w, h) {
+  const body = `<div class="pane">
+    <div class="panel" style="padding:16px 22px;display:flex;align-items:center;gap:12px"><span class="tile warn" style="width:30px;height:30px;font-size:15px">${sf('hand.raised')}</span><div style="flex:1"><div style="font-weight:600">Scan cancelled</div><div class="fine">3 of 7 cards finished and are shown below. The other 4 were not scanned, so no totals are given.</div></div>${btn('Scan Again', 'prom reg', 'arrow.clockwise')}</div>
+    ${group('Cleanup', `${C('developer', { busy: 1 })}${C('aiTools', { busy: 1 })}${C('caches', { busy: 1 })}`)}
+    <div style="margin-top:-10px">${card('trash', { state: 'wait' })}</div>
+    <div class="row3">${group('Applications', card('unusedApps', { state: 'wait' }))}${group('Maintenance', card('snapshots', { state: 'wait' }) + card('startupItems', { state: 'wait' }))}</div></div>`;
+  return win(w, h, toolbar('Scan stopped at 3 of 7', '') + body);
+}
+const SCREENS = {
+  'home-ready': () => homeReady(1280, 0),
+  'home-min-window': () => homeReady(980, 640),
+  'home-scanning': () => homeScanning(1280, 0),
+  'home-before-scan': () => homePre(1280, 520),
+  'home-needs-access': () => homeReady(1280, 0, { access: 1 }),
+  'home-nothing-safe': () => homeNothingSafe(1280, 0),
+  'home-scan-cancelled': () => homeCancelled(1280, 0),
+  'cleanup-running': () => homeRunning(1280, 0),
+  'card-states': states,
+  'confirm-clean-safely': () => confirmSheet(1280, 900),
+  'cleanup-result': () => resultView(1280, 0),
+  'cleanup-result-all-failed': () => resultFailed(1280, 520),
+  'empty-trash-confirm': () => trashSheet(false),
+  'empty-trash-done': () => trashSheet(true),
+};
+window.NOSCAN = P.get('screen') === 'home-scan-cancelled';
+const which = P.get('screen') || 'home-ready';
+document.getElementById('root').innerHTML = `<div class="shot" id="shot">${SCREENS[which]()}</div>`;
+</script>
+</body>
+</html>
