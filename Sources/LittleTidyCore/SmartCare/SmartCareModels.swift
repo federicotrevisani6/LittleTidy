@@ -25,6 +25,7 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
     case caches
     case trash
     case unusedApps
+    case leftovers
     case snapshots
     case startupItems
 
@@ -33,7 +34,7 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
     public var group: SmartCareGroup {
         switch self {
         case .developer, .aiTools, .mailAttachments, .iosBackups, .installers, .caches, .trash: .cleanup
-        case .unusedApps: .apps
+        case .unusedApps, .leftovers: .apps
         case .snapshots, .startupItems: .maintenance
         }
     }
@@ -48,6 +49,7 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
         case .caches: "System and app caches"
         case .trash: "Trash"
         case .unusedApps: "Unused applications"
+        case .leftovers: "Leftovers of removed apps"
         case .snapshots: "Time Machine snapshots"
         case .startupItems: "Login and background items"
         }
@@ -63,6 +65,7 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
         case .caches: "Files that apps and macOS rebuild when needed. Apps may open a little slower once."
         case .trash: "Items you already moved to the Trash. Emptying it cannot be undone."
         case .unusedApps: "Apps you have not opened for a long time."
+        case .leftovers: "Settings and caches of apps that are no longer installed."
         case .snapshots: "Local Time Machine copies macOS can release when space is needed."
         case .startupItems: "Apps and helpers that start with your Mac."
         }
@@ -106,17 +109,21 @@ public struct SmartCareCard: Identifiable, Equatable, Sendable {
     /// Informational size for cards whose bytes are not made of entries
     /// (for example a snapshot estimate). Never added to a total.
     public let infoText: String?
+    /// The big value for cards that are not made of bytes, for example "13 items".
+    public let headlineText: String?
 
     public init(
         cardID: SmartCareCardID,
         state: SmartCareCardState,
         entries: [SmartCareEntry] = [],
-        infoText: String? = nil
+        infoText: String? = nil,
+        headlineText: String? = nil
     ) {
         self.cardID = cardID
         self.state = state
         self.entries = entries
         self.infoText = infoText
+        self.headlineText = headlineText
     }
 
     public var recommendedBytes: Int64 { bytes(for: .recommended) }

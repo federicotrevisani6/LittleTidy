@@ -162,6 +162,8 @@ struct EverydayReviewSheet: View {
             return "\(size) of attachment copies. Mail must be closed. They stay in the Trash until you empty it."
         case .installers:
             return "\(size) of installers and archives. They stay in the Trash until you empty it."
+        case .appLeftovers:
+            return "\(size) of settings and caches of apps that are no longer installed. They stay in the Trash until you empty it. If you reinstall one of the apps it starts fresh."
         }
     }
 }
