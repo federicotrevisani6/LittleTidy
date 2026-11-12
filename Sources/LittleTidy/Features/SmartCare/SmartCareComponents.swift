@@ -12,6 +12,7 @@ extension SmartCareCardID {
         case .caches: "shippingbox"
         case .trash: "trash"
         case .unusedApps: "square.grid.2x2"
+        case .leftovers: "questionmark.folder"
         case .snapshots: "clock.arrow.circlepath"
         case .startupItems: "power"
         }

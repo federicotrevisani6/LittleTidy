@@ -268,3 +268,159 @@ struct EverydayCleanupTests {
         #expect(result.items.map(\.status) == [.failed, .removed])
     }
 }
+
+@Suite("App leftovers")
+struct OrphanLeftoverTests {
+    private struct Fixture {
+        let home: URL
+        let apps: URL
+    }
+
+    private func fixture() throws -> Fixture {
+        let root = try TemporaryDirectory().url
+        let home = root.appendingPathComponent("home")
+        let apps = root.appendingPathComponent("Apps")
+        try makeDir(home.appendingPathComponent("Library"))
+        try makeDir(apps)
+        return Fixture(home: home, apps: apps)
+    }
+
+    private func makeApp(_ f: Fixture, name: String, id: String, nested: [(String, String)] = []) throws {
+        let contents = f.apps.appendingPathComponent("\(name).app/Contents")
+        try makeDir(contents)
+        try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": id], format: .xml, options: 0)
+            .write(to: contents.appendingPathComponent("Info.plist"))
+        for (folder, nestedID) in nested {
+            let bundle = contents.appendingPathComponent("\(folder)/Helper.app/Contents")
+            try makeDir(bundle)
+            try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": nestedID], format: .xml, options: 0)
+                .write(to: bundle.appendingPathComponent("Info.plist"))
+        }
+    }
+
+    private func leftover(_ f: Fixture, folder: String, name: String, daysOld: Int = 120) throws {
+        let dir = f.home.appendingPathComponent("Library/\(folder)")
+        try makeDir(dir)
+        let item = dir.appendingPathComponent(name)
+        if name.hasSuffix(".plist") {
+            try Data(repeating: 1, count: 2_000).write(to: item)
+        } else {
+            try makeDir(item)
+            try Data(repeating: 1, count: 5_000).write(to: item.appendingPathComponent("data"))
+        }
+        let date = Calendar.current.date(byAdding: .day, value: -daysOld, to: Date())!
+        for url in [item, item.appendingPathComponent("data")] where FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
+        }
+    }
+
+    private func analyzer(_ f: Fixture, running: Set<String> = [], spotlight: [URL]? = []) -> OrphanLeftoverAnalyzer {
+        OrphanLeftoverAnalyzer(home: f.home, appRoots: [f.apps], runningBundleIDs: { running }, spotlightApps: { spotlight })
+    }
+
+    @Test func anIdWithNoInstalledAppIsListedWithItsEvidence() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Application Support", name: "com.gone.tool")
+        let result = try await analyzer(f).analyze()
+        #expect(result.items.map(\.name) == ["com.gone.tool"])
+        #expect(result.items.first?.tier == .review)
+        #expect(result.items.first?.reason.contains("No app with this ID") == true)
+        #expect(result.items.first?.bundleID == "com.gone.tool")
+    }
+
+    @Test func installedAndNestedAndSuffixedIdsAreNotListed() async throws {
+        let f = try fixture()
+        try makeApp(f, name: "Main", id: "com.here.main", nested: [("Library/LoginItems", "com.here.launcher"), ("XPCServices", "com.other.xpc")])
+        for name in ["com.here.main", "com.here.launcher", "com.other.xpc", "com.here.main.helper", "com.here.main.savedState"] {
+            try leftover(f, folder: "Caches", name: name)
+        }
+        try leftover(f, folder: "Caches", name: "com.gone.real")
+        let result = try await analyzer(f).analyze()
+        #expect(result.items.map(\.name) == ["com.gone.real"])
+    }
+
+    @Test func aRunningAppsDataIsNeverListed() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Application Support", name: "com.run.ning")
+        let result = try await analyzer(f, running: ["com.RUN.ning"]).analyze()
+        #expect(result.items.isEmpty)
+    }
+
+    @Test func appleIdsGroupContainersAndShortNamesAreNeverListed() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Application Support", name: "com.apple.something")
+        try leftover(f, folder: "Group Containers", name: "group.com.gone.shared")
+        try leftover(f, folder: "Application Support", name: "Firefox")
+        try leftover(f, folder: "Application Support", name: "com.short")
+        #expect(try await analyzer(f).analyze().items.isEmpty)
+    }
+
+    @Test func nothingModifiedInTheLastNinetyDaysIsListed() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Application Support", name: "com.gone.recent", daysOld: 30)
+        try leftover(f, folder: "Application Support", name: "com.gone.old", daysOld: 100)
+        #expect(try await analyzer(f).analyze().items.map(\.name) == ["com.gone.old"])
+    }
+
+    @Test func preferencesAndSavedStateNamesAreMatchedByTheirIdentifier() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Preferences", name: "com.gone.prefs.plist")
+        try leftover(f, folder: "Saved Application State", name: "com.gone.state.savedState")
+        let names = try await analyzer(f).analyze().items.map(\.name).sorted()
+        #expect(names == ["com.gone.prefs", "com.gone.state"])
+    }
+
+    @Test func anAppFoundOnlyThroughSpotlightCountsAsInstalled() async throws {
+        let f = try fixture()
+        let external = try TemporaryDirectory().url.appendingPathComponent("Elsewhere")
+        try makeDir(external)
+        let other = Fixture(home: f.home, apps: external)
+        try makeApp(other, name: "Far", id: "com.far.away")
+        try leftover(f, folder: "Caches", name: "com.far.away")
+        let result = try await analyzer(f, spotlight: [external.appendingPathComponent("Far.app")]).analyze()
+        #expect(result.items.isEmpty)
+    }
+
+    @Test func whenSpotlightCannotAnswerNothingIsListed() async throws {
+        let f = try fixture()
+        try leftover(f, folder: "Application Support", name: "com.gone.tool")
+        let result = try await analyzer(f, spotlight: nil).analyze()
+        #expect(result.items.isEmpty)
+        #expect(result.problem == .cannotVerify)
+    }
+
+    @Test func symlinksAreSkipped() async throws {
+        let f = try fixture()
+        let target = f.home.appendingPathComponent("elsewhere")
+        try makeDir(target)
+        let dir = f.home.appendingPathComponent("Library/Application Support")
+        try makeDir(dir)
+        let link = dir.appendingPathComponent("com.gone.link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        let date = Calendar.current.date(byAdding: .day, value: -200, to: Date())!
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: target.path)
+        #expect(try await analyzer(f).analyze().items.isEmpty)
+    }
+
+    @Test func identifierShapeAndMatchingRules() {
+        #expect(OrphanLeftoverAnalyzer.isReverseDNS("com.vendor.app"))
+        #expect(!OrphanLeftoverAnalyzer.isReverseDNS("com.vendor"))
+        #expect(!OrphanLeftoverAnalyzer.isReverseDNS("Some App"))
+        #expect(OrphanLeftoverAnalyzer.isInstalled("com.a.b.helper", in: ["com.a.b"]))
+        #expect(!OrphanLeftoverAnalyzer.isInstalled("com.a.bee", in: ["com.a.b"]))
+    }
+
+    @Test func theExecutorSkipsLeftoversOfARunningApp() async throws {
+        let temp = try TemporaryDirectory().url
+        let root = temp.appendingPathComponent("Library/Caches")
+        try makeDir(root)
+        let file = root.appendingPathComponent("com.gone.tool")
+        try makeDir(file)
+        let item = EverydaySpaceItem(kind: .appLeftovers, name: "com.gone.tool", detail: "", url: file, bytes: 10, tier: .review,
+                                     reason: "", consequence: "", bundleID: "com.gone.tool")
+        let executor = EverydaySpaceCleanupExecutor(allowedRoots: [root], activity: FakeActivity(), runningBundleIDs: { ["com.gone.tool"] }, trash: { _ in nil })
+        let result = await executor.execute(items: [item])
+        #expect(result.items.first?.status == .skipped)
+        #expect(FileManager.default.fileExists(atPath: file.path))
+    }
+}

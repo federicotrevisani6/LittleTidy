@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import LittleTidyCore
 
@@ -21,8 +22,10 @@ extension ScanReviewStore {
         guard !isScanningEveryday else { return }
         isScanningEveryday = true
         let downloadsApproved = isDownloadsApproved
+        let appRoots = self.appRoots
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         Task { [weak self] in
-            let results = await Task.detached(priority: .utility) { () -> [EverydayScanResult] in
+            let scanned = await Task.detached(priority: .utility) { () -> [EverydayScanResult] in
                 func run(_ kind: EverydaySpaceKind, _ analyze: () throws -> [EverydaySpaceItem]) -> EverydayScanResult {
                     do {
                         return EverydayScanResult(kind: kind, items: try analyze())
@@ -42,6 +45,10 @@ extension ScanReviewStore {
                 found.append(run(.mailDownloads) { try MailDownloadsAnalyzer().analyze() })
                 return found
             }.value
+            var results = scanned
+            if let leftovers = try? await OrphanLeftoverAnalyzer(appRoots: appRoots, runningBundleIDs: { running }).analyze() {
+                results.append(leftovers)
+            }
             guard let self else { return }
             self.everydayResults = Dictionary(uniqueKeysWithValues: results.map { ($0.kind, $0) })
             self.isScanningEveryday = false
@@ -85,10 +92,13 @@ extension ScanReviewStore {
         let items = selectedEverydayItems(kind)
         guard !items.isEmpty, !isCleaningDeveloperStorage else { return }
         isCleaningDeveloperStorage = true
+        let library = Self.home.appendingPathComponent("Library", isDirectory: true)
         let roots = [Self.downloadsURL, Self.backupsURL, Self.mailDownloadsURL]
+            + OrphanLeftoverAnalyzer.libraryFolders.map { library.appendingPathComponent($0, isDirectory: true) }
         let card = kind.cardID
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         Task { [weak self] in
-            let result = await EverydaySpaceCleanupExecutor(allowedRoots: roots).execute(items: items)
+            let result = await EverydaySpaceCleanupExecutor(allowedRoots: roots, runningBundleIDs: { running }).execute(items: items)
             guard let self else { return }
             let summary = CleanupSummary.make(from: result) { _ in card }
             self.cleanAllSummary = summary

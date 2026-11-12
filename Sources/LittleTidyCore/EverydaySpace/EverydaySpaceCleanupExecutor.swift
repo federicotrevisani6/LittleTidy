@@ -21,14 +21,17 @@ public actor EverydaySpaceCleanupExecutor {
     private let allowedRoots: [URL]
     private let activity: any EverydayActivityChecking
     private let trash: Trasher
+    private let runningBundleIDs: @Sendable () -> Set<String>
 
     public init(
         allowedRoots: [URL],
         activity: any EverydayActivityChecking = DeveloperToolActivityChecker(),
+        runningBundleIDs: @escaping @Sendable () -> Set<String> = { [] },
         trash: @escaping Trasher = EverydaySpaceCleanupExecutor.systemTrash
     ) {
         self.allowedRoots = allowedRoots
         self.activity = activity
+        self.runningBundleIDs = runningBundleIDs
         self.trash = trash
     }
 
@@ -62,6 +65,9 @@ public actor EverydaySpaceCleanupExecutor {
         }
         if snapshot.containsPath(within: item.url) {
             return skipped("An app has files open inside this item. Quit it and try again.")
+        }
+        if let bundleID = item.bundleID, runningBundleIDs().contains(where: { $0.caseInsensitiveCompare(bundleID) == .orderedSame }) {
+            return skipped("The app this data belongs to is running again. Quit it first.")
         }
         if item.kind == .mailDownloads, await activity.isMailRunning() {
             return skipped("Quit Mail before cleaning its attachments. Nothing was removed.")

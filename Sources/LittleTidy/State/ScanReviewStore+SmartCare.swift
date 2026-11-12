@@ -53,6 +53,7 @@ extension ScanReviewStore {
                 switch result.problem {
                 case .needsAccess: inputs.states[card] = .needsAccess("Allow Full Disk Access to read this folder.")
                 case .folderNotApproved: inputs.states[card] = .needsFolder("Approve your Downloads folder to look for old installers.")
+                case .cannotVerify: inputs.states[card] = .failed("Could not confirm which apps are installed, so nothing is listed.")
                 case nil: break
                 }
             } else if isScanningEveryday {
@@ -108,7 +109,7 @@ extension ScanReviewStore {
                 }
             }
             selectedSection = .developerStorage
-        case .trash, .unusedApps, .snapshots, .startupItems, .mailAttachments, .iosBackups, .installers:
+        case .trash, .unusedApps, .leftovers, .snapshots, .startupItems, .mailAttachments, .iosBackups, .installers:
             break
         }
     }
@@ -124,6 +125,7 @@ extension ScanReviewStore {
         case .mailAttachments: reviewEveryday(.mailDownloads)
         case .iosBackups: reviewEveryday(.iosBackups)
         case .installers: reviewEveryday(.installers)
+        case .leftovers: reviewEveryday(.appLeftovers)
         }
     }
 
