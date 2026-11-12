@@ -76,6 +76,11 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
 - [`DeveloperToolCommandClient.swift`](../Sources/LittleTidyCore/Execution/DeveloperToolCommandClient.swift): Actor wrapping `Process` execution with standard pipes, termination status, and cancellation handling.
 - [`SimulatorInventoryParser.swift`](../Sources/LittleTidyCore/Execution/SimulatorInventoryParser.swift): Robust JSON parser for `simctl list --json` and `simctl runtime list --json`.
 
+#### Smart Care (`Sources/LittleTidyCore/SmartCare/`)
+- [`SmartCareModels.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareModels.swift): `SmartCareCardID` (declaration order is the count-once precedence), `SmartCareCard`, `SmartCareEntry`, `SmartCareCardState`, `SmartCareHeadline`.
+- [`SmartCareBuilder.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareBuilder.swift): Pure mapping from analyzer output to cards. Removes paths a higher card already owns and computes the headline (safe total excludes review, protected, unclassified and the Trash).
+- [`TrashEmptier.swift`](../Sources/LittleTidyCore/Execution/TrashEmptier.swift): Empties the user's `~/.Trash` (the one permanent removal in the app). Direct children only, symlinks removed as links, nil open-file snapshot blocks, locked or foreign-owned items skipped.
+
 #### Watchers (`Sources/LittleTidyCore/Watchers/`)
 - [`AppTrashWatcher.swift`](../Sources/LittleTidyCore/Watchers/AppTrashWatcher.swift): Monitors `~/.Trash` via macOS `FSEventStream`. When an `.app` bundle is moved to the Trash by the user in Finder, it parses its `Info.plist`, identifies leftover files in `~/Library/`, and triggers an `AppUninstallEvent` to prompt the user.
 
@@ -104,6 +109,8 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
   - [`ContentView.swift`](../Sources/LittleTidy/Features/Root/ContentView.swift): Root `NavigationSplitView`, drag-and-drop folder/app drop receiver, leftover sheet presentation.
 - `Sidebar/`
   - [`SidebarView.swift`](../Sources/LittleTidy/Features/Sidebar/SidebarView.swift): Sidebar navigation divided into 3 groups (`System`, `Cleanup`, `Review`).
+- `SmartCare/`
+  - [`SmartCareView.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareView.swift): Default home. Scan, headline, grouped cards, and the Trash card's own confirmation sheet. Card logic lives in [`ScanReviewStore+SmartCare.swift`](../Sources/LittleTidy/State/ScanReviewStore+SmartCare.swift).
 - `Overview/`
   - [`OverviewView.swift`](../Sources/LittleTidy/Features/Overview/OverviewView.swift): Dashboard showing scanned stats, quick-action cards, access readiness list, live scanning progress bar, and scan issue disclosures.
 - `DeveloperStorage/`

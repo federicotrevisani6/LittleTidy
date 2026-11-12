@@ -5,7 +5,7 @@ import Combine
 
 @MainActor
 final class ScanReviewStore: ObservableObject {
-    @Published var selectedSection: SidebarSection = .overview
+    @Published var selectedSection: SidebarSection = .smartCare
     @Published var isScanning = false
     @Published var hasCompletedScan = false
     @Published var scanDidFail = false
@@ -91,10 +91,20 @@ final class ScanReviewStore: ObservableObject {
     @Published private(set) var isReleasingSnapshotSpace = false
     @Published var snapshotReleaseResult: LocalSnapshotReleaseResult?
     @Published var snapshotReleaseErrorMessage: String?
+    // Smart Care: the Trash card.
+    @Published var trashPreview: TrashEmptyPreview?
+    @Published var trashNeedsAccess = false
+    @Published var isEmptyingTrash = false
+    @Published var trashEmptyResult: TrashEmptyResult?
+    /// Where LittleTidy's last cleanup put items in the Trash: the user's undo.
+    @Published var lastCleanupTrashPaths: Set<String> = []
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
     private var developerStorageTask: Task<Void, Never>?
+    /// Lets a cancelled developer scan know a newer one has taken over, so it
+    /// does not mark the scan as finished while the new one is still running.
+    private var developerScanGeneration = 0
     private var previousSelectionSnapshot: [SelectionSnapshot]?
     private let trashPlanBuilder: TrashPlanBuilder
     private let trashExecutor: TrashExecutor
@@ -279,6 +289,8 @@ final class ScanReviewStore: ObservableObject {
 
     func refreshDeveloperStorage() {
         developerStorageTask?.cancel()
+        developerScanGeneration += 1
+        let generation = developerScanGeneration
         isScanningDeveloperStorage = true
         developerStorageErrorMessage = nil
 
@@ -299,8 +311,9 @@ final class ScanReviewStore: ObservableObject {
                 self?.isScanningDeveloperStorage = false
                 self?.developerStorageErrorMessage = nil
             } catch is CancellationError {
-                self?.isScanningDeveloperStorage = false
+                if self?.developerScanGeneration == generation { self?.isScanningDeveloperStorage = false }
             } catch {
+                guard self?.developerScanGeneration == generation else { return }
                 self?.isScanningDeveloperStorage = false
                 self?.developerStorageErrorMessage = error.localizedDescription
             }
@@ -958,6 +971,7 @@ final class ScanReviewStore: ObservableObject {
             let newReportItems = self.cleanupReportItems(from: result, plan: plan)
             self.cleanupReportItems = existingReportItems + newReportItems
             self.items = self.items.compactMap { self.itemAfterCleanup($0, trashedSourcePaths: trashedSourcePaths) }
+            if !mode.isPermanent { self.lastCleanupTrashPaths = Set(result.trashed.map { $0.trashURL.standardizedFileURL.path }) }
             self.isCleaning = false
             let actionVerb = mode.isPermanent ? "deleted" : "moved to Trash"
             self.cleanupErrorMessage = result.failed.isEmpty ? nil : "\(result.failed.count) items could not be \(actionVerb)."
@@ -1399,7 +1413,7 @@ final class ScanReviewStore: ObservableObject {
         isScanning = true
         scanDidFail = false
         statusMessage = "Scanning approved folders"
-        selectedSection = .overview
+        selectedSection = .smartCare
 
         scanTask = Task { [weak self] in
             guard let self else { return }
