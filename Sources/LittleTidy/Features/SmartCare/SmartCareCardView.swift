@@ -1,11 +1,11 @@
 import LittleTidyCore
 import SwiftUI
 
-/// One Smart Care card: header, one number, tier split and bar, one sentence
-/// of explanation and at most two buttons. See the design handoff, section 4.
+/// Every Smart Care category is one of these: the same box, in the same
+/// places, whether it has something to clean or not. Header, one value, one
+/// short line, a few small notices, one sentence of explanation, and buttons.
 struct SmartCareCardView: View {
     let card: SmartCareCard
-    let largestTotal: Int64
     /// Items on this card a safety rule leaves out right now (for example
     /// while Xcode runs), and their size.
     var leftOutCount = 0
@@ -16,9 +16,12 @@ struct SmartCareCardView: View {
     let review: () -> Void
     let clean: () -> Void
     let allowAccess: () -> Void
+    var chooseFolder: () -> Void = {}
+    var openTrash: () -> Void = {}
+    var emptyTrash: () -> Void = {}
 
-    private var totalBytes: Int64 { card.recommendedBytes + card.reviewBytes + card.protectedBytes }
     private var title: String { card.cardID.title }
+    private var totalBytes: Int64 { card.recommendedBytes + card.reviewBytes + card.protectedBytes }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -28,7 +31,9 @@ struct SmartCareCardView: View {
                 Spacer(minLength: 4)
                 chip
             }
-            content
+            valueArea
+                .frame(minHeight: 58, alignment: .topLeading)
+            notices
             Text(card.cardID.explanation)
                 .font(.subheadline)
                 .foregroundStyle(Color.cleanerSecondaryText)
@@ -37,8 +42,9 @@ struct SmartCareCardView: View {
             buttons
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 196, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
         .cleanerInteractiveSurface(cornerRadius: 12)
+        .opacity(card.isEmpty ? 0.78 : 1)
         .accessibilityElement(children: .contain)
     }
 
@@ -49,6 +55,8 @@ struct SmartCareCardView: View {
         switch card.state {
         case .needsAccess:
             SmartCareChip(text: "Needs access", tint: Color.cleanerWarningText, fill: Color.cleanerWarning)
+        case .needsFolder:
+            SmartCareChip(text: "Needs a folder", tint: Color.cleanerWarningText, fill: Color.cleanerWarning)
         case .failed:
             SmartCareChip(text: "Failed", tint: Color.cleanerDangerText, fill: Color.cleanerDanger)
         default:
@@ -56,22 +64,18 @@ struct SmartCareCardView: View {
         }
     }
 
-    // MARK: - Body
+    // MARK: - The one value
 
     @ViewBuilder
-    private var content: some View {
+    private var valueArea: some View {
         switch card.state {
         case .scanning:
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Scanning…").foregroundStyle(Color.cleanerSecondaryText)
-                }
-                skeleton(width: 120)
-                skeleton(width: 200)
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Scanning…").foregroundStyle(Color.cleanerSecondaryText)
             }
-        case .needsAccess(let message):
-            Label(message, systemImage: "lock")
+        case .needsAccess(let message), .needsFolder(let message):
+            Label(message, systemImage: card.state.isFolderState ? "folder.badge.plus" : "lock")
                 .font(.callout)
         case .blocked(let message):
             Label(message, systemImage: "hand.raised")
@@ -81,64 +85,97 @@ struct SmartCareCardView: View {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .font(.callout)
                 .foregroundStyle(Color.cleanerDangerText)
-        case .empty, .ready:
-            readyContent
+        case .empty:
+            Label("Nothing to clean", systemImage: "checkmark.circle")
+                .font(.callout)
+                .foregroundStyle(Color.cleanerSecondaryText)
+        case .ready:
+            readyValue
         }
     }
 
     @ViewBuilder
-    private var readyContent: some View {
-        if totalBytes > 0 {
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    if card.recommendedBytes == 0, card.protectedBytes == 0 {
-                        SmartCareNumber(bytes: totalBytes, size: 26)
-                        Text(allReviewText)
-                            .font(.callout)
-                            .foregroundStyle(Color.cleanerSecondaryText)
-                    } else {
-                        SmartCareNumber(bytes: totalBytes, size: 26)
-                        SmartCareTierLine(card: card)
-                    }
+    private var readyValue: some View {
+        if let headline = card.headlineText {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(headline)
+                    .font(.system(size: 26, weight: .semibold))
+                    .monospacedDigit()
+                if let info = card.infoText {
+                    Text(info).font(.callout).foregroundStyle(Color.cleanerSecondaryText).lineLimit(2)
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(summaryLabel)
-                SmartCareTierBar(card: card, largestTotal: largestTotal)
             }
-            if permanentBytes > 0 {
-                Label("\(ByteCountFormatter.cleanerString(from: permanentBytes)) of this is removed for good.",
-                      systemImage: "exclamationmark.triangle.fill")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([title, headline, card.infoText].compactMap { $0 }.joined(separator: ", "))
+        } else if card.cardID == .trash {
+            VStack(alignment: .leading, spacing: 4) {
+                SmartCareNumber(bytes: totalBytes, size: 26)
+                Text("\(card.itemCount) items · not in either total")
                     .font(.callout)
-                    .foregroundStyle(Color.cleanerDangerText)
+                    .foregroundStyle(Color.cleanerSecondaryText)
             }
-            if leftOutCount > 0 {
-                Label("\(leftOutCount == 1 ? "1 item" : "\(leftOutCount) items") (\(ByteCountFormatter.cleanerString(from: leftOutBytes))) left out for now: quit Xcode to include.",
-                      systemImage: "hand.raised")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title), \(ByteCountFormatter.cleanerString(from: totalBytes)), \(card.itemCount) items")
+        } else if let value = actionable {
+            VStack(alignment: .leading, spacing: 4) {
+                SmartCareNumber(bytes: value.bytes, size: 26)
+                Text(value.caption)
                     .font(.callout)
-                    .foregroundStyle(Color.cleanerWarningText)
+                    .foregroundStyle(Color.cleanerSecondaryText)
             }
-        } else if let info = card.infoText {
-            Text(info).font(.callout).foregroundStyle(Color.cleanerSecondaryText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title), \(value.bytes == 0 ? "" : ByteCountFormatter.cleanerString(from: value.bytes)), \(value.caption)")
         }
     }
 
-    private var allReviewText: String {
-        card.itemCount > 1 ? "\(card.itemCount) items, all to review" : "All of it to review"
+    /// The one amount a person can act on: the safe part if there is one,
+    /// otherwise what is left to review. The rest is in the review sheet.
+    private var actionable: (bytes: Int64, caption: String)? {
+        if card.recommendedBytes > 0 {
+            let more = card.reviewBytes > 0 ? " · +\(ByteCountFormatter.cleanerString(from: card.reviewBytes)) to review" : ""
+            return (card.recommendedBytes, "safe to clean" + more)
+        }
+        if card.reviewBytes > 0 {
+            return (card.reviewBytes, card.itemCount > 1 ? "to review · \(card.itemCount) items" : "to review")
+        }
+        if card.protectedBytes > 0 {
+            return (card.protectedBytes, "protected, not removed")
+        }
+        let unrecognised = card.bytes(for: .unclassified)
+        if unrecognised > 0 {
+            return (unrecognised, "not recognised, never removed")
+        }
+        return nil
     }
 
-    private var summaryLabel: String {
-        var parts = [title, ByteCountFormatter.cleanerString(from: totalBytes)]
-        if card.recommendedBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.recommendedBytes)) safe") }
-        if card.reviewBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.reviewBytes)) to review") }
-        if card.protectedBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.protectedBytes)) protected") }
-        return parts.joined(separator: ", ")
+    // MARK: - Notices
+
+    /// Words and a glyph, never colour alone, and never more than two.
+    @ViewBuilder
+    private var notices: some View {
+        if permanentBytes > 0 || leftOutCount > 0 {
+            HStack(spacing: 6) {
+                if permanentBytes > 0 {
+                    notice("exclamationmark.triangle.fill", "\(ByteCountFormatter.cleanerString(from: permanentBytes)) removed for good", Color.cleanerDangerText, Color.cleanerDanger)
+                }
+                if leftOutCount > 0 {
+                    notice("hand.raised", leftOutCount == 1 ? "1 item left out" : "\(leftOutCount) items left out", Color.cleanerWarningText, Color.cleanerWarning)
+                        .help("\(ByteCountFormatter.cleanerString(from: leftOutBytes)) left out for now: quit Xcode to include.")
+                }
+            }
+        }
     }
 
-    private func skeleton(width: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.16))
-            .frame(width: width, height: 10)
-            .accessibilityHidden(true)
+    private func notice(_ symbol: String, _ text: String, _ tint: Color, _ fill: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol).imageScale(.small)
+            Text(text).lineLimit(1)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(fill.opacity(0.16), in: Capsule())
     }
 
     // MARK: - Buttons
@@ -147,83 +184,47 @@ struct SmartCareCardView: View {
     private var buttons: some View {
         HStack {
             Spacer()
-            switch card.state {
-            case .needsAccess:
-                Button("Allow Access…", action: allowAccess)
-            case .scanning, .failed, .blocked:
-                EmptyView()
-            case .empty, .ready:
-                if card.reviewBytes > 0 || card.recommendedBytes > 0 || card.itemCount > 0 || card.infoText != nil {
-                    Button("Review", action: review)
+            if card.cardID == .trash, case .ready = card.state {
+                Button("Open Trash", action: openTrash)
+                Button(role: .destructive, action: emptyTrash) {
+                    Label("Empty Trash…", systemImage: "trash").foregroundStyle(Color.cleanerDangerText)
                 }
-                if card.canClean {
-                    Button(action: clean) {
-                        HStack(spacing: 4) {
-                            if permanentBytes > 0 {
-                                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.cleanerDangerText)
+                .disabled(isBusy || card.itemCount == 0)
+            } else {
+                switch card.state {
+                case .needsAccess:
+                    Button("Allow Access…", action: allowAccess)
+                case .needsFolder:
+                    Button("Choose Folder…", action: chooseFolder)
+                case .scanning, .failed, .blocked, .empty:
+                    EmptyView()
+                case .ready:
+                    Button("Review", action: review)
+                    if card.canClean {
+                        Button(action: clean) {
+                            HStack(spacing: 4) {
+                                if permanentBytes > 0 {
+                                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.cleanerDangerText)
+                                }
+                                Text("Clean \(ByteCountFormatter.cleanerString(from: card.recommendedBytes))…")
+                                    .foregroundStyle(isBusy ? Color.secondary : Color.accentColor)
                             }
-                            Text("Clean \(ByteCountFormatter.cleanerString(from: card.recommendedBytes))…")
-                                .foregroundStyle(isBusy ? Color.secondary : Color.accentColor)
                         }
+                        .disabled(isBusy)
+                        .accessibilityLabel("Clean \(title), \(ByteCountFormatter.cleanerString(from: card.recommendedBytes))")
                     }
-                    .disabled(isBusy)
-                    .accessibilityLabel("Clean \(title), \(ByteCountFormatter.cleanerString(from: card.recommendedBytes))")
                 }
             }
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+        .frame(minHeight: 24)
     }
 }
 
-/// The Trash: the only place with a permanent action, so it is a full-width
-/// row with its own red button, never a fourth card.
-struct SmartCareTrashRow: View {
-    let card: SmartCareCard
-    let isBusy: Bool
-    let open: () -> Void
-    let empty: () -> Void
-    let allowAccess: () -> Void
-
-    private var totalBytes: Int64 { card.recommendedBytes + card.reviewBytes }
-
-    var body: some View {
-        HStack(spacing: 14) {
-            SmartCareTile(symbol: "trash", size: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(card.cardID.title).font(.headline)
-                Text(card.cardID.explanation)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.cleanerSecondaryText)
-            }
-            Spacer(minLength: 12)
-            switch card.state {
-            case .needsAccess(let message):
-                SmartCareChip(text: "Needs access", tint: Color.cleanerWarningText, fill: Color.cleanerWarning)
-                Text(message).font(.callout)
-                Button("Allow Access…", action: allowAccess).buttonStyle(.bordered).controlSize(.small)
-            default:
-                VStack(alignment: .trailing, spacing: 2) {
-                    SmartCareNumber(bytes: totalBytes, size: 22)
-                    Text(isBusy ? "Updating after the cleanup…" : "\(card.itemCount) items · not in either total")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.cleanerSecondaryText)
-                }
-                HStack {
-                    Button("Open Trash", action: open)
-                    Button(role: .destructive, action: empty) {
-                        Label("Empty Trash…", systemImage: "trash")
-                            .foregroundStyle(Color.cleanerDangerText)
-                    }
-                    .disabled(isBusy || card.itemCount == 0)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .cleanerInteractiveSurface(cornerRadius: 12)
-        .accessibilityElement(children: .contain)
+private extension SmartCareCardState {
+    var isFolderState: Bool {
+        if case .needsFolder = self { return true }
+        return false
     }
 }

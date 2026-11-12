@@ -284,6 +284,8 @@ struct CleanupSummaryView: View {
     @ObservedObject var store: ScanReviewStore
     let emptyTrash: () -> Void
     let close: () -> Void
+    /// Only the developer cleanup has a Developer Storage screen to open.
+    var showsDeveloperLink = true
 
     private var title: String {
         if summary.removedCount == 0 { return "Nothing was cleaned" }
@@ -453,9 +455,11 @@ struct CleanupSummaryView: View {
     private var actions: some View {
         HStack {
             Spacer()
-            Button("Open Developer Storage") {
-                close()
-                store.selectedSection = .developerStorage
+            if showsDeveloperLink {
+                Button("Open Developer Storage") {
+                    close()
+                    store.selectedSection = .developerStorage
+                }
             }
             Button("Done", action: close).keyboardShortcut(.defaultAction)
         }

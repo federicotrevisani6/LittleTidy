@@ -46,11 +46,33 @@ extension ScanReviewStore {
         }
         if isScanning { inputs.states[.unusedApps] = .scanning }
 
-        if let date = developerStorageInventory.latestLocalSnapshotAt {
-            inputs.infoText[.snapshots] = "Latest local snapshot \(date.formatted(date: .abbreviated, time: .shortened)). macOS releases this space itself when it is needed."
+        for kind in EverydaySpaceKind.allCases {
+            let card = kind.cardID
+            if let result = everydayResults[kind] {
+                inputs.entries[card] = result.items.map { SmartCareEntry(path: $0.url.path, bytes: $0.bytes, tier: $0.tier) }
+                switch result.problem {
+                case .needsAccess: inputs.states[card] = .needsAccess("Allow Full Disk Access to read this folder.")
+                case .folderNotApproved: inputs.states[card] = .needsFolder("Approve your Downloads folder to look for old installers.")
+                case .cannotVerify: inputs.states[card] = .failed("Could not confirm which apps are installed, so nothing is listed.")
+                case nil: break
+                }
+            } else if isScanningEveryday {
+                inputs.states[card] = .scanning
+            }
         }
-        if startupItemCount > 0 {
-            inputs.infoText[.startupItems] = "\(startupItemCount) items start with your Mac."
+
+        if let date = developerStorageInventory.latestLocalSnapshotAt {
+            inputs.headlineText[.snapshots] = date.formatted(date: .abbreviated, time: .omitted)
+            inputs.infoText[.snapshots] = "Latest local snapshot. macOS releases this space itself when it is needed."
+        }
+        let startupCount = startupItems.isEmpty ? startupItemCount : startupItems.count
+        if startupCount > 0 {
+            let broken = startupItems.filter(\.isBroken).count
+            inputs.headlineText[.startupItems] = startupCount == 1 ? "1 item" : "\(startupCount) items"
+            inputs.infoText[.startupItems] = broken > 0
+                ? "launchd items start with your Mac. \(broken) point\(broken == 1 ? "s" : "") to something that is gone."
+                : "launchd items start with your Mac."
+            
         }
 
         return SmartCareBuilder.cards(from: inputs)
@@ -90,7 +112,7 @@ extension ScanReviewStore {
                 }
             }
             selectedSection = .developerStorage
-        case .trash, .unusedApps, .snapshots, .startupItems:
+        case .trash, .unusedApps, .leftovers, .snapshots, .startupItems, .mailAttachments, .iosBackups, .installers:
             break
         }
     }
@@ -101,7 +123,12 @@ extension ScanReviewStore {
         case .caches: selectedSection = .caches
         case .trash: openTrash()
         case .unusedApps: selectedSection = .unusedApps
-        case .snapshots, .startupItems: selectedSection = .maintenance
+        case .snapshots: selectedSection = .maintenance
+        case .startupItems: showStartupItems = true
+        case .mailAttachments: reviewEveryday(.mailDownloads)
+        case .iosBackups: reviewEveryday(.iosBackups)
+        case .installers: reviewEveryday(.installers)
+        case .leftovers: reviewEveryday(.appLeftovers)
         }
     }
 
@@ -151,6 +178,8 @@ extension ScanReviewStore {
     }
 
     func startSmartCareScan() {
+        scanEverydaySpace()
+        scanStartupItems()
         if !isScanning { startOrCancelScan() }
         // A scan already running must not be restarted: that made the card
         // look finished while it was still working.
@@ -213,7 +242,7 @@ extension ScanReviewStore {
         }
     }
 
-    private func recordCleanAllHistory(result: DeveloperStorageCleanupResult, summary: CleanupSummary) {
+    func recordCleanAllHistory(result: DeveloperStorageCleanupResult, summary: CleanupSummary) {
         guard summary.removedCount > 0 || summary.hasProblems else { return }
         var byCard: [String: Int64] = [:]
         for line in summary.lines { byCard[line.cardID.rawValue] = line.bytes }

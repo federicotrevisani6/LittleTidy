@@ -19,9 +19,13 @@ public enum SmartCareGroup: String, CaseIterable, Identifiable, Sendable {
 public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
     case developer
     case aiTools
+    case mailAttachments
+    case iosBackups
+    case installers
     case caches
     case trash
     case unusedApps
+    case leftovers
     case snapshots
     case startupItems
 
@@ -29,8 +33,8 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
 
     public var group: SmartCareGroup {
         switch self {
-        case .developer, .aiTools, .caches, .trash: .cleanup
-        case .unusedApps: .apps
+        case .developer, .aiTools, .mailAttachments, .iosBackups, .installers, .caches, .trash: .cleanup
+        case .unusedApps, .leftovers: .apps
         case .snapshots, .startupItems: .maintenance
         }
     }
@@ -39,9 +43,13 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .developer: "Developer storage"
         case .aiTools: "AI tools"
+        case .mailAttachments: "Mail attachments"
+        case .iosBackups: "iPhone and iPad backups"
+        case .installers: "Installers and archives"
         case .caches: "System and app caches"
         case .trash: "Trash"
         case .unusedApps: "Unused applications"
+        case .leftovers: "Leftovers of removed apps"
         case .snapshots: "Time Machine snapshots"
         case .startupItems: "Login and background items"
         }
@@ -51,9 +59,13 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .developer: "Simulators, build data, device support files and package caches."
         case .aiTools: "Caches, logs, session data and local models of AI tools."
+        case .mailAttachments: "Copies of attachments Mail saved when you opened them. Mail can fetch them again."
+        case .iosBackups: "Copies of your devices kept on this Mac. You decide backup by backup."
+        case .installers: "Old installers and archives you already expanded, in your Downloads folder."
         case .caches: "Files that apps and macOS rebuild when needed. Apps may open a little slower once."
         case .trash: "Items you already moved to the Trash. Emptying it cannot be undone."
         case .unusedApps: "Apps you have not opened for a long time."
+        case .leftovers: "Settings and caches of apps that are no longer installed."
         case .snapshots: "Local Time Machine copies macOS can release when space is needed."
         case .startupItems: "Apps and helpers that start with your Mac."
         }
@@ -64,6 +76,8 @@ public enum SmartCareCardState: Equatable, Sendable {
     case scanning
     case ready
     case needsAccess(String)
+    /// A folder the person has not approved yet (for example Downloads).
+    case needsFolder(String)
     case blocked(String)
     case empty
     case failed(String)
@@ -95,17 +109,21 @@ public struct SmartCareCard: Identifiable, Equatable, Sendable {
     /// Informational size for cards whose bytes are not made of entries
     /// (for example a snapshot estimate). Never added to a total.
     public let infoText: String?
+    /// The big value for cards that are not made of bytes, for example "13 items".
+    public let headlineText: String?
 
     public init(
         cardID: SmartCareCardID,
         state: SmartCareCardState,
         entries: [SmartCareEntry] = [],
-        infoText: String? = nil
+        infoText: String? = nil,
+        headlineText: String? = nil
     ) {
         self.cardID = cardID
         self.state = state
         self.entries = entries
         self.infoText = infoText
+        self.headlineText = headlineText
     }
 
     public var recommendedBytes: Int64 { bytes(for: .recommended) }

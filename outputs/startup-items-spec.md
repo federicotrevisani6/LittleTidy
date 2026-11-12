@@ -51,6 +51,14 @@ It reads launchd property lists in `~/Library/LaunchAgents`, `/Library/LaunchAge
 
 `SystemCareAnalyzer.startupEntries`, `StartupEntry` (owner app, protected, broken, loaded), `BoundedCommandRunner` for `launchctl`, `SystemCareView` and the Smart Care card.
 
-## 8. Change log
+## 8. Implementation status (first version)
+
+- Done: both phases. The list groups by owner app, marks the scope, collapses Apple's items, flags items whose program is confirmed missing and shows running and off states. User-level items that are not Apple's have a switch: off runs `launchctl disable` and, if the item is running, `bootout`; on runs `launchctl enable`. The item is re-read right before acting and a mismatch aborts.
+- Switching on does not start the item now: it takes effect at the next login, and the message says so. This is the open question 1 answer, applied to enabling as well.
+- Never changed: Apple's items, anything in /Library, items whose plist cannot be read, and labels with anything but letters, digits, dots, dashes and underscores.
+- Not done: a run of the real switch on a real item (tests use a fake `launchctl`), and reading the Login Items & Extensions list.
+
+## 9. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 8.

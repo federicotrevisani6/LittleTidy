@@ -45,7 +45,8 @@ struct ContentView: View {
                         }
                         .disabled(store.isScanning)
 
-                        if !store.selectedItems.isEmpty && store.selectedSection != .cleanupPlan {
+                        // Smart Care has its own Clean buttons; this older shortcut would be an unlabeled icon there.
+                        if !store.selectedItems.isEmpty && store.selectedSection != .cleanupPlan && store.selectedSection != .smartCare {
                             Button {
                                 store.selectedSection = .cleanupPlan
                             } label: {

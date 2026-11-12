@@ -59,6 +59,14 @@ Otherwise it is an **orphan candidate**, and is listed only when its newest modi
 
 `AppUsageAnalyzer.relatedAppData` (reuse its location list), a new `OrphanLeftoverAnalyzer`, `SmartCareCardID` (new card, after unused apps), `TrashPlanBuilder`.
 
-## 8. Change log
+## 8. Implementation status (first version)
+
+- Done: the analyzer, a "Leftovers of removed apps" card in the Applications group and the review sheet, through the same executor as installers and backups (Trash only, open-file check, symlinks refused, and a skip when the app is running again at the moment of cleanup).
+- An ID counts as installed when it is the ID of an app found in `/Applications`, `/System/Applications`, `~/Applications` or an approved app root, of a helper, login item, XPC service, plug-in or framework inside an installed app, a dot-suffix of one of those, the ID of a running app, or an app Spotlight reports on any volume. If Spotlight cannot answer, nothing is listed and the card says so (this settles open question 1 on the safe side).
+- Not done: a run against real leftovers on a real Mac with the sheet open, and the "claimed by the uninstall prompt appears once" case, which needs the trash watcher's leftover list to be shared (criterion 11).
+- Deviations: leftovers go through the everyday cleanup executor and its folder boundary, not through `TrashPlanBuilder`; the age is the newest modification of the item or its direct children.
+
+## 9. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 8.

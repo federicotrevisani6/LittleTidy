@@ -59,6 +59,11 @@ public actor DeveloperToolActivityChecker: DeveloperToolActivityChecking {
         await isProcessRunning("xcodebuild")
     }
 
+    /// Same fail-closed rule as Xcode: if the check cannot run, Mail counts as running.
+    public func isMailRunning() async -> Bool {
+        await isProcessRunning("Mail")
+    }
+
     private func isProcessRunning(_ name: String) async -> Bool {
         do {
             _ = try await commandRunner.run(

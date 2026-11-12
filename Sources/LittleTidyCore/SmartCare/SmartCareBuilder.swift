@@ -5,15 +5,18 @@ public struct SmartCareInputs: Sendable {
     public var entries: [SmartCareCardID: [SmartCareEntry]]
     public var states: [SmartCareCardID: SmartCareCardState]
     public var infoText: [SmartCareCardID: String]
+    public var headlineText: [SmartCareCardID: String]
 
     public init(
         entries: [SmartCareCardID: [SmartCareEntry]] = [:],
         states: [SmartCareCardID: SmartCareCardState] = [:],
-        infoText: [SmartCareCardID: String] = [:]
+        infoText: [SmartCareCardID: String] = [:],
+        headlineText: [SmartCareCardID: String] = [:]
     ) {
         self.entries = entries
         self.states = states
         self.infoText = infoText
+        self.headlineText = headlineText
     }
 }
 
@@ -29,12 +32,13 @@ public enum SmartCareBuilder {
             let owned = found.filter { entry in !isClaimed(entry.path, by: claimed) }
             claimed.append(contentsOf: owned.map(\.path))
 
-            let state = resolvedState(owned: owned, requested: inputs.states[id], hasInfo: inputs.infoText[id] != nil)
+            let state = resolvedState(owned: owned, requested: inputs.states[id], hasInfo: inputs.infoText[id] != nil || inputs.headlineText[id] != nil)
             cards.append(SmartCareCard(
                 cardID: id,
                 state: state,
                 entries: owned,
-                infoText: inputs.infoText[id]
+                infoText: inputs.infoText[id],
+                headlineText: inputs.headlineText[id]
             ))
         }
         return cards
@@ -73,7 +77,7 @@ public enum SmartCareBuilder {
         hasInfo: Bool
     ) -> SmartCareCardState {
         switch requested {
-        case .scanning, .needsAccess, .failed, .blocked:
+        case .scanning, .needsAccess, .needsFolder, .failed, .blocked:
             // Unknown is never zero: these states keep their message.
             return requested ?? .ready
         case .ready, .empty, nil:

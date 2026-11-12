@@ -104,6 +104,18 @@ final class ScanReviewStore: ObservableObject {
     @Published var cleanAllSummary: CleanupSummary?
     @Published var restoreResult: TrashRestoreResult?
     @Published var isRestoring = false
+    // Smart Care: installers, iOS backups and Mail attachments.
+    @Published var everydayResults: [EverydaySpaceKind: EverydayScanResult] = [:]
+    @Published var isScanningEveryday = false
+    @Published var everydayReviewKind: EverydaySpaceKind?
+    @Published var everydaySelection: Set<String> = []
+    // Smart Care: login and background items (launchd).
+    @Published var startupItems: [StartupItem] = []
+    @Published var startupAccessIssues: [String] = []
+    @Published var isScanningStartupItems = false
+    @Published var showStartupItems = false
+    @Published var startupMessage: String?
+    @Published var changingStartupItemID: String?
     // Permissions guide.
     @Published var showPermissionGuide = false
 
