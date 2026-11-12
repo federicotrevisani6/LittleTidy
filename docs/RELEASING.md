@@ -49,10 +49,10 @@ Create a GitHub environment named `release`. Adding required reviewers there mak
 
 Optional repository variables:
 
-- `RELEASE_RUNNER`: a runner label, for example a self-hosted Mac. Default `macos-26`.
-- `RELEASE_XCODE`: the Xcode version to select. Default `latest-stable`.
+- `RELEASE_RUNNER`: a runner label. Default `xcode-27`, GitHub's hosted image with Xcode 27.
+- `RELEASE_XCODE`: the Xcode version to select. Default `27.2`, which reads the JSON project.
 
-The project uses Xcode's JSON project format, which needs an Xcode version that reads it. If the hosted runner does not have one, point `RELEASE_RUNNER` at a Mac that does.
+The project uses Xcode's JSON project format, which needs Xcode 27, so the release job does not run on the plain `macos-26` image. If the hosted image is unavailable or too old for the project, point `RELEASE_RUNNER` at a Mac that has the right Xcode.
 
 If `main` is protected, allow the `github-actions` bot to push, or the appcast commit will fail.
 
