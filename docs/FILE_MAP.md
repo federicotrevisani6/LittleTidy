@@ -1,6 +1,6 @@
 # LittleTidy — File Map and Data Flow
 
-Moved out of AGENTS.md so that file stays short. This map can lag behind the code: when it disagrees with `Sources/`, the code wins, and the safety invariants in [AGENTS.md](../AGENTS.md) win over both.
+Kept apart from the other docs so they stay short. This map can lag behind the code: when it disagrees with `Sources/`, the code wins, and the rules in [SAFETY_AND_PERMISSIONS.md](SAFETY_AND_PERMISSIONS.md) win over both.
 
 Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRunner`, `FolderExplorer`, `GitWorktreeManager`, `SystemCareAnalyzer`, `SystemCareModels`), `Analyzers/APFSReclaimEstimator.swift`, `Analyzers/ClaudeSessionRegistry.swift`, `Analyzers/LocalSnapshotInventory.swift`, `Execution/DeletionPreflight.swift`, `Execution/HomebrewCleanup.swift`, `Execution/LocalSnapshotReleaser.swift`.
 
@@ -68,13 +68,18 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
 - [`TrashPlanBuilder.swift`](../Sources/LittleTidyCore/Execution/TrashPlanBuilder.swift): Validates that candidates are inside approved roots, are not system apps, are not symlinks, and will not wipe out an entire duplicate group.
 - [`TrashExecutor.swift`](../Sources/LittleTidyCore/Execution/TrashExecutor.swift): Executes trash plan via `FileManager.default.trashItem(at:resultingItemURL:)` (or `removeItem` if permanent deletion was requested). Returns `trashed`, `failed`, and `skipped` lists.
 - [`DeveloperStorageCleanupExecutor.swift`](../Sources/LittleTidyCore/Execution/DeveloperStorageCleanupExecutor.swift): Actor executing developer storage deletions:
-  - Applies each item's `xcodeActivityRule` before acting on it: `requiresXcodeQuit` items are skipped while Xcode runs; `openFileCheck` items need a fresh open-file snapshot with nothing open inside them (see "Xcode Lock Guard" in AGENTS.md).
+  - Applies each item's `xcodeActivityRule` before acting on it: `requiresXcodeQuit` items are skipped while Xcode runs; `openFileCheck` items need a fresh open-file snapshot with nothing open inside them (the Xcode lock guard).
   - Handles `.trash` mechanism items.
   - Handles `.simctl` device deletions (re-verifying device state is not `Booted`).
   - Handles `.xcodeManaged` runtime deletions (re-verifying no dependent booted simulators).
 - [`DeveloperToolActivityChecker.swift`](../Sources/LittleTidyCore/Execution/DeveloperToolActivityChecker.swift): Runs `/usr/bin/pgrep -x Xcode`. Fails closed (returns `true` if process check errors).
 - [`DeveloperToolCommandClient.swift`](../Sources/LittleTidyCore/Execution/DeveloperToolCommandClient.swift): Actor wrapping `Process` execution with standard pipes, termination status, and cancellation handling.
 - [`SimulatorInventoryParser.swift`](../Sources/LittleTidyCore/Execution/SimulatorInventoryParser.swift): Robust JSON parser for `simctl list --json` and `simctl runtime list --json`.
+
+#### Smart Care (`Sources/LittleTidyCore/SmartCare/`)
+- [`SmartCareModels.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareModels.swift): `SmartCareCardID` (declaration order is the count-once precedence), `SmartCareCard`, `SmartCareEntry`, `SmartCareCardState`, `SmartCareHeadline`.
+- [`SmartCareBuilder.swift`](../Sources/LittleTidyCore/SmartCare/SmartCareBuilder.swift): Pure mapping from analyzer output to cards. Removes paths a higher card already owns and computes the headline (safe total excludes review, protected, unclassified and the Trash).
+- [`TrashEmptier.swift`](../Sources/LittleTidyCore/Execution/TrashEmptier.swift): Empties the user's `~/.Trash` (the one permanent removal in the app). Direct children only, symlinks removed as links, nil open-file snapshot blocks, locked or foreign-owned items skipped.
 
 #### Watchers (`Sources/LittleTidyCore/Watchers/`)
 - [`AppTrashWatcher.swift`](../Sources/LittleTidyCore/Watchers/AppTrashWatcher.swift): Monitors `~/.Trash` via macOS `FSEventStream`. When an `.app` bundle is moved to the Trash by the user in Finder, it parses its `Info.plist`, identifies leftover files in `~/Library/`, and triggers an `AppUninstallEvent` to prompt the user.
@@ -104,6 +109,8 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
   - [`ContentView.swift`](../Sources/LittleTidy/Features/Root/ContentView.swift): Root `NavigationSplitView`, drag-and-drop folder/app drop receiver, leftover sheet presentation.
 - `Sidebar/`
   - [`SidebarView.swift`](../Sources/LittleTidy/Features/Sidebar/SidebarView.swift): Sidebar navigation divided into 3 groups (`System`, `Cleanup`, `Review`).
+- `SmartCare/`
+  - [`SmartCareView.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareView.swift): Default home. Scan, headline, grouped cards, and the Trash card's own confirmation sheet. Card logic lives in [`ScanReviewStore+SmartCare.swift`](../Sources/LittleTidy/State/ScanReviewStore+SmartCare.swift).
 - `Overview/`
   - [`OverviewView.swift`](../Sources/LittleTidy/Features/Overview/OverviewView.swift): Dashboard showing scanned stats, quick-action cards, access readiness list, live scanning progress bar, and scan issue disclosures.
 - `DeveloperStorage/`

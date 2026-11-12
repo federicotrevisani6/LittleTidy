@@ -1,6 +1,7 @@
 import Foundation
 
 enum SidebarSection: String, CaseIterable, Identifiable {
+    case smartCare
     case systemDiagnosis
     case maintenance
     case protection
@@ -32,7 +33,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
         var sections: [SidebarSection] {
             switch self {
-            case .system: [.overview, .systemDiagnosis, .storage, .maintenance, .protection]
+            case .system: [.smartCare, .overview, .systemDiagnosis, .storage, .maintenance, .protection]
             case .cleanup: [.developerStorage, .caches, .duplicates, .largeFiles, .unusedApps]
             case .review: [.cleanupPlan]
             }
@@ -44,7 +45,8 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .systemDiagnosis: "System Diagnosis"
         case .maintenance: "Maintenance"
         case .protection: "Protection"
-        case .overview: "Overview"
+        case .smartCare: "Smart Care"
+        case .overview: "Storage Overview"
         case .developerStorage: "Developer Storage"
         case .duplicates: "Duplicate Files"
         case .largeFiles: "Large Files"
@@ -60,6 +62,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .systemDiagnosis: "internaldrive.fill"
         case .maintenance: "wrench.and.screwdriver"
         case .protection: "shield.lefthalf.filled"
+        case .smartCare: "sparkles"
         case .overview: "gauge.with.needle"
         case .developerStorage: "hammer"
         case .duplicates: "doc.on.doc"
@@ -77,7 +80,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .duplicates, .largeFiles, .unusedApps, .caches:
             true
-        case .overview, .storage, .developerStorage, .cleanupPlan, .systemDiagnosis, .maintenance, .protection:
+        case .smartCare, .overview, .storage, .developerStorage, .cleanupPlan, .systemDiagnosis, .maintenance, .protection:
             false
         }
     }

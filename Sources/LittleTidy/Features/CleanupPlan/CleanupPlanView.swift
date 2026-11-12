@@ -205,7 +205,7 @@ private struct CleanupPlanSummaryPanel: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 6) {
                     Button {
-                        store.selectedSection = .overview
+                        store.selectedSection = .smartCare
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                             .font(.subheadline)

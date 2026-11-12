@@ -14,6 +14,9 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
+# Version and build come from the Xcode project, the single source for releases.
+eval "$(python3 -I "$ROOT_DIR/script/release_info.py" | sed -E 's/^version=(.*)$/APP_VERSION=\1/; s/^build=(.*)$/APP_BUILD=\1/')"
+
 cd "$ROOT_DIR"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -41,8 +44,8 @@ cp "$ROOT_DIR/Sources/LittleTidy/Info.plist" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $APP_NAME" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.8.3" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 13" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_BUILD" "$INFO_PLIST"
 
 if /usr/bin/security find-identity -v -p codesigning | /usr/bin/grep -Fq "$SIGN_IDENTITY"; then
   while IFS= read -r item; do

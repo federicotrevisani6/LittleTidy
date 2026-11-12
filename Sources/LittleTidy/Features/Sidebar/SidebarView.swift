@@ -33,6 +33,10 @@ private struct SidebarRow: View {
         switch section {
         case .systemDiagnosis, .maintenance, .protection:
             return ""
+        case .smartCare:
+            if store.isScanning { return "…" }
+            let safe = store.smartCareSafeBytes
+            return safe > 0 ? ByteCountFormatter.cleanerString(from: safe) : ""
         case .overview:
             if store.isScanning { return "…" }
             let total = store.reclaimableBytes(for: .cache) + store.reclaimableBytes(for: .duplicate) + store.recommendedDeveloperReclaimableBytes

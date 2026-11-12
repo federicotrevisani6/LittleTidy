@@ -3,13 +3,14 @@ name: CI & Release
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
 
+# A newer push cancels an older pull request run, but never a run on main:
+# cancelling a release halfway through could leave a tag without assets.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -27,144 +28,133 @@ jobs:
       - name: Test
         run: swift test
 
-  # Surfaces whether Developer ID signing secrets are configured so the release
-  # job can be gated on them. Secrets are not allowed in job-level `if:`, so we
-  # expose the result as a job output.
-  signing-check:
-    name: Check signing secrets
+  # Decides whether this push to main ships a release. A release happens when the
+  # version in the Xcode project has no tag yet. Merging a pull request that does
+  # not bump the version runs tests only.
+  detect-release:
+    name: Detect release
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      enabled: ${{ steps.detect.outputs.enabled }}
-    steps:
-      - id: detect
-        env:
-          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
-        run: |
-          if [ -n "$CERT_P12" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  release:
-    name: Release
-    needs: [test, signing-check]
-    # Only publish from CI when it can produce a notarized build. Without signing
-    # secrets the release is done locally (notarized), so CI must not also create
-    # a second, ad-hoc release for the same tag.
-    if: startsWith(github.ref, 'refs/tags/v') && needs.signing-check.outputs.enabled == 'true'
-    runs-on: macos-26
-    permissions:
-      contents: write
+      should_release: ${{ steps.gate.outputs.should_release }}
+      version: ${{ steps.info.outputs.version }}
+      build: ${{ steps.info.outputs.build }}
     steps:
       - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
-
-      - name: Resolve version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Build universal release binary
-        run: swift build -c release --product LittleTidy --arch arm64 --arch x86_64
-
-      - name: Assemble .app bundle
+          fetch-depth: 0
+      - id: info
+        run: python3 -I script/release_info.py | tee -a "$GITHUB_OUTPUT"
+      - id: gate
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.info.outputs.version }}
+          BUILD: ${{ steps.info.outputs.build }}
         run: |
           set -euo pipefail
-          BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/LittleTidy"
-          APP="dist/LittleTidy.app"
-          rm -rf "$APP"
-          mkdir -p "$APP/Contents/MacOS"
-          cp "$BIN" "$APP/Contents/MacOS/LittleTidy"
-          chmod +x "$APP/Contents/MacOS/LittleTidy"
-          cat > "$APP/Contents/Info.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key><string>LittleTidy</string>
-            <key>CFBundleIdentifier</key><string>com.federicotrevisani.LittleTidy</string>
-            <key>CFBundleName</key><string>LittleTidy</string>
-            <key>CFBundleDisplayName</key><string>LittleTidy</string>
-            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-            <key>CFBundleVersion</key><string>${{ github.run_number }}</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>LSMinimumSystemVersion</key><string>26.0</string>
-            <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-            <key>NSPrincipalClass</key><string>NSApplication</string>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          PLIST
-
-      # Developer ID signing + notarization runs when the signing secrets are
-      # present; otherwise it falls back to ad-hoc signing so the workflow still
-      # produces a runnable (un-notarized) build.
-      - name: Detect signing secrets
-        id: signing
-        env:
-          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
-        run: |
-          if [ -n "$CERT_P12" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "Version ${VERSION} is already tagged: tests only, no release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          if [ ! -f "release-notes/${VERSION}.md" ]; then
+            echo "::error::Version ${VERSION} has no tag and no release-notes/${VERSION}.md. Add the notes, or revert the version bump."
+            exit 1
+          fi
+          LATEST_BUILD="$(grep -o '<sparkle:version>[0-9]*</sparkle:version>' appcast.xml | head -1 | grep -o '[0-9]*' || echo 0)"
+          if [ "${BUILD}" -le "${LATEST_BUILD}" ]; then
+            echo "::error::Build ${BUILD} must be greater than the latest published build ${LATEST_BUILD}. Sparkle only offers higher build numbers."
+            exit 1
+          fi
+          echo "Releasing ${VERSION} (build ${BUILD})."
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+  # Signs with Developer ID, notarizes the app and the DMG, publishes the GitHub
+  # release with its tag, then commits the regenerated Sparkle appcast to main.
+  # Runs in the "release" environment so its secrets can be protected there.
+  release:
+    name: Release
+    needs: detect-release
+    if: needs.detect-release.outputs.should_release == 'true'
+    # The project uses Xcode's JSON project format, which needs Xcode 27: the
+    # hosted `xcode-27` image provides it. Repository variable RELEASE_RUNNER can
+    # point to another runner, for example a self-hosted Mac, and RELEASE_XCODE
+    # selects another Xcode. The default is 27.2, which reads the JSON project.
+    runs-on: ${{ vars.RELEASE_RUNNER || 'xcode-27' }}
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.detect-release.outputs.version }}
+      BUILD: ${{ needs.detect-release.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ vars.RELEASE_XCODE || '27.2' }}
+      - name: Show Xcode
+        run: xcodebuild -version
 
       - name: Import Developer ID certificate
-        if: steps.signing.outputs.enabled == 'true'
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
           p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
 
-      - name: Sign, notarize, and staple
-        if: steps.signing.outputs.enabled == 'true'
+      - name: Write signing keys
         env:
           API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          APP="dist/LittleTidy.app"
+          umask 077
           printf '%s' "$API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-          codesign --force --deep --options runtime --timestamp \
-            --sign "Developer ID Application" "$APP"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" --wait
-          xcrun stapler staple "$APP"
-          xcrun stapler validate "$APP"
-          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$SPARKLE_KEY" > "$RUNNER_TEMP/sparkle_ed_key"
 
-      - name: Ad-hoc sign (fallback when no Developer ID secrets)
-        if: steps.signing.outputs.enabled != 'true'
-        run: codesign --force --deep --sign - dist/LittleTidy.app
-
-      - name: Package zip
+      - name: Build, sign, notarize, package DMG and appcast
         env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          cd dist
-          ditto -c -k --sequesterRsrc --keepParent "LittleTidy.app" "LittleTidy-${VERSION}-macos.zip"
+          NOTARY_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          SPARKLE_ED_KEY_FILE: ${{ runner.temp }}/sparkle_ed_key
+        run: ./script/package_release.sh
 
-      - name: Create GitHub release
+      - name: Check the artifacts
+        run: |
+          set -euo pipefail
+          test -f "dist/release/LittleTidy-${VERSION}-build-${BUILD}.dmg"
+          test -f dist/release/LittleTidy.zip
+          grep -q "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>" appcast.xml
+          xcrun stapler validate "dist/release/LittleTidy-${VERSION}-build-${BUILD}.dmg"
+
+      - name: Remove signing keys
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/sparkle_ed_key"
+
+      # The tag is created here, on the exact commit that was built. The Sparkle
+      # appcast already points at releases/download/v<version>/LittleTidy.zip.
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
-          if [ "$SIGNED" = "true" ]; then
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Signed with Developer ID and notarized by Apple — opens with a normal double-click. Developer Storage explains Xcode, Simulator, XCTest, Device Support, and Archive usage. Rebuildable files move to the Trash; explicitly reviewed Simulator devices and runtimes use Apple's supported simctl operations and may be irreversible."
-          else
-            NOTE="Universal build (Apple Silicon + Intel), requires macOS 26+. Ad-hoc signed but not notarized: on first launch, right-click → Open, or run \`xattr -dr com.apple.quarantine /Applications/LittleTidy.app\`. Developer Storage is review-first; Simulator operations are clearly identified as irreversible before confirmation."
-          fi
-          gh release create "$GITHUB_REF_NAME" "dist/LittleTidy-${VERSION}-macos.zip" \
+          gh release create "v${VERSION}" \
+            --target "$GITHUB_SHA" \
             --title "LittleTidy ${VERSION}" \
-            --generate-notes \
-            --notes "$NOTE"
+            --notes-file "release-notes/${VERSION}.md" \
+            "dist/release/LittleTidy-${VERSION}-build-${BUILD}.dmg" \
+            "dist/release/LittleTidy.dmg" \
+            "dist/release/LittleTidy.zip"
+
+      # Updates are offered only after the assets exist.
+      - name: Publish Sparkle appcast
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "Publish ${VERSION} Sparkle appcast [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

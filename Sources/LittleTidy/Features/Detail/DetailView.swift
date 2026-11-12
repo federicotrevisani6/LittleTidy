@@ -20,6 +20,8 @@ struct DetailView: View {
             switch store.selectedSection {
             case .systemDiagnosis, .maintenance, .protection:
                 SystemCareView(section: store.selectedSection, store: systemCare)
+            case .smartCare:
+                SmartCareView(store: store, systemCare: systemCare)
             case .overview:
                 OverviewView(store: store)
             case .developerStorage:

@@ -32,6 +32,10 @@ final class SystemCareAdminClient {
             }
         }
     }
+    /// XPC calls these handlers on its own queue. Closures written inside a
+    /// `@MainActor` type inherit main-actor isolation, and the runtime then
+    /// traps (`_dispatch_assert_queue_fail`) when XPC invokes them. They are
+    /// `@Sendable` so they stay nonisolated.
     private func request<Value: Sendable>(send: (any SystemCareHelperProtocol, @escaping @Sendable (Result<Value, Error>) -> Void) -> Void) async throws -> Value {
         guard status == .enabled else { throw AdminError.message("Enable Administrator Access and approve LittleTidy in Login Items & Extensions.") }
         let connection = NSXPCConnection(machServiceName: SystemCareHelperIdentity.service, options: .privileged)
@@ -43,9 +47,9 @@ final class SystemCareAdminClient {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 gate.install(continuation)
-                connection.invalidationHandler = { gate.finish(.failure(AdminError.message("Administrator service disconnected."))) }
-                connection.interruptionHandler = { gate.finish(.failure(AdminError.message("Administrator service was interrupted."))) }
-                let proxy = connection.remoteObjectProxyWithErrorHandler { gate.finish(.failure($0)) }
+                connection.invalidationHandler = { @Sendable in gate.finish(.failure(AdminError.message("Administrator service disconnected."))) }
+                connection.interruptionHandler = { @Sendable in gate.finish(.failure(AdminError.message("Administrator service was interrupted."))) }
+                let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable error in gate.finish(.failure(error)) }
                 guard let proxy = proxy as? any SystemCareHelperProtocol else {
                     gate.finish(.failure(AdminError.message("Administrator service is unavailable."))); return
                 }
