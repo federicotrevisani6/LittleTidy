@@ -113,7 +113,10 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
 - `Sidebar/`
   - [`SidebarView.swift`](../Sources/LittleTidy/Features/Sidebar/SidebarView.swift): Sidebar navigation divided into 3 groups (`System`, `Cleanup`, `Review`).
 - `SmartCare/`
-  - [`SmartCareView.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareView.swift): Default home. Scan, headline, grouped cards, and the Trash card's own confirmation sheet. Card logic lives in [`ScanReviewStore+SmartCare.swift`](../Sources/LittleTidy/State/ScanReviewStore+SmartCare.swift).
+  - [`SmartCareView.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareView.swift): Default home: toolbar scan control, scan progress, the two-block summary panel (safe and review totals, Clean button, reversibility bar), grouped cards and the Trash row. Card data comes from [`ScanReviewStore+SmartCare.swift`](../Sources/LittleTidy/State/ScanReviewStore+SmartCare.swift).
+  - [`SmartCareCardView.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareCardView.swift): One card (all states) and the full-width Trash row.
+  - [`SmartCareComponents.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareComponents.swift): Shared pieces: number with a smaller unit, tile, chip, bordered panel, tier line and tier bar.
+  - [`SmartCareSheets.swift`](../Sources/LittleTidy/Features/SmartCare/SmartCareSheets.swift): The "Empty the Trash?" sheet, the "Clean X safely?" sheet and the cleanup result view.
 - `Overview/`
   - [`OverviewView.swift`](../Sources/LittleTidy/Features/Overview/OverviewView.swift): Dashboard showing scanned stats, quick-action cards, access readiness list, live scanning progress bar, and scan issue disclosures.
 - `DeveloperStorage/`

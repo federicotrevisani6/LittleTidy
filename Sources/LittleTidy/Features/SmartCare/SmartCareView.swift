@@ -17,20 +17,30 @@ struct SmartCareView: View {
         store.hasCompletedScan || store.isScanning || !store.developerStorageInventory.items.isEmpty
     }
 
+    private var isBusy: Bool {
+        store.isScanning || store.isScanningDeveloperStorage || store.isCleaningDeveloperStorage
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                header
+                if store.isScanning { scanProgress }
                 if hasResults {
                     let cards = cards
+                    summaryPanel(cards)
                     ForEach(SmartCareGroup.allCases) { group in
-                        groupSection(group, cards: cards.filter { $0.cardID.group == group })
+                        groupSection(group, cards: cards.filter { $0.cardID.group == group }, all: cards)
                     }
                 } else {
                     preScan
                 }
             }
             .padding(24)
+        }
+        .navigationTitle("Smart Care")
+        .navigationSubtitle(subtitle)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { scanButton }
         }
         .sheet(isPresented: $showTrashSheet) {
             TrashEmptySheet(store: store, isPresented: $showTrashSheet)
@@ -52,62 +62,12 @@ struct SmartCareView: View {
         }
     }
 
-    // MARK: - Header
+    // MARK: - Toolbar
 
-    private var header: some View {
-        let cards = cards
-        let headline = SmartCareBuilder.headline(for: cards)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Smart Care")
-                        .font(.title2.weight(.semibold))
-                    if store.isScanning {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text(store.currentScanLocation.map { "Reading \($0)" } ?? store.statusMessage)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                    } else if hasResults {
-                        Text(headlineText(headline))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("One scan looks at caches, developer data, AI tools, the Trash, apps and snapshots.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                HStack(spacing: 10) {
-                    if hasResults && !store.isScanning {
-                        let candidate = store.cleanAllCandidate
-                        Button {
-                            store.prepareCleanAllSafe()
-                            showCleanAllSheet = store.cleanAllPlan != nil
-                        } label: {
-                            Label(candidate.isEmpty ? "Nothing safe to clean" : "Clean \(ByteCountFormatter.cleanerString(from: candidate.totalBytes)) Safely",
-                                  systemImage: "sparkles")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(!store.canCleanAllSafe)
-                        .help("Cleans only items LittleTidy considers safe to rebuild. You confirm first.")
-                    }
-                    if hasResults && !store.isScanning {
-                        scanButton.buttonStyle(.bordered)
-                    } else {
-                        scanButton.buttonStyle(.borderedProminent)
-                    }
-                }
-            }
-            if store.isScanning {
-                ProgressView(value: store.progress)
-            }
-        }
+    private var subtitle: String {
+        guard hasResults, !store.isScanning, store.hasCompletedScan else { return "" }
+        let date = store.developerStorageInventory.scannedAt
+        return "Scanned \(date.formatted(.relative(presentation: .named)))"
     }
 
     private var scanButton: some View {
@@ -120,516 +80,226 @@ struct SmartCareView: View {
             }
         } label: {
             Label(store.isScanning ? "Cancel" : (hasResults ? "Scan Again" : "Scan"),
-                  systemImage: store.isScanning ? "xmark.circle" : "sparkle.magnifyingglass")
+                  systemImage: store.isScanning ? "xmark.circle" : (hasResults ? "arrow.clockwise" : "sparkle.magnifyingglass"))
+                .labelStyle(.titleAndIcon)
         }
-        .controlSize(.large)
+        .keyboardShortcut("r", modifiers: [.command])
     }
 
-    private func headlineText(_ headline: SmartCareHeadline) -> String {
-        let safe = ByteCountFormatter.cleanerString(from: headline.safeBytes)
-        let review = ByteCountFormatter.cleanerString(from: headline.reviewBytes)
-        return "\(safe) you can clean safely · \(review) to review first"
+    // MARK: - Scanning and empty state
+
+    private var scanProgress: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(store.currentScanLocation.map { "Reading \($0)" } ?? store.statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(Color.cleanerSecondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            ProgressView(value: store.progress)
+            Text("Nothing is removed during a scan.")
+                .font(.subheadline)
+                .foregroundStyle(Color.cleanerSecondaryText)
+        }
+        .padding(16)
+        .cleanerInteractiveSurface(cornerRadius: 12)
     }
 
     private var preScan: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Nothing is removed during a scan.", systemImage: "checkmark.shield")
-            Label("Each card explains what it found and what removing it means.", systemImage: "text.bubble")
-            Label("Clean only acts on items LittleTidy considers safe to rebuild.", systemImage: "arrow.triangle.2.circlepath")
+        VStack(spacing: 14) {
+            SmartCareTile(symbol: "sparkles", tint: Color.accentColor, fill: Color.accentColor.opacity(0.14), size: 56)
+            Text("Check your Mac").font(.title2.weight(.semibold))
+            Text("One scan reads caches, developer data, AI tools, the Trash, apps and snapshots. Nothing is removed until you confirm.")
+                .font(.callout)
+                .foregroundStyle(Color.cleanerSecondaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            Button {
+                store.startSmartCareScan()
+                if !systemCare.isScanning { systemCare.scan() }
+            } label: {
+                Label("Scan", systemImage: "sparkle.magnifyingglass")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
         }
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .padding(16)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    // MARK: - Summary panel
+
+    private func summaryPanel(_ cards: [SmartCareCard]) -> some View {
+        let headline = SmartCareBuilder.headline(for: cards)
+        let candidate = store.cleanAllCandidate
+        let trashBytes = candidate.items.filter { !$0.isIrreversibleCleanup }.reduce(Int64(0)) { $0 + $1.bytes }
+        let permanentBytes = candidate.irreversibleItems.reduce(Int64(0)) { $0 + $1.bytes }
+        let trashCard = cards.first { $0.cardID == .trash }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 0) {
+                safeBlock(headline, candidate: candidate, trashBytes: trashBytes, permanentBytes: permanentBytes)
+                Divider()
+                reviewBlock(headline)
+            }
+            .cleanerInteractiveSurface(cornerRadius: 14)
+
+            if let trashCard, trashCard.entries.count > 0 {
+                Label("The Trash (\(ByteCountFormatter.cleanerString(from: trashCard.reviewBytes + trashCard.recommendedBytes))) is not counted in either total.",
+                      systemImage: "info.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.cleanerSecondaryText)
+            }
+        }
+    }
+
+    private func safeBlock(_ headline: SmartCareHeadline, candidate: SmartCareCleanPlan, trashBytes: Int64, permanentBytes: Int64) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                SmartCareTile(symbol: "checkmark.shield", tint: Color.cleanerSuccessText, fill: Color.cleanerSuccess.opacity(0.18), size: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    SmartCareNumber(bytes: headline.safeBytes, size: 34)
+                    Text("you can clean safely").font(.body.weight(.medium))
+                }
+            }
+            Text("Recommended items only. Most are rebuilt by the tools that made them.")
+                .font(.subheadline)
+                .foregroundStyle(Color.cleanerSecondaryText)
+
+            Button {
+                store.prepareCleanAllSafe()
+                showCleanAllSheet = store.cleanAllPlan != nil
+            } label: {
+                HStack(spacing: 6) {
+                    if candidate.hasIrreversibleItems { Image(systemName: "exclamationmark.triangle.fill") }
+                    Text(candidate.isEmpty ? "Nothing safe to clean" : "Clean \(ByteCountFormatter.cleanerString(from: candidate.totalBytes)) Safely…")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .disabled(!store.canCleanAllSafe)
+            .accessibilityLabel(candidate.isEmpty ? "Nothing safe to clean" : "Clean \(ByteCountFormatter.cleanerString(from: candidate.totalBytes)) safely")
+
+            if !candidate.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    reversibilityBar(trash: trashBytes, permanent: permanentBytes)
+                    if trashBytes > 0 {
+                        Label("\(ByteCountFormatter.cleanerString(from: trashBytes)) goes to the Trash and can be restored.",
+                              systemImage: "arrow.uturn.backward")
+                    }
+                    if permanentBytes > 0 {
+                        Label("\(ByteCountFormatter.cleanerString(from: permanentBytes)) is removed for good.",
+                              systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Color.cleanerDangerText)
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(Color.cleanerSecondaryText)
+            }
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cleanerSubtleSurface()
+    }
+
+    private func reversibilityBar(trash: Int64, permanent: Int64) -> some View {
+        GeometryReader { proxy in
+            let total = Double(max(trash + permanent, 1))
+            HStack(spacing: 2) {
+                if trash > 0 {
+                    Rectangle().fill(Color.cleanerSuccess.opacity(0.45))
+                        .frame(width: max(2, proxy.size.width * Double(trash) / total))
+                }
+                if permanent > 0 {
+                    Rectangle().fill(Color.cleanerDanger)
+                        .frame(width: max(2, proxy.size.width * Double(permanent) / total))
+                }
+            }
+        }
+        .frame(height: 6)
+        .clipShape(Capsule())
+        .accessibilityHidden(true)
+    }
+
+    private func reviewBlock(_ headline: SmartCareHeadline) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                SmartCareTile(symbol: "eye", tint: Color.cleanerInfoText, fill: Color.cleanerInfo.opacity(0.18), size: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    SmartCareNumber(bytes: headline.reviewBytes, size: 34)
+                    Text("to review first").font(.body.weight(.medium))
+                }
+            }
+            Text("You decide item by item. Open Review on a card.")
+                .font(.subheadline)
+                .foregroundStyle(Color.cleanerSecondaryText)
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Groups
 
-    private func groupSection(_ group: SmartCareGroup, cards: [SmartCareCard]) -> some View {
-        let active = cards.filter { !$0.isEmpty }
-        let empty = cards.filter(\.isEmpty)
+    private func groupSection(_ group: SmartCareGroup, cards: [SmartCareCard], all: [SmartCareCard]) -> some View {
+        let trash = cards.first { $0.cardID == .trash }
+        let regular = cards.filter { $0.cardID != .trash }
+        let active = regular.filter { !$0.isEmpty }
+        let empty = regular.filter(\.isEmpty)
+        let largest = max(all.filter { $0.cardID != .trash }.map { $0.recommendedBytes + $0.reviewBytes + $0.protectedBytes }.max() ?? 1, 1)
+        let candidate = store.cleanAllCandidate
+
         return VStack(alignment: .leading, spacing: 12) {
-            Text(group.title)
-                .font(.headline)
+            Text(group.title).font(.title3.weight(.semibold))
             if !active.isEmpty {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 14, alignment: .top)], spacing: 14) {
                     ForEach(active) { card in
                         SmartCareCardView(
                             card: card,
-                            store: store,
-                            isEmptyingTrash: store.isEmptyingTrash,
-                            emptyTrash: { showTrashSheet = true }
+                            largestTotal: largest,
+                            leftOutCount: card.leftOutCount,
+                            leftOutBytes: card.leftOutBytes,
+                            permanentBytes: card.cardID == .developer || card.cardID == .aiTools
+                                ? candidate.irreversibleItems
+                                    .filter { SmartCareCleanPlanner.cardID(for: $0) == card.cardID }
+                                    .reduce(Int64(0)) { $0 + $1.bytes }
+                                : 0,
+                            isBusy: isBusy,
+                            review: { store.reviewSmartCare(card) },
+                            clean: { store.prepareSmartCareClean(card) },
+                            allowAccess: { store.openFullDiskAccessSettings() }
                         )
                     }
                 }
             }
-            if !empty.isEmpty {
-                Text("Nothing to clean in: " + empty.map(\.cardID.title).joined(separator: ", ") + ".")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
-private struct SmartCareCardView: View {
-    let card: SmartCareCard
-    @ObservedObject var store: ScanReviewStore
-    let isEmptyingTrash: Bool
-    let emptyTrash: () -> Void
-
-    private var totalBytes: Int64 { card.recommendedBytes + card.reviewBytes + card.protectedBytes }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(card.cardID.title)
-                .font(.headline)
-
-            content
-
-            Text(card.cardID.explanation)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-            actions
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
-        .cleanerInteractiveSurface()
-        .accessibilityElement(children: .contain)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch card.state {
-        case .scanning:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text("Scanning…").foregroundStyle(.secondary)
-            }
-        case .needsAccess(let message):
-            Label(message, systemImage: "lock")
-                .font(.callout)
-                .foregroundStyle(Color.cleanerWarning)
-        case .blocked(let message):
-            Label(message, systemImage: "hand.raised")
-                .font(.callout)
-                .foregroundStyle(Color.cleanerWarning)
-        case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle")
-                .font(.callout)
-                .foregroundStyle(Color.cleanerDanger)
-        case .empty, .ready:
-            if totalBytes > 0 || card.itemCount > 0 {
-                Text(ByteCountFormatter.cleanerString(from: totalBytes))
-                    .font(.title.weight(.semibold))
-                    .monospacedDigit()
-                Text(tierSummary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            if let info = card.infoText {
-                Text(info)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var tierSummary: String {
-        if card.cardID == .trash {
-            return "\(card.itemCount) items"
-        }
-        var parts: [String] = []
-        if card.recommendedBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.recommendedBytes)) safe") }
-        if card.reviewBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.reviewBytes)) to review") }
-        if card.protectedBytes > 0 { parts.append("\(ByteCountFormatter.cleanerString(from: card.protectedBytes)) protected") }
-        return parts.joined(separator: " · ")
-    }
-
-    @ViewBuilder
-    private var actions: some View {
-        HStack {
-            Spacer()
-            if card.cardID == .trash {
-                Button("Open Trash") { store.openTrash() }
-                if case .ready = card.state {
-                    Button("Empty Trash…", role: .destructive, action: emptyTrash)
-                        .disabled(isEmptyingTrash)
-                }
-            } else {
-                Button("Review") { store.reviewSmartCare(card) }
-                if card.canClean {
-                    Button("Clean…") { store.prepareSmartCareClean(card) }
-                        .buttonStyle(.borderedProminent)
-                }
-            }
-        }
-        .controlSize(.small)
-    }
-}
-
-/// The Trash card's own confirmation. Emptying is permanent, so this sheet
-/// is separate from every other cleanup flow.
-private struct TrashEmptySheet: View {
-    @ObservedObject var store: ScanReviewStore
-    @Binding var isPresented: Bool
-
-    private var preview: TrashEmptyPreview? { store.trashPreview }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Empty the Trash?")
-                .font(.title3.weight(.semibold))
-
-            if store.isEmptyingTrash {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Emptying the Trash…")
-                }
-            } else if let result = store.trashEmptyResult {
-                resultView(result)
-            } else if let preview {
-                confirmView(preview)
-            }
-
-            HStack {
-                Spacer()
-                if store.trashEmptyResult != nil {
-                    Button("Done") { close() }.keyboardShortcut(.defaultAction)
-                } else {
-                    Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
-                    Button("Empty Trash", role: .destructive) { store.emptyTrash() }
-                        .disabled(store.isEmptyingTrash || (preview?.items.isEmpty ?? true))
-                }
-            }
-        }
-        .padding(20)
-        .frame(width: 460)
-    }
-
-    private func close() {
-        store.trashEmptyResult = nil
-        isPresented = false
-    }
-
-    private func confirmView(_ preview: TrashEmptyPreview) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("\(preview.items.count) items, \(ByteCountFormatter.cleanerString(from: preview.totalBytes)). This cannot be undone.")
-                .fontWeight(.medium)
-            if preview.fromLastCleanupCount > 0 {
-                Label("Includes \(preview.fromLastCleanupCount) items LittleTidy moved here in its last cleanup. Emptying removes your only way to restore them.",
-                      systemImage: "exclamationmark.triangle")
-                    .font(.callout)
-                    .foregroundStyle(Color.cleanerWarning)
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(preview.items.prefix(12)) { item in
-                        HStack {
-                            Text(item.url.lastPathComponent).lineLimit(1).truncationMode(.middle)
-                            if item.isFromLastCleanup { Text("last cleanup").font(.caption2).foregroundStyle(.secondary) }
-                            Spacer()
-                            Text(ByteCountFormatter.cleanerString(from: item.bytes)).foregroundStyle(.secondary).monospacedDigit()
-                        }
-                        .font(.callout)
-                    }
-                    if preview.items.count > 12 {
-                        Text("and \(preview.items.count - 12) more").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .frame(maxHeight: 180)
-            Text("Items in use, locked or owned by another account are skipped.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func resultView(_ result: TrashEmptyResult) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let blocked = result.blockedReason {
-                Label(blocked, systemImage: "hand.raised").foregroundStyle(Color.cleanerWarning)
-            } else {
-                Label("\(result.removed.count) items removed, \(ByteCountFormatter.cleanerString(from: result.bytesRemoved)) freed.",
-                      systemImage: "checkmark.circle")
-                    .foregroundStyle(Color.cleanerSuccess)
-                if !result.skipped.isEmpty {
-                    Text("\(result.skipped.count) skipped: \(result.skipped.prefix(3).map { $0.url.lastPathComponent }.joined(separator: ", ")).")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
-                if !result.failed.isEmpty {
-                    Text("\(result.failed.count) could not be removed.")
-                        .font(.callout).foregroundStyle(Color.cleanerDanger)
-                }
-            }
-        }
-    }
-}
-
-/// One confirmation for everything LittleTidy classes as safe. It lists what
-/// will run per card, what is skipped and why, and says plainly what cannot be
-/// restored from the Trash. The executor rechecks every safety rule per item.
-private struct CleanAllSafeSheet: View {
-    @ObservedObject var store: ScanReviewStore
-    @Binding var isPresented: Bool
-    let emptyTrash: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if let summary = store.cleanAllSummary {
-                CleanupSummaryView(
-                    summary: summary,
-                    store: store,
-                    emptyTrash: emptyTrash,
-                    close: { close() }
+            if let trash {
+                SmartCareTrashRow(
+                    card: trash,
+                    isBusy: store.isCleaningDeveloperStorage,
+                    open: { store.openTrash() },
+                    empty: { showTrashSheet = true },
+                    allowAccess: { store.openFullDiskAccessSettings() }
                 )
-            } else if store.isCleaningDeveloperStorage {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Cleaning…")
-                }
-            } else if let plan = store.cleanAllPlan {
-                confirmView(plan)
             }
-        }
-        .padding(20)
-        .frame(width: 500)
-    }
-
-    // MARK: - Confirm
-
-    private func confirmView(_ plan: SmartCareCleanPlan) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Clean \(ByteCountFormatter.cleanerString(from: plan.totalBytes)) safely?")
-                .font(.title3.weight(.semibold))
-
-            Text("\(plan.itemCount == 1 ? "1 item" : "\(plan.itemCount) items") LittleTidy considers safe to rebuild. Nothing else is touched, and the Trash is not emptied.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 0) {
-                ForEach(plan.groups) { group in
-                    HStack {
-                        Text(group.cardID.title)
-                        Spacer()
-                        Text(group.itemCount == 1 ? "1 item" : "\(group.itemCount) items")
-                            .foregroundStyle(.secondary)
-                        Text(ByteCountFormatter.cleanerString(from: group.bytes))
-                            .monospacedDigit()
-                            .frame(minWidth: 70, alignment: .trailing)
-                    }
-                    .font(.callout)
-                    .padding(.vertical, 6)
-                    Divider()
-                }
-            }
-
-            if plan.hasIrreversibleItems {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(plan.irreversibleItems.count == 1
-                          ? "1 item cannot be restored from the Trash."
-                          : "\(plan.irreversibleItems.count) items cannot be restored from the Trash.",
-                          systemImage: "exclamationmark.triangle")
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(Color.cleanerWarning)
-                    Text(plan.irreversibleItems.prefix(4).map(\.name).joined(separator: ", ")
-                         + (plan.irreversibleItems.count > 4 ? ", and \(plan.irreversibleItems.count - 4) more" : "")
-                         + ". They are removed with the tool that manages them, such as simctl or Homebrew, and are downloaded again when needed.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Label("Everything goes to the Trash and can be restored until you empty it.", systemImage: "arrow.uturn.backward.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            if !plan.skipped.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Skipped now")
-                        .font(.callout.weight(.medium))
-                    ForEach(plan.skipped.prefix(4)) { item in
-                        Text("\(item.name): \(item.reason)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if plan.skipped.count > 4 {
-                        Text("and \(plan.skipped.count - 4) more")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Text("Safety checks run again for each item. Anything in use is skipped, never forced.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Spacer()
-                Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
-                Button(plan.hasIrreversibleItems ? "Clean, Including Irreversible Items" : "Clean") {
-                    store.confirmCleanAllSafe()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(plan.isEmpty)
+            if !empty.isEmpty {
+                collapsedLine(empty)
             }
         }
     }
 
-    private func close() {
-        isPresented = false
-    }
-}
-
-/// The summary after a cleanup: what is free now, what waits in the Trash,
-/// what a snapshot still holds, what was not removed and why, and how to undo.
-private struct CleanupSummaryView: View {
-    let summary: CleanupSummary
-    @ObservedObject var store: ScanReviewStore
-    let emptyTrash: () -> Void
-    let close: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(summary.removedCount > 0 ? "Cleanup finished" : "Nothing was removed")
-                .font(.title3.weight(.semibold))
-
-            if summary.removedCount > 0 {
-                numbers
-                if !summary.lines.isEmpty { cardLines }
-            }
-            if summary.hasProblems { problems }
-            restoreSection
-            actions
-        }
-    }
-
-    private var numbers: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            numberRow("Freed now", summary.freedNowBytes,
-                      note: summary.irreversibleCount > 0 ? "Removed for good and not held by anything else." : nil,
-                      color: Color.cleanerSuccess)
-            if summary.inTrashBytes > 0 {
-                numberRow("In the Trash", summary.inTrashBytes,
-                          note: "Freed when you empty the Trash.", color: .secondary)
-            }
-            if let held = summary.heldBySnapshotBytes {
-                numberRow("Held by a snapshot", held,
-                          note: "macOS keeps this space until a local Time Machine snapshot is released.",
-                          color: Color.cleanerWarning)
+    private func collapsedLine(_ empty: [SmartCareCard]) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.circle").foregroundStyle(.tertiary)
+            Text("Nothing to clean in").foregroundStyle(Color.cleanerSecondaryText)
+            ForEach(Array(empty.enumerated()), id: \.element.cardID) { index, card in
+                Button(card.cardID.title + (index < empty.count - 1 ? "," : ".")) { store.reviewSmartCare(card) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cleanerSubtleSurface()
-    }
-
-    private func numberRow(_ title: String, _ bytes: Int64, note: String?, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title).font(.callout.weight(.medium))
-                Spacer()
-                Text(ByteCountFormatter.cleanerString(from: bytes))
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(color)
-            }
-            if let note {
-                Text(note).font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var cardLines: some View {
-        VStack(spacing: 0) {
-            ForEach(summary.lines) { line in
-                HStack {
-                    Text(line.cardID.title)
-                    Spacer()
-                    Text(line.removedCount == 1 ? "1 item" : "\(line.removedCount) items")
-                        .foregroundStyle(.secondary)
-                    Text(ByteCountFormatter.cleanerString(from: line.bytes))
-                        .monospacedDigit()
-                        .frame(minWidth: 70, alignment: .trailing)
-                }
-                .font(.callout)
-                .padding(.vertical, 5)
-                Divider()
-            }
-        }
-    }
-
-    private var problems: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if !summary.skipped.isEmpty {
-                problemList("\(summary.skipped.count) skipped", summary.skipped, color: .secondary)
-            }
-            if !summary.failed.isEmpty {
-                problemList("\(summary.failed.count) could not be removed", summary.failed, color: Color.cleanerDanger)
-            }
-        }
-    }
-
-    private func problemList(_ title: String, _ items: [CleanupSummary.Problem], color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.callout.weight(.medium)).foregroundStyle(color)
-            ForEach(items.prefix(4)) { item in
-                Text("\(item.name): \(item.reason)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            if items.count > 4 {
-                Text("and \(items.count - 4) more").font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var restoreSection: some View {
-        if let restore = store.restoreResult {
-            VStack(alignment: .leading, spacing: 3) {
-                Label(restore.restored.count == 1 ? "1 item put back." : "\(restore.restored.count) items put back.",
-                      systemImage: "arrow.uturn.backward.circle")
-                    .foregroundStyle(Color.cleanerSuccess)
-                ForEach(Array(restore.notRestored.prefix(4)), id: \.name) { issue in
-                    Text("\(issue.name): \(issue.reason)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } else if summary.irreversibleCount > 0 {
-            Text(summary.irreversibleCount == 1
-                 ? "1 removed item cannot be restored. It was removed through its own tool, not moved to the Trash."
-                 : "\(summary.irreversibleCount) removed items cannot be restored. They were removed through their own tools, not moved to the Trash.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var actions: some View {
-        HStack {
-            if !summary.restorable.isEmpty, store.restoreResult == nil {
-                Button("Restore \(summary.restorable.count == 1 ? "Item" : "All")") { store.restoreLastCleanup() }
-                    .disabled(store.isRestoring)
-            }
-            Button("Open Trash") { store.openTrash() }
-            if summary.inTrashBytes > 0 {
-                Button("Empty Trash…", role: .destructive, action: emptyTrash)
-            }
-            Spacer()
-            Button("Open Developer Storage") {
-                close()
-                store.selectedSection = .developerStorage
-            }
-            Button("Done", action: close).keyboardShortcut(.defaultAction)
-        }
-        .controlSize(.small)
+        .font(.callout)
     }
 }

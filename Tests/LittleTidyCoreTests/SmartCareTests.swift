@@ -422,3 +422,30 @@ struct TrashRestorerTests {
         #expect(try String(contentsOf: target, encoding: .utf8) == "keep")
     }
 }
+
+@Suite("Smart Care left-out items")
+struct SmartCareLeftOutTests {
+    @Test func leftOutEntriesAreNotInAnyTotalButStayVisible() {
+        var inputs = SmartCareInputs()
+        inputs.entries[.developer] = [
+            SmartCareEntry(path: "/a", bytes: 1_000, tier: .recommended),
+            SmartCareEntry(path: "/b", bytes: 400, tier: .recommended, isLeftOut: true),
+            SmartCareEntry(path: "/c", bytes: 200, tier: .review)
+        ]
+        let cards = SmartCareBuilder.cards(from: inputs)
+        let card = cards.first { $0.cardID == .developer }!
+        #expect(card.recommendedBytes == 1_000)
+        #expect(card.reviewBytes == 200)
+        #expect(card.leftOutCount == 1)
+        #expect(card.leftOutBytes == 400)
+        #expect(card.itemCount == 3)
+        #expect(SmartCareBuilder.headline(for: cards).safeBytes == 1_000)
+    }
+
+    @Test func aCardWithOnlyLeftOutItemsCannotBeCleaned() {
+        let card = SmartCareCard(cardID: .developer, state: .ready, entries: [
+            SmartCareEntry(path: "/b", bytes: 400, tier: .recommended, isLeftOut: true)
+        ])
+        #expect(card.canClean == false)
+    }
+}
