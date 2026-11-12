@@ -42,6 +42,13 @@ Explain, before the user hits a wall, what each macOS permission unlocks in Litt
 
 `FullDiskAccess.swift`, `FullDiskAccess+AppKit.swift`, `PermissionReadinessItem`, `ScanReviewStore.refreshPermissionReadiness`, `AppUninstallNotificationManager.requestAuthorizationIfNeeded`, a new `Features/Permissions/` view, `SmartCareView` cards.
 
-## 7. Change log
+## 7. Implementation status (first version)
+
+- Done: a guide sheet that opens once at launch when something is not confirmed and from every "Allow Access…" button, with "Not Now" remembered; "Allowed" only when the probe succeeds, otherwise "Not confirmed"; cards refresh when the app becomes active again, without a rescan; it never opens System Settings by itself.
+- Only Full Disk Access is covered. Notifications join when the alerts spec lands, because nothing needs them before.
+- Not done: an entry in Settings to reopen the guide (it is reachable from the cards), and a check in the running app of the step after granting access.
+
+## 8. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 7.

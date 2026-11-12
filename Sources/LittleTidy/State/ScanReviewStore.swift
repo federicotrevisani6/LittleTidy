@@ -104,6 +104,8 @@ final class ScanReviewStore: ObservableObject {
     @Published var cleanAllSummary: CleanupSummary?
     @Published var restoreResult: TrashRestoreResult?
     @Published var isRestoring = false
+    // Permissions guide.
+    @Published var showPermissionGuide = false
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?

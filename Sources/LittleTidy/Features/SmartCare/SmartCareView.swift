@@ -1,3 +1,4 @@
+import AppKit
 import LittleTidyCore
 import SwiftUI
 
@@ -57,8 +58,15 @@ struct SmartCareView: View {
                 showCleanAllSheet = false
             }
         }
+        .sheet(isPresented: $store.showPermissionGuide, onDismiss: { store.recheckPermissions() }) {
+            PermissionGuideSheet(store: store)
+        }
         .onAppear {
             if store.trashPreview == nil && !store.trashNeedsAccess { store.refreshTrashPreview() }
+            store.presentPermissionGuideIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            store.recheckPermissions()
         }
     }
 
@@ -270,7 +278,7 @@ struct SmartCareView: View {
                             isBusy: isBusy,
                             review: { store.reviewSmartCare(card) },
                             clean: { store.prepareSmartCareClean(card) },
-                            allowAccess: { store.openFullDiskAccessSettings() }
+                            allowAccess: { store.showPermissionGuide = true }
                         )
                     }
                 }
@@ -281,7 +289,7 @@ struct SmartCareView: View {
                     isBusy: store.isCleaningDeveloperStorage,
                     open: { store.openTrash() },
                     empty: { showTrashSheet = true },
-                    allowAccess: { store.openFullDiskAccessSettings() }
+                    allowAccess: { store.showPermissionGuide = true }
                 )
             }
             if !empty.isEmpty {

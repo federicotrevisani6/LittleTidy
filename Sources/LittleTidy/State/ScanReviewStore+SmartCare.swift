@@ -244,4 +244,40 @@ extension ScanReviewStore {
             self.refreshDeveloperStorage()
         }
     }
+
+    // MARK: - Permissions guide
+
+    private static let permissionGuideDismissedKey = "LittleTidy.permissionGuideDismissed"
+
+    var permissionItems: [PermissionItem] {
+        PermissionGuide.items(fullDiskAccessConfirmed: isFullDiskAccessGranted)
+    }
+
+    /// Shows the guide once, when something is not confirmed and the person
+    /// has not chosen "Not now" before. It never opens System Settings itself.
+    func presentPermissionGuideIfNeeded() {
+        refreshPermissionReadiness()
+        let dismissed = UserDefaults.standard.bool(forKey: Self.permissionGuideDismissedKey)
+        if PermissionGuide.shouldPresent(items: permissionItems, dismissedBefore: dismissed) {
+            showPermissionGuide = true
+        }
+    }
+
+    /// "Not now" and Done are remembered, so the guide does not nag at launch.
+    /// It stays reachable from the cards that need access.
+    func dismissPermissionGuide() {
+        showPermissionGuide = false
+        UserDefaults.standard.set(true, forKey: Self.permissionGuideDismissedKey)
+    }
+
+    /// Runs when the app becomes active again, for example after the person
+    /// granted access in System Settings: probes again and refreshes the
+    /// cards that were waiting for it, without a manual rescan.
+    func recheckPermissions() {
+        let wasConfirmed = isFullDiskAccessGranted
+        refreshPermissionReadiness()
+        if trashNeedsAccess || (!wasConfirmed && isFullDiskAccessGranted) {
+            refreshTrashPreview()
+        }
+    }
 }
