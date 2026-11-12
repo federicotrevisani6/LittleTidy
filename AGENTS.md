@@ -32,7 +32,7 @@ LittleTidy deletes files on real machines, and a mistake here can destroy data t
 
 | Invariant | Implementation Rule |
 |---|---|
-| **Trash Over Permanent Delete** | Default deletion mode is `moveToTrash`. Permanent deletion (`removeItem`) is only an opt-in toggle guarded in settings. |
+| **Trash Over Permanent Delete** | Default deletion mode is `moveToTrash`. Permanent deletion (`removeItem`) is only an opt-in toggle guarded in settings, plus the single exception in **Empty Trash Only On Request**. |
 | **Simctl For Simulator Management** | Never run `rm -rf` or `FileManager.removeItem` on CoreSimulator devices or runtimes. Use `xcrun simctl delete <UDID>` or `xcrun simctl runtime delete <ID>`. |
 | **Simctl State Revalidation** | Simulator state must be re-checked immediately before execution (checking if a device changed to `Booted` since the scan). |
 | **Xcode Lock Guard** | Before every item, `DeveloperStorageCleanupExecutor` applies `xcodeActivityRule`. `requiresXcodeQuit` items are skipped while Xcode runs (or if the check fails). `openFileCheck` items (per-project DerivedData, Simulator and XCTest devices) proceed only if `openFileSnapshot()` succeeds and shows no open file inside the item; a nil snapshot blocks. Never weaken this to skip the snapshot. |
@@ -46,6 +46,7 @@ LittleTidy deletes files on real machines, and a mistake here can destroy data t
 | **Approved Roots Boundary** | Every candidate in a general trash plan must reside within user-approved scan roots. |
 | **No Group Containers in Leftovers** | Deep app uninstall never touches `~/Library/Group Containers` or use prefix/wildcard search on generic names. Exact bundle IDs only. |
 | **CoreDevice Protection** | Mounted device filesystems in `~/Library/Developer/CoreDevice` must never be recursively traversed or cleaned (reported as `bytes: 0`, `protected`). |
+| **Empty Trash Only On Request** | Permanent removal is allowed in exactly one place besides the opt-in toggle: the Smart Care Trash card (`TrashEmptier`), for direct children of the user's own `~/.Trash`, after its own confirmation that states the action cannot be undone. It is not governed by the permanent-delete toggle, is never combined with another action, never follows symlinks (a link is removed, never its target), never touches external volumes' `.Trashes`, and fails closed: a missing open-file snapshot blocks it, and items in use, locked or owned by another account are skipped and reported, never forced or elevated. |
 
 ---
 

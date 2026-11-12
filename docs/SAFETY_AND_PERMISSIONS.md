@@ -134,3 +134,10 @@ try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
 - By default, the option to permanently delete is hidden and disabled (`allowPermanentDeletion = false`).
 - If enabled in Settings, the user can toggle `deletionMode = .permanentDelete`.
 - When active, the UI displays clear warnings indicating that files will bypass the Trash and cannot be recovered.
+
+### 4.3 Emptying the Trash (separate from the toggle)
+- The Smart Care Trash card can empty the user's own `~/.Trash`. This is permanent and is independent of `allowPermanentDeletion`: the toggle neither enables nor disables it, and emptying never changes the toggle.
+- It has its own confirmation sheet stating item count, size and that it cannot be undone. Items LittleTidy moved to the Trash in its last cleanup are listed first, because they are the user's only undo for that run.
+- Only direct children of `~/.Trash` are removed. Symlinks are removed as links and never followed. External volumes' `.Trashes` are never read or modified.
+- Fail-closed: without an open-file snapshot nothing is removed. Items with open files, locked items and items owned by another account are skipped and reported. No elevation is requested.
+- Implemented in `TrashEmptier`; see the "Empty Trash Only On Request" invariant in AGENTS.md.
