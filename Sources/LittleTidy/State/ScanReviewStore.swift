@@ -101,6 +101,9 @@ final class ScanReviewStore: ObservableObject {
     // Smart Care: "Clean all safe".
     @Published var cleanAllPlan: SmartCareCleanPlan?
     @Published var cleanAllResult: DeveloperStorageCleanupResult?
+    @Published var cleanAllSummary: CleanupSummary?
+    @Published var restoreResult: TrashRestoreResult?
+    @Published var isRestoring = false
 
     private var scanTask: Task<Void, Never>?
     private var analysisTask: Task<CleanupAnalysisResult, Error>?
@@ -999,6 +1002,10 @@ final class ScanReviewStore: ObservableObject {
     func clearCleanupHistory() {
         cleanupHistoryStore.clear()
         cleanupHistory = []
+    }
+
+    func recordCleanupHistoryEntry(_ entry: CleanupHistoryEntry) {
+        cleanupHistory = cleanupHistoryStore.record(entry)
     }
 
     private func recordCleanupHistory(from reportItems: [CleanupReportItem]) {

@@ -7,6 +7,7 @@ struct SmartCareView: View {
 
     @State private var showTrashSheet = false
     @State private var showCleanAllSheet = false
+    @State private var openTrashSheetAfterCleanAll = false
 
     private var cards: [SmartCareCard] {
         store.smartCareCards(startupItemCount: systemCare.startup.count)
@@ -34,8 +35,17 @@ struct SmartCareView: View {
         .sheet(isPresented: $showTrashSheet) {
             TrashEmptySheet(store: store, isPresented: $showTrashSheet)
         }
-        .sheet(isPresented: $showCleanAllSheet, onDismiss: { store.dismissCleanAllSafe() }) {
-            CleanAllSafeSheet(store: store, isPresented: $showCleanAllSheet)
+        .sheet(isPresented: $showCleanAllSheet, onDismiss: {
+            store.dismissCleanAllSafe()
+            if openTrashSheetAfterCleanAll {
+                openTrashSheetAfterCleanAll = false
+                showTrashSheet = true
+            }
+        }) {
+            CleanAllSafeSheet(store: store, isPresented: $showCleanAllSheet) {
+                openTrashSheetAfterCleanAll = true
+                showCleanAllSheet = false
+            }
         }
         .onAppear {
             if store.trashPreview == nil && !store.trashNeedsAccess { store.refreshTrashPreview() }
@@ -366,11 +376,17 @@ private struct TrashEmptySheet: View {
 private struct CleanAllSafeSheet: View {
     @ObservedObject var store: ScanReviewStore
     @Binding var isPresented: Bool
+    let emptyTrash: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if let result = store.cleanAllResult {
-                resultView(result)
+            if let summary = store.cleanAllSummary {
+                CleanupSummaryView(
+                    summary: summary,
+                    store: store,
+                    emptyTrash: emptyTrash,
+                    close: { close() }
+                )
             } else if store.isCleaningDeveloperStorage {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -466,55 +482,154 @@ private struct CleanAllSafeSheet: View {
         }
     }
 
-    // MARK: - Result
+    private func close() {
+        isPresented = false
+    }
+}
 
-    private func resultView(_ result: DeveloperStorageCleanupResult) -> some View {
-        let removed = result.items.filter { $0.status == .removed }.count
-        let unresolved = result.unresolvedItems
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(removed > 0 ? "Cleanup finished" : "Nothing was removed")
+/// The summary after a cleanup: what is free now, what waits in the Trash,
+/// what a snapshot still holds, what was not removed and why, and how to undo.
+private struct CleanupSummaryView: View {
+    let summary: CleanupSummary
+    @ObservedObject var store: ScanReviewStore
+    let emptyTrash: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(summary.removedCount > 0 ? "Cleanup finished" : "Nothing was removed")
                 .font(.title3.weight(.semibold))
 
-            if removed > 0 {
-                Label("\(removed) items removed, \(ByteCountFormatter.cleanerString(from: result.removedBytes)) freed for sure.",
-                      systemImage: "checkmark.circle")
-                    .foregroundStyle(Color.cleanerSuccess)
-                if result.bytesInTrash > 0 {
-                    Text("\(ByteCountFormatter.cleanerString(from: result.bytesInTrash)) is in the Trash and is freed when you empty it.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+            if summary.removedCount > 0 {
+                numbers
+                if !summary.lines.isEmpty { cardLines }
             }
+            if summary.hasProblems { problems }
+            restoreSection
+            actions
+        }
+    }
 
-            if !unresolved.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(unresolved.count) not removed")
-                        .font(.callout.weight(.medium))
-                    ForEach(Array(unresolved.prefix(5)), id: \.itemID) { item in
-                        Text("\(item.name): \(item.message)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if unresolved.count > 5 {
-                        Text("and \(unresolved.count - 5) more")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+    private var numbers: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            numberRow("Freed now", summary.freedNowBytes,
+                      note: summary.irreversibleCount > 0 ? "Removed for good and not held by anything else." : nil,
+                      color: Color.cleanerSuccess)
+            if summary.inTrashBytes > 0 {
+                numberRow("In the Trash", summary.inTrashBytes,
+                          note: "Freed when you empty the Trash.", color: .secondary)
             }
+            if let held = summary.heldBySnapshotBytes {
+                numberRow("Held by a snapshot", held,
+                          note: "macOS keeps this space until a local Time Machine snapshot is released.",
+                          color: Color.cleanerWarning)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cleanerSubtleSurface()
+    }
 
+    private func numberRow(_ title: String, _ bytes: Int64, note: String?, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
+                Text(title).font(.callout.weight(.medium))
                 Spacer()
-                Button("Open Developer Storage") {
-                    close()
-                    store.selectedSection = .developerStorage
-                }
-                Button("Done") { close() }.keyboardShortcut(.defaultAction)
+                Text(ByteCountFormatter.cleanerString(from: bytes))
+                    .font(.callout.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(color)
+            }
+            if let note {
+                Text(note).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
-    private func close() {
-        isPresented = false
+    private var cardLines: some View {
+        VStack(spacing: 0) {
+            ForEach(summary.lines) { line in
+                HStack {
+                    Text(line.cardID.title)
+                    Spacer()
+                    Text(line.removedCount == 1 ? "1 item" : "\(line.removedCount) items")
+                        .foregroundStyle(.secondary)
+                    Text(ByteCountFormatter.cleanerString(from: line.bytes))
+                        .monospacedDigit()
+                        .frame(minWidth: 70, alignment: .trailing)
+                }
+                .font(.callout)
+                .padding(.vertical, 5)
+                Divider()
+            }
+        }
+    }
+
+    private var problems: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !summary.skipped.isEmpty {
+                problemList("\(summary.skipped.count) skipped", summary.skipped, color: .secondary)
+            }
+            if !summary.failed.isEmpty {
+                problemList("\(summary.failed.count) could not be removed", summary.failed, color: Color.cleanerDanger)
+            }
+        }
+    }
+
+    private func problemList(_ title: String, _ items: [CleanupSummary.Problem], color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.callout.weight(.medium)).foregroundStyle(color)
+            ForEach(items.prefix(4)) { item in
+                Text("\(item.name): \(item.reason)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            if items.count > 4 {
+                Text("and \(items.count - 4) more").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var restoreSection: some View {
+        if let restore = store.restoreResult {
+            VStack(alignment: .leading, spacing: 3) {
+                Label(restore.restored.count == 1 ? "1 item put back." : "\(restore.restored.count) items put back.",
+                      systemImage: "arrow.uturn.backward.circle")
+                    .foregroundStyle(Color.cleanerSuccess)
+                ForEach(Array(restore.notRestored.prefix(4)), id: \.name) { issue in
+                    Text("\(issue.name): \(issue.reason)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else if summary.irreversibleCount > 0 {
+            Text(summary.irreversibleCount == 1
+                 ? "1 removed item cannot be restored. It was removed through its own tool, not moved to the Trash."
+                 : "\(summary.irreversibleCount) removed items cannot be restored. They were removed through their own tools, not moved to the Trash.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var actions: some View {
+        HStack {
+            if !summary.restorable.isEmpty, store.restoreResult == nil {
+                Button("Restore \(summary.restorable.count == 1 ? "Item" : "All")") { store.restoreLastCleanup() }
+                    .disabled(store.isRestoring)
+            }
+            Button("Open Trash") { store.openTrash() }
+            if summary.inTrashBytes > 0 {
+                Button("Empty Trash…", role: .destructive, action: emptyTrash)
+            }
+            Spacer()
+            Button("Open Developer Storage") {
+                close()
+                store.selectedSection = .developerStorage
+            }
+            Button("Done", action: close).keyboardShortcut(.defaultAction)
+        }
+        .controlSize(.small)
     }
 }

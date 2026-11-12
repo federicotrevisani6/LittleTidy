@@ -255,3 +255,170 @@ struct SmartCareCleanPlannerTests {
         #expect(plan.totalBytes == headline.safeBytes)
     }
 }
+
+@Suite("Cleanup summary")
+struct CleanupSummaryTests {
+    private func result(
+        _ id: String,
+        bytes: Int64 = 1_000,
+        status: DeveloperStorageCleanupStatus = .removed,
+        trash: Bool = false,
+        message: String = "",
+        original: String? = nil,
+        trashPath: String? = nil
+    ) -> DeveloperStorageCleanupResultItem {
+        DeveloperStorageCleanupResultItem(
+            itemID: id, name: id, bytes: bytes, status: status, message: message,
+            movedToTrash: trash, originalPath: original, trashPath: trashPath
+        )
+    }
+
+    private func item(_ id: String, category: DeveloperStorageCategory = .derivedData) -> DeveloperStorageItem {
+        DeveloperStorageItem(
+            id: id, category: category, name: id, detail: "", url: nil, bytes: 1_000,
+            activity: .inactive, recoverability: .recreatable, cleanupMechanism: .trash,
+            consequence: .negligible, recommendation: .recommended, recommendationReason: ""
+        )
+    }
+
+    @Test func trashBytesAreNeverCountedAsFreedNow() {
+        let summary = CleanupSummary.make(from: DeveloperStorageCleanupResult(items: [
+            result("gone", bytes: 500),
+            result("trashed", bytes: 9_000, trash: true, original: "/a", trashPath: "/b/.Trash/a")
+        ]), items: [item("gone"), item("trashed")])
+        #expect(summary.freedNowBytes == 500)
+        #expect(summary.inTrashBytes == 9_000)
+        #expect(summary.removedCount == 2)
+    }
+
+    @Test func snapshotHeldSpaceShowsOnlyWhenMeaningful() {
+        // 1 GB removed for good, but free space grew by only 100 MB.
+        let big = DeveloperStorageCleanupResult(
+            items: [result("a", bytes: 1_000_000_000)],
+            freeBytesBefore: 10_000_000_000, freeBytesAfter: 10_100_000_000)
+        let held = CleanupSummary.make(from: big, items: [item("a")])
+        #expect(held.heldBySnapshotBytes == 900_000_000)
+        #expect(held.freedNowBytes == 100_000_000)
+
+        // A small gap stays hidden and everything counts as freed.
+        let small = DeveloperStorageCleanupResult(
+            items: [result("a", bytes: 50_000_000)],
+            freeBytesBefore: 10_000_000_000, freeBytesAfter: 10_040_000_000)
+        let quiet = CleanupSummary.make(from: small, items: [item("a")])
+        #expect(quiet.heldBySnapshotBytes == nil)
+        #expect(quiet.freedNowBytes == 50_000_000)
+    }
+
+    @Test func skippedAndFailedKeepTheirReasons() {
+        let summary = CleanupSummary.make(from: DeveloperStorageCleanupResult(items: [
+            result("busy", status: .skipped, message: "Quit Xcode."),
+            result("broken", status: .failed, message: "Permission denied.")
+        ]), items: [])
+        #expect(summary.skipped.first?.reason == "Quit Xcode.")
+        #expect(summary.failed.first?.reason == "Permission denied.")
+        #expect(summary.hasProblems)
+        #expect(summary.removedCount == 0)
+    }
+
+    @Test func onlyTrashMovesWithPathsAreRestorable() {
+        let summary = CleanupSummary.make(from: DeveloperStorageCleanupResult(items: [
+            result("a", trash: true, original: "/x/a", trashPath: "/u/.Trash/a"),
+            result("noPaths", trash: true),
+            result("brew", trash: false)
+        ]), items: [])
+        #expect(summary.restorable.map(\.name) == ["a"])
+        #expect(summary.irreversibleCount == 1)
+    }
+
+    @Test func linesSplitByCard() {
+        let summary = CleanupSummary.make(from: DeveloperStorageCleanupResult(items: [
+            result("dd", bytes: 300), result("ai", bytes: 200)
+        ]), items: [item("dd"), item("ai", category: .aiCaches)])
+        #expect(summary.lines.map(\.cardID) == [.developer, .aiTools])
+        #expect(summary.lines.first { $0.cardID == .aiTools }?.bytes == 200)
+    }
+
+    @Test func oldResultsWithoutPathsStillDecode() throws {
+        let json = #"{"items":[{"itemID":"a","name":"a","bytes":1,"status":"removed","message":"","movedToTrash":true,"allocatedBytes":1}]}"#
+        let decoded = try JSONDecoder().decode(DeveloperStorageCleanupResult.self, from: Data(json.utf8))
+        #expect(decoded.items.first?.originalPath == nil)
+    }
+}
+
+@Suite("Trash restorer")
+struct TrashRestorerTests {
+    private func setup() throws -> (trash: URL, home: URL) {
+        let temp = try TemporaryDirectory()
+        let trash = temp.url.appendingPathComponent(".Trash", isDirectory: true)
+        let home = temp.url.appendingPathComponent("home", isDirectory: true)
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        return (trash, home)
+    }
+
+    @Test func restoresIntoAFreePlace() throws {
+        let (trash, home) = try setup()
+        let inTrash = trash.appendingPathComponent("a.txt")
+        try Data("x".utf8).write(to: inTrash)
+        let original = home.appendingPathComponent("a.txt")
+        let result = TrashRestorer().restore([RestorableItem(name: "a", originalURL: original, trashURL: inTrash)])
+        #expect(result.restored.count == 1)
+        #expect(FileManager.default.fileExists(atPath: original.path))
+        #expect(!FileManager.default.fileExists(atPath: inTrash.path))
+    }
+
+    @Test func neverOverwritesAnExistingItem() throws {
+        let (trash, home) = try setup()
+        let inTrash = trash.appendingPathComponent("a.txt")
+        try Data("trash".utf8).write(to: inTrash)
+        let original = home.appendingPathComponent("a.txt")
+        try Data("new".utf8).write(to: original)
+        let result = TrashRestorer().restore([RestorableItem(name: "a", originalURL: original, trashURL: inTrash)])
+        #expect(result.restored.isEmpty)
+        #expect(result.notRestored.count == 1)
+        #expect(try String(contentsOf: original, encoding: .utf8) == "new")
+        #expect(FileManager.default.fileExists(atPath: inTrash.path))
+    }
+
+    @Test func reportsItemsNoLongerInTheTrash() throws {
+        let (trash, home) = try setup()
+        let result = TrashRestorer().restore([
+            RestorableItem(name: "gone", originalURL: home.appendingPathComponent("gone"), trashURL: trash.appendingPathComponent("gone"))
+        ])
+        #expect(result.notRestored.first?.reason == "It is no longer in the Trash.")
+    }
+
+    @Test func doesNotRecreateAMissingFolder() throws {
+        let (trash, home) = try setup()
+        let inTrash = trash.appendingPathComponent("a.txt")
+        try Data("x".utf8).write(to: inTrash)
+        let original = home.appendingPathComponent("missing/a.txt")
+        let result = TrashRestorer().restore([RestorableItem(name: "a", originalURL: original, trashURL: inTrash)])
+        #expect(result.restored.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent("missing").path))
+    }
+
+    @Test func refusesItemsOutsideATrashFolder() throws {
+        let (_, home) = try setup()
+        let outside = home.appendingPathComponent("not-trash.txt")
+        try Data("x".utf8).write(to: outside)
+        let result = TrashRestorer().restore([
+            RestorableItem(name: "x", originalURL: home.appendingPathComponent("moved.txt"), trashURL: outside)
+        ])
+        #expect(result.restored.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: outside.path))
+    }
+
+    @Test func aSymlinkMovesAsALinkAndItsTargetIsUntouched() throws {
+        let (trash, home) = try setup()
+        let target = home.appendingPathComponent("target.txt")
+        try Data("keep".utf8).write(to: target)
+        let link = trash.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        let original = home.appendingPathComponent("link")
+        let result = TrashRestorer().restore([RestorableItem(name: "link", originalURL: original, trashURL: link)])
+        #expect(result.restored.count == 1)
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: original.path)) == target.path)
+        #expect(try String(contentsOf: target, encoding: .utf8) == "keep")
+    }
+}

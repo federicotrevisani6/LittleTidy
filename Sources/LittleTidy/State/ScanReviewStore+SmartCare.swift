@@ -178,6 +178,8 @@ extension ScanReviewStore {
     func dismissCleanAllSafe() {
         cleanAllPlan = nil
         cleanAllResult = nil
+        cleanAllSummary = nil
+        restoreResult = nil
     }
 
     /// Runs the previewed items through the existing executor. It rechecks
@@ -195,10 +197,48 @@ extension ScanReviewStore {
             self.removeCleanedDeveloperItems(result)
             self.developerCleanupResult = result
             self.cleanAllResult = result
+            let summary = CleanupSummary.make(from: result, items: items)
+            self.cleanAllSummary = summary
+            self.restoreResult = nil
+            self.lastCleanupTrashPaths = Set(summary.restorable.map { $0.trashURL.path })
+            self.recordCleanAllHistory(result: result, summary: summary)
+            self.refreshTrashPreview()
             self.snapshotReleaseResult = nil
             self.snapshotReleaseErrorMessage = nil
             self.isCleaningDeveloperStorage = false
             self.selectedDeveloperStorageItemIDs = []
+            self.refreshDeveloperStorage()
+        }
+    }
+
+    private func recordCleanAllHistory(result: DeveloperStorageCleanupResult, summary: CleanupSummary) {
+        guard summary.removedCount > 0 || summary.hasProblems else { return }
+        var byCard: [String: Int64] = [:]
+        for line in summary.lines { byCard[line.cardID.rawValue] = line.bytes }
+        recordCleanupHistoryEntry(CleanupHistoryEntry(
+            bytesFreed: result.removedBytes,
+            movedCount: summary.removedCount,
+            skippedCount: summary.skipped.count,
+            failedCount: summary.failed.count,
+            bytesByCategory: [:],
+            bytesByCard: byCard
+        ))
+    }
+
+    /// Puts the items this run moved to the Trash back where they were.
+    /// Never overwrites; anything it cannot restore stays in the Trash.
+    func restoreLastCleanup() {
+        guard let summary = cleanAllSummary, !summary.restorable.isEmpty, !isRestoring, restoreResult == nil else { return }
+        isRestoring = true
+        let items = summary.restorable
+        Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) { TrashRestorer().restore(items) }.value
+            guard let self else { return }
+            self.restoreResult = result
+            self.isRestoring = false
+            let restoredPaths = Set(result.restored.map { $0.trashURL.path })
+            self.lastCleanupTrashPaths.subtract(restoredPaths)
+            self.refreshTrashPreview()
             self.refreshDeveloperStorage()
         }
     }
