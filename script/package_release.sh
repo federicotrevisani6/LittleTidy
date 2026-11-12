@@ -21,8 +21,13 @@ usage() {
 usage: $0 [--notary-profile PROFILE] [--release-notes FILE] [--skip-notarization]
 
 Environment:
-  NOTARY_PROFILE  Keychain profile previously created with:
-                  xcrun notarytool store-credentials <profile-name>
+  NOTARY_PROFILE      Keychain profile previously created with:
+                      xcrun notarytool store-credentials <profile-name>
+  NOTARY_KEY_PATH     (CI) Path to an App Store Connect API key (.p8); also set
+  NOTARY_KEY_ID       its key ID and
+  NOTARY_ISSUER_ID    the issuer ID. Takes precedence over the options above.
+  SPARKLE_ED_KEY_FILE (CI) File with the Sparkle EdDSA private key. Without it
+                      generate_appcast reads the key from the login keychain.
 USAGE
 }
 
@@ -71,7 +76,15 @@ fi
 
 submit_for_notarization() {
   local artifact="$1"
-  if command -v asc >/dev/null 2>&1; then
+  if [[ -n "${NOTARY_KEY_PATH:-}" ]]; then
+    # CI: App Store Connect API key, no keychain profile needed.
+    echo "Submitting $(basename "$artifact") via notarytool (API key)..."
+    xcrun notarytool submit "$artifact" \
+      --key "$NOTARY_KEY_PATH" \
+      --key-id "${NOTARY_KEY_ID:?NOTARY_KEY_ID is required with NOTARY_KEY_PATH}" \
+      --issuer "${NOTARY_ISSUER_ID:?NOTARY_ISSUER_ID is required with NOTARY_KEY_PATH}" \
+      --wait
+  elif command -v asc >/dev/null 2>&1; then
     echo "Submitting $(basename "$artifact") to Apple Notary API via asc CLI..."
     asc notarization submit --file "$artifact" --wait
   elif [[ -n "$NOTARY_PROFILE" ]]; then
@@ -80,7 +93,7 @@ submit_for_notarization() {
       --keychain-profile "$NOTARY_PROFILE" \
       --wait
   else
-    echo "Missing asc CLI credentials or --notary-profile." >&2
+    echo "Missing notary credentials: set NOTARY_KEY_PATH (+ NOTARY_KEY_ID, NOTARY_ISSUER_ID), install the asc CLI, or pass --notary-profile." >&2
     exit 1
   fi
 }
@@ -195,7 +208,12 @@ else
   echo "Missing release notes: $RELEASE_NOTES_PATH" >&2
   exit 1
 fi
+ED_KEY_ARGS=()
+if [[ -n "${SPARKLE_ED_KEY_FILE:-}" ]]; then
+  ED_KEY_ARGS=(--ed-key-file "$SPARKLE_ED_KEY_FILE")
+fi
 "$GENERATE_APPCAST_BIN" \
+  ${ED_KEY_ARGS[@]+"${ED_KEY_ARGS[@]}"} \
   --download-url-prefix "https://github.com/$REPOSITORY_SLUG/releases/download/v$VERSION/" \
   --embed-release-notes \
   "$APPCAST_DIR"
