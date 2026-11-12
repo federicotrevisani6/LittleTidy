@@ -9,12 +9,13 @@ extension ScanReviewStore {
         var inputs = SmartCareInputs()
 
         let developerItems = developerStorageInventory.items
+        let leftOutIDs = Set(SmartCareCleanPlanner.plan(from: developerItems, xcodeIsRunning: isXcodeRunning).skipped.map(\.itemID))
         inputs.entries[.developer] = developerItems
             .filter { !Self.aiCategories.contains($0.category) }
-            .map(Self.entry(for:))
+            .map { Self.entry(for: $0, leftOut: leftOutIDs.contains($0.id)) }
         inputs.entries[.aiTools] = developerItems
             .filter { Self.aiCategories.contains($0.category) }
-            .map(Self.entry(for:))
+            .map { Self.entry(for: $0, leftOut: leftOutIDs.contains($0.id)) }
         if isScanningDeveloperStorage {
             inputs.states[.developer] = .scanning
             inputs.states[.aiTools] = .scanning
@@ -55,11 +56,12 @@ extension ScanReviewStore {
         return SmartCareBuilder.cards(from: inputs)
     }
 
-    private static func entry(for item: DeveloperStorageItem) -> SmartCareEntry {
+    private static func entry(for item: DeveloperStorageItem, leftOut: Bool = false) -> SmartCareEntry {
         SmartCareEntry(
             path: item.url?.path ?? "developer-item:\(item.id)",
             bytes: item.bytes,
-            tier: item.recommendation
+            tier: item.recommendation,
+            isLeftOut: leftOut
         )
     }
 

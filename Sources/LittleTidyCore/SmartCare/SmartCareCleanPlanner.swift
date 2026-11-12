@@ -47,6 +47,7 @@ public struct SmartCareCleanPlan: Equatable, Sendable {
         public let itemID: String
         public let name: String
         public let reason: String
+        public let bytes: Int64
     }
 
     /// Items to hand to the cleanup executor, in display order.
@@ -71,6 +72,10 @@ public enum SmartCareCleanPlanner {
         aiCategories.contains(item.category) ? .aiTools : .developer
     }
 
+    public static func cardID(forItemID id: String, in items: [DeveloperStorageItem]) -> SmartCareCardID? {
+        items.first { $0.id == id }.map(cardID(for:))
+    }
+
     /// Only `recommended` items qualify: never review, protected or
     /// unclassified ones, and never the Trash.
     public static func plan(from inventory: [DeveloperStorageItem], xcodeIsRunning: Bool) -> SmartCareCleanPlan {
@@ -84,7 +89,7 @@ public enum SmartCareCleanPlanner {
                   item.bytes > 0 else { continue }
 
             if xcodeIsRunning, item.xcodeActivityRule == .requiresXcodeQuit {
-                skipped.append(.init(itemID: item.id, name: item.name, reason: "Quit Xcode to clean this item."))
+                skipped.append(.init(itemID: item.id, name: item.name, reason: "Quit Xcode to clean this item.", bytes: item.bytes))
                 continue
             }
             included.append(item)

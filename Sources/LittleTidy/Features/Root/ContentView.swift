@@ -57,6 +57,7 @@ struct ContentView: View {
                             .buttonStyle(.borderedProminent)
                         }
 
+                        if store.selectedSection != .smartCare {
                         Button {
                             if store.selectedSection.isSystemCare { systemCare.scan() }
                             else { store.startOrCancelScan() }
@@ -67,6 +68,7 @@ struct ContentView: View {
                             )
                         }
                         .keyboardShortcut("r", modifiers: [.command])
+                        }
                     }
                 }
         }

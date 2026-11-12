@@ -51,7 +51,7 @@ public enum SmartCareCardID: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .developer: "Simulators, build data, device support files and package caches."
         case .aiTools: "Caches, logs, session data and local models of AI tools."
-        case .caches: "Files apps and macOS can rebuild. Apps may start a little slower once."
+        case .caches: "Files that apps and macOS rebuild when needed. Apps may open a little slower once."
         case .trash: "Items you already moved to the Trash. Emptying it cannot be undone."
         case .unusedApps: "Apps you have not opened for a long time."
         case .snapshots: "Local Time Machine copies macOS can release when space is needed."
@@ -75,11 +75,15 @@ public struct SmartCareEntry: Equatable, Sendable {
     public let path: String
     public let bytes: Int64
     public let tier: StorageRecommendation
+    /// A safety rule leaves this item out right now (for example Xcode is
+    /// running). It stays visible on the card but is not in any total.
+    public let isLeftOut: Bool
 
-    public init(path: String, bytes: Int64, tier: StorageRecommendation) {
+    public init(path: String, bytes: Int64, tier: StorageRecommendation, isLeftOut: Bool = false) {
         self.path = path
         self.bytes = bytes
         self.tier = tier
+        self.isLeftOut = isLeftOut
     }
 }
 
@@ -110,8 +114,11 @@ public struct SmartCareCard: Identifiable, Equatable, Sendable {
     public var itemCount: Int { entries.count }
 
     public func bytes(for tier: StorageRecommendation) -> Int64 {
-        entries.filter { $0.tier == tier }.reduce(0) { $0 + $1.bytes }
+        entries.filter { $0.tier == tier && !$0.isLeftOut }.reduce(0) { $0 + $1.bytes }
     }
+
+    public var leftOutCount: Int { entries.filter(\.isLeftOut).count }
+    public var leftOutBytes: Int64 { entries.filter(\.isLeftOut).reduce(0) { $0 + $1.bytes } }
 
     /// Clean acts on recommended entries only, and only on a ready card.
     public var canClean: Bool {
