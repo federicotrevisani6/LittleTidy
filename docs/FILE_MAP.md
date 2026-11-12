@@ -1,6 +1,6 @@
 # LittleTidy — File Map and Data Flow
 
-Moved out of AGENTS.md so that file stays short. This map can lag behind the code: when it disagrees with `Sources/`, the code wins, and the safety invariants in [AGENTS.md](../AGENTS.md) win over both.
+Kept apart from the other docs so they stay short. This map can lag behind the code: when it disagrees with `Sources/`, the code wins, and the rules in [SAFETY_AND_PERMISSIONS.md](SAFETY_AND_PERMISSIONS.md) win over both.
 
 Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRunner`, `FolderExplorer`, `GitWorktreeManager`, `SystemCareAnalyzer`, `SystemCareModels`), `Analyzers/APFSReclaimEstimator.swift`, `Analyzers/ClaudeSessionRegistry.swift`, `Analyzers/LocalSnapshotInventory.swift`, `Execution/DeletionPreflight.swift`, `Execution/HomebrewCleanup.swift`, `Execution/LocalSnapshotReleaser.swift`.
 
@@ -68,7 +68,7 @@ Not yet described below: `Sources/LittleTidyCore/SystemCare/` (`BoundedCommandRu
 - [`TrashPlanBuilder.swift`](../Sources/LittleTidyCore/Execution/TrashPlanBuilder.swift): Validates that candidates are inside approved roots, are not system apps, are not symlinks, and will not wipe out an entire duplicate group.
 - [`TrashExecutor.swift`](../Sources/LittleTidyCore/Execution/TrashExecutor.swift): Executes trash plan via `FileManager.default.trashItem(at:resultingItemURL:)` (or `removeItem` if permanent deletion was requested). Returns `trashed`, `failed`, and `skipped` lists.
 - [`DeveloperStorageCleanupExecutor.swift`](../Sources/LittleTidyCore/Execution/DeveloperStorageCleanupExecutor.swift): Actor executing developer storage deletions:
-  - Applies each item's `xcodeActivityRule` before acting on it: `requiresXcodeQuit` items are skipped while Xcode runs; `openFileCheck` items need a fresh open-file snapshot with nothing open inside them (see "Xcode Lock Guard" in AGENTS.md).
+  - Applies each item's `xcodeActivityRule` before acting on it: `requiresXcodeQuit` items are skipped while Xcode runs; `openFileCheck` items need a fresh open-file snapshot with nothing open inside them (the Xcode lock guard).
   - Handles `.trash` mechanism items.
   - Handles `.simctl` device deletions (re-verifying device state is not `Booted`).
   - Handles `.xcodeManaged` runtime deletions (re-verifying no dependent booted simulators).

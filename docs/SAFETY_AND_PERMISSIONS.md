@@ -140,4 +140,4 @@ try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
 - It has its own confirmation sheet stating item count, size and that it cannot be undone. Items LittleTidy moved to the Trash in its last cleanup are listed first, because they are the user's only undo for that run.
 - Only direct children of `~/.Trash` are removed. Symlinks are removed as links and never followed. External volumes' `.Trashes` are never read or modified.
 - Fail-closed: without an open-file snapshot nothing is removed. Items with open files, locked items and items owned by another account are skipped and reported. No elevation is requested.
-- Implemented in `TrashEmptier`; see the "Empty Trash Only On Request" invariant in AGENTS.md.
+- Implemented in `TrashEmptier`; this is the single exception to the Trash-first rule.

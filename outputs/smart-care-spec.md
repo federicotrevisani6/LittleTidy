@@ -4,7 +4,7 @@ Status: draft, 2026-11-12. Nothing here is implemented.
 Supersedes the scope of [downloads-ios-backups-mail-spec.md](downloads-ios-backups-mail-spec.md), which becomes Phase 2 of this spec.
 Origin: a comparison with how commercial Mac cleaners organise their home screen. We borrow the idea of a goal-based home, not anyone's wording, art or behavior.
 
-If this spec disagrees with the safety invariants in [AGENTS.md](../AGENTS.md), the invariants win and this spec gets fixed.
+If this spec disagrees with the safety rules in [docs/SAFETY_AND_PERMISSIONS.md](../docs/SAFETY_AND_PERMISSIONS.md), those rules win and this spec gets fixed.
 
 ## 1. Problem
 
@@ -75,7 +75,7 @@ States: `scanning`, `ready`, `needsAccess`, `blocked` (for example "Quit Xcode t
 
 ## 5a. Emptying the Trash (decided 2026-11-12)
 
-Decision: the Trash card has an Empty action. This is the one place where Smart Care deletes permanently, so it is an explicit, narrow exception to the "Trash Over Permanent Delete" invariant, and it needs the AGENTS.md amendment below before it ships.
+Decision: the Trash card has an Empty action. This is the one place where Smart Care deletes permanently, so it is an explicit, narrow exception to the Trash-first rule, and it must be recorded in `docs/SAFETY_AND_PERMISSIONS.md` (section 4.3) before it ships.
 
 **Why it is acceptable:** the user (or LittleTidy, on their request) already moved these items to the Trash. Emptying it is the macOS action users expect, and without it a cleanup never frees the space it promised.
 
@@ -91,7 +91,7 @@ Decision: the Trash card has an Empty action. This is the one place where Smart 
 - No shell, no `rm`. Removal uses `FileManager` on each child with an explicit item list, and a failure on one item does not stop the rest. The result lists removed, skipped and failed items.
 - Without Full Disk Access the card shows `needsAccess` and Empty is disabled.
 
-**Proposed AGENTS.md invariant (add to the table after review):**
+**Rule as recorded in `docs/SAFETY_AND_PERMISSIONS.md` section 4.3, in short:**
 
 | Invariant | Implementation Rule |
 |---|---|
@@ -123,7 +123,7 @@ Each is covered by a test in `LittleTidyCoreTests` or `LittleTidyTests` unless m
 **Actions**
 5. A card's Clean button is enabled only if it has `recommended` bytes and no blocking condition; it never includes a `review` item.
 6. Clean opens one confirmation sheet before any file is touched. Cancelling it changes nothing on disk.
-7. Clean runs through the existing plan builders and executors. Every invariant in AGENTS.md section 2 still holds (Xcode lock guard, simctl revalidation, approved roots, symlink protection, system apps, duplicate keep).
+7. Clean runs through the existing plan builders and executors. Every safety rule still holds (Xcode lock guard, simctl revalidation, approved roots, symlink protection, system apps, duplicate keep).
 8. With Trash mode on, no item is removed with `removeItem`.
 9. If Xcode is running, Developer card items that require it show `blocked` with the reason; the Clean button does not include them. If the check fails, the same result.
 10. The Time Machine card releases space only via `tmutil thinlocalsnapshots`, after the existing explicit confirmation.
@@ -163,7 +163,7 @@ Leftovers of removed apps (exact bundle ID, scanned in the background as the car
 
 ## 9. Open questions
 
-1. **Trash: decided.** Empty action with its own confirmation, see section 5a. Still open: whether the AGENTS.md amendment wording is accepted as written.
+1. **Trash: decided.** Empty action with its own confirmation, see section 5a. Still open: whether the wording of section 4.3 is accepted as written.
 2. **External volumes' Trash** (`/Volumes/*/.Trashes`): out of scope for now (criterion 10h). Revisit only with a safe preview.
 3. **Naming.** English strings are assumed. Final copy for card titles and explanations needs review through the ux-writing pass, and an Italian localization decision.
 4. **Headline wording.** Whether to show the review total on the home or only inside cards.
@@ -181,4 +181,4 @@ Leftovers of removed apps (exact bundle ID, scanned in the background as the car
 ## 11. Change log
 
 - 2026-11-12: first draft, written after comparing the home screen with commercial cleaners.
-- 2026-11-12: Trash card now has an Empty action (user decision). Added section 5a, criteria 10a to 10h, the proposed AGENTS.md invariant, and resolved open question 1. Trash moves into Phase 1 as a full card, not read-only.
+- 2026-11-12: Trash card now has an Empty action (user decision). Added section 5a, criteria 10a to 10h, the proposed safety rule, and resolved open question 1. Trash moves into Phase 1 as a full card, not read-only.

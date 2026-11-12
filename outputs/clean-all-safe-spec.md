@@ -1,6 +1,6 @@
 # Spec: Clean all safe (one gesture from the Smart Care header)
 
-Status: draft, 2026-11-12. Builds on [smart-care-spec.md](smart-care-spec.md). If this disagrees with the invariants in [AGENTS.md](../AGENTS.md), the invariants win.
+Status: draft, 2026-11-12. Builds on [smart-care-spec.md](smart-care-spec.md). If this disagrees with the safety rules in [docs/SAFETY_AND_PERMISSIONS.md](../docs/SAFETY_AND_PERMISSIONS.md), those rules win.
 
 ## 1. Goal
 
@@ -32,7 +32,7 @@ One button in the Smart Care header, "Clean X safely", that acts on everything L
 7. A `simctl` or Homebrew item is never run without the sheet naming it as irreversible.
 8. The result lists removed, skipped and failed items separately; a failure does not stop the remaining items.
 9. Pressing the button twice, or during another cleanup, starts only one run.
-10. Every invariant in AGENTS.md section 2 holds on this path (tests exercise it with fixtures).
+10. Every safety rule (Xcode lock guard, simctl revalidation, approved roots, symlink protection, system apps, duplicate keep) holds on this path (tests exercise it with fixtures).
 
 ## 5. Open questions
 

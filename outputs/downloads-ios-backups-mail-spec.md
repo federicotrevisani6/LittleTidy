@@ -3,7 +3,7 @@
 Status: draft, 2026-11-12. Nothing here is implemented.
 Origin: a review of the everyday-cleanup areas that commercial Mac cleaners cover. We take three of them and fit them to LittleTidy's rules, in our own wording and behavior.
 
-If this spec disagrees with the safety invariants in [AGENTS.md](../AGENTS.md), the invariants win and this spec gets fixed.
+If this spec disagrees with the safety rules in [docs/SAFETY_AND_PERMISSIONS.md](../docs/SAFETY_AND_PERMISSIONS.md), those rules win and this spec gets fixed.
 
 ## 1. Goal
 
@@ -149,7 +149,7 @@ Numbered and falsifiable. Each is covered by a test in `LittleTidyCoreTests` unl
 - `Policies/`: a pure policy mapping each kind to tier, recoverability and consequence, like `DeveloperStoragePolicy`.
 - `Execution/`: reuse `TrashPlanBuilder`, `TrashExecutor`, `DeletionPreflight` and the open-file snapshot; add a `Mail` activity rule next to the Xcode one in `DeveloperToolActivityChecker`.
 - UI: one new review list per area in `Features/ReviewList` and an entry in `SidebarView`. No new settings except the Downloads approval prompt.
-- Docs: update `docs/FILE_MAP.md`, `docs/SAFETY_AND_PERMISSIONS.md` and add the new rules to the invariant table in AGENTS.md after review.
+- Docs: update `docs/FILE_MAP.md`, `docs/SAFETY_AND_PERMISSIONS.md` and record the new rules in `docs/SAFETY_AND_PERMISSIONS.md` after review.
 
 ## 10. Change log
 
