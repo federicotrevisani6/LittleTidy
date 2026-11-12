@@ -10,8 +10,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_CORE || 'playwright-core');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const page_url = pathToFileURL(path.join(here, '..', 'source', 'screens.html')).href;
 const out = path.join(here, '..', 'screens');
-const all = ['home-ready', 'home-min-window', 'home-scanning', 'home-before-scan', 'card-states',
-  'confirm-clean-safely', 'cleanup-result', 'empty-trash-confirm', 'empty-trash-done'];
+const all = ['home-ready', 'home-min-window', 'home-scanning', 'home-before-scan', 'home-needs-access', 'home-nothing-safe', 'home-scan-cancelled', 'cleanup-running', 'card-states',
+  'confirm-clean-safely', 'cleanup-result', 'cleanup-result-all-failed', 'empty-trash-confirm', 'empty-trash-done'];
 const only = process.argv.slice(2);
 const screens = only.length ? only : all;
 

@@ -1,6 +1,6 @@
 # Smart Care: visual design
 
-Status: design proposal, 2026-11-12. Nothing here is implemented. Specs it follows: [smart-care-spec.md](../../smart-care-spec.md), [clean-all-safe-spec.md](../../clean-all-safe-spec.md), [cleanup-result-screen-spec.md](../../cleanup-result-screen-spec.md), [permissions-onboarding-spec.md](../../permissions-onboarding-spec.md). Implementation details are in [HANDOFF.md](HANDOFF.md).
+Status: design proposal, 2026-11-12. Nothing here is implemented. Specs it follows: [smart-care-spec.md](../../smart-care-spec.md), [clean-all-safe-spec.md](../../clean-all-safe-spec.md), [cleanup-result-screen-spec.md](../../cleanup-result-screen-spec.md), [permissions-onboarding-spec.md](../../permissions-onboarding-spec.md). Implementation details are in [HANDOFF.md](HANDOFF.md). The independent critique and what changed because of it is in [CRITIQUE.md](CRITIQUE.md).
 
 All sizes, paths and numbers in the screens are invented. None come from a real Mac.
 
@@ -16,9 +16,14 @@ Each file exists as `-light.png` and `-dark.png` (2x) in `screens/`.
 | Home before the first scan | `home-before-scan` |
 | Every card state on one sheet | `card-states` |
 | "Clean 26.4 GB safely?" sheet | `confirm-clean-safely` |
-| Result view after a cleanup | `cleanup-result` |
+| Result view after a cleanup, with problems | `cleanup-result` |
 | "Empty the Trash?" sheet | `empty-trash-confirm` |
 | Trash emptied (sheet result) | `empty-trash-done` |
+| Home with one card that needs access | `home-needs-access` |
+| Home with a safe total of 0 | `home-nothing-safe` |
+| Home after cancelling a scan | `home-scan-cancelled` |
+| Home while a cleanup runs | `cleanup-running` |
+| Result when every item failed | `cleanup-result-all-failed` |
 | Home with Increase Contrast on (light) | `home-ready-increased-contrast-light.png` |
 
 Source: `source/screens.html` (one file, all screens, `?screen=<name>&theme=light|dark`). Re-render with `tools/render.mjs`. The SF Symbols are generated locally by `tools/render-symbols.swift` and are not committed; see the header of each tool.
@@ -36,12 +41,16 @@ Smart Care is a calm checkup sheet, not a dashboard. The window already uses nat
 
 ## Decisions I made that the specs left open
 
-- **Header layout.** The Clean button moves from the title row into the safe block. Scan / Scan Again / Cancel stays top right.
+- **Header layout.** The title and Scan / Scan Again / Cancel move into the window toolbar, as a native app would. The Clean button sits in the safe block, with two lines under it: how much goes to the Trash (restorable) and how much is removed for good.
+- **Trash is a full-width row,** not a fourth card. It is the only card with a permanent action and the only red button, and a full-width row also stops it from sitting alone in the grid.
+- **Tier bar** width is the card's share of the largest card, and its colours are the safe/review split. The tier line is its legend.
+- **Blocked items** (for example Xcode running) are left out of the totals and the card says so. The rest of the card can still be cleaned, as the clean-all-safe spec says.
 - **Card total.** The card number is the full total (safe + review + protected), as in the current code. Clean repeats the safe amount to remove the ambiguity. If you prefer the number to be only the safe part, the tier line still works.
 - **Result view lives in the detail pane,** not a sheet, with a "Smart Care" back link and a footer button. Restore All, Open Trash and Empty Trash sit under the "In the Trash" number, because they act on it. There is no destructive button next to the footer button.
 - **Skipped and failed** are two separate lists, skipped first, each row with its reason. "Nothing was changed" is stated for skipped items.
 - **"Held by a snapshot"** appears only when the spec threshold is met (the mock shows it met).
 - **Empty cards** collapse to one line with the card name as a link, so they can still be opened.
+- **Result title** says "finished with problems" with an orange glyph whenever anything failed or was skipped, and the all-failed result has no success wording at all.
 - **Waiting state.** While a scan runs, cards that are queued show "Waiting to scan", dimmed. This is new, small, and optional.
 
 ## Open points for the owner
@@ -49,7 +58,11 @@ Smart Care is a calm checkup sheet, not a dashboard. The window already uses nat
 1. The result view's "Restore only works for items that are still in the Trash" line is a design suggestion, not in the spec.
 2. The Increase Contrast render shows rules, not the final result. Check it with the real setting.
 3. Card radius goes from 10 to 12 pt. It is one parameter in `cleanerSurface`.
-4. The existing text colours for warning and danger (system orange and red used as text) fail contrast on white (about 2.2:1 for orange). The design uses darker text tokens and keeps the system colour for glyphs and fills. See HANDOFF.md.
+4. Secondary text (`.secondary`) is about 4:1 on white in light mode, below 4.5:1 at 11 to 12 pt. The handoff defines a stronger secondary text token. The existing text colours for warning and danger (system orange and red used as text) fail contrast on white (about 2.2:1 for orange). The design uses darker text tokens and keeps the system colour for glyphs and fills. See HANDOFF.md.
+
+## Not drawn
+
+Empty Trash while it runs, Restore with conflicts (item stays in the Trash and is listed with its path), and the first-launch permissions screen (see the permissions spec).
 
 ## What does not carry over from the mobile design process
 
