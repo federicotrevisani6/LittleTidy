@@ -63,6 +63,13 @@ Rules:
 
 `CleanupPlanView` and `DeveloperStorageView` result sections, `CleanupReportItem`, `TrashedItem`, `CleanupHistoryEntry` and `CleanupHistoryStore` (add per-card bytes, keep decoding old entries), a new `Features/CleanupResult/` view, a small restore helper in `LittleTidyCore/Execution`.
 
-## 9. Change log
+## 9. Implementation status (first version)
+
+- Done: the summary model and view with the three numbers, per-card lines, skipped and failed lists with reasons, Restore (Trash moves only, never overwrites), Open Trash, Empty Trash (opens the Trash card's own confirmation), and a history entry per run with bytes per card (old entries still decode). Shown after "Clean all safe".
+- Developer cleanup results now record where each item went in the Trash, which is what makes Restore possible.
+- Not done: the same view after a Developer Storage cleanup and after a Cleanup Plan run (they keep their own result sections for now), and Restore after the app restarts (the list lives in memory).
+
+## 10. Change log
 
 - 2026-11-12: first draft.
+- 2026-11-12: first implementation, see section 9.

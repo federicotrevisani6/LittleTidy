@@ -11,6 +11,9 @@ struct CleanupHistoryEntry: Identifiable, Codable, Hashable {
     let failedCount: Int
     /// Bytes moved to Trash per category, keyed by `CleanupCategory.rawValue`.
     let bytesByCategory: [String: Int64]
+    /// Bytes removed per Smart Care card, keyed by `SmartCareCardID.rawValue`.
+    /// Absent in entries recorded before Smart Care, which still decode.
+    let bytesByCard: [String: Int64]?
 
     init(
         id: UUID = UUID(),
@@ -19,7 +22,8 @@ struct CleanupHistoryEntry: Identifiable, Codable, Hashable {
         movedCount: Int,
         skippedCount: Int,
         failedCount: Int,
-        bytesByCategory: [String: Int64]
+        bytesByCategory: [String: Int64],
+        bytesByCard: [String: Int64]? = nil
     ) {
         self.id = id
         self.date = date
@@ -28,5 +32,6 @@ struct CleanupHistoryEntry: Identifiable, Codable, Hashable {
         self.skippedCount = skippedCount
         self.failedCount = failedCount
         self.bytesByCategory = bytesByCategory
+        self.bytesByCard = bytesByCard
     }
 }

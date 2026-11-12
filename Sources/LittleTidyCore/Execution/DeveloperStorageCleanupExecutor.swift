@@ -17,6 +17,10 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
     /// The item's allocated size, which can exceed `bytes` when part of it is
     /// shared with clones or held by a local snapshot.
     public let allocatedBytes: Int64
+    /// Where the item was before it moved to the Trash, and where it is now.
+    /// Both are set only for Trash moves; they make Restore possible.
+    public let originalPath: String?
+    public let trashPath: String?
 
     public init(
         itemID: String,
@@ -25,7 +29,9 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
         status: DeveloperStorageCleanupStatus,
         message: String,
         movedToTrash: Bool = false,
-        allocatedBytes: Int64? = nil
+        allocatedBytes: Int64? = nil,
+        originalPath: String? = nil,
+        trashPath: String? = nil
     ) {
         self.itemID = itemID
         self.name = name
@@ -34,6 +40,8 @@ public struct DeveloperStorageCleanupResultItem: Codable, Equatable, Sendable {
         self.message = message
         self.movedToTrash = movedToTrash
         self.allocatedBytes = allocatedBytes ?? bytes
+        self.originalPath = originalPath
+        self.trashPath = trashPath
     }
 }
 
@@ -236,12 +244,14 @@ public actor DeveloperStorageCleanupExecutor {
             let obstacles = deletionPreflight(url)
             if !obstacles.isEmpty { fellBackToTrash = obstacles }
         }
+        var trashedTo: URL?
         do {
             if deletionMode == .permanentDelete, fellBackToTrash == nil {
                 try fileManager.removeItem(at: url)
             } else {
                 var resultingURL: NSURL?
                 try fileManager.trashItem(at: url, resultingItemURL: &resultingURL)
+                trashedTo = resultingURL as URL?
             }
         } catch {
             return result(item, status: .failed, message: remainingDataMessage(for: url, error: error))
@@ -254,12 +264,14 @@ public actor DeveloperStorageCleanupExecutor {
                 item,
                 status: .removed,
                 message: "Moved to Trash instead of deleting permanently: \(obstacles.explanation), which only an administrator can delete. Finder asks for your password when you empty the Trash.",
-                movedToTrash: true
+                movedToTrash: true,
+                originalPath: url.path,
+                trashPath: trashedTo?.path
             )
         }
         return deletionMode == .permanentDelete
             ? result(item, status: .removed, message: "Permanently deleted.")
-            : result(item, status: .removed, message: "Moved to Trash. Empty the Trash to free this space.", movedToTrash: true)
+            : result(item, status: .removed, message: "Moved to Trash. Empty the Trash to free this space.", movedToTrash: true, originalPath: url.path, trashPath: trashedTo?.path)
     }
 
     /// A failed permanent delete can leave part of a tree behind, for example
@@ -389,7 +401,9 @@ public actor DeveloperStorageCleanupExecutor {
         _ item: DeveloperStorageItem,
         status: DeveloperStorageCleanupStatus,
         message: String,
-        movedToTrash: Bool = false
+        movedToTrash: Bool = false,
+        originalPath: String? = nil,
+        trashPath: String? = nil
     ) -> DeveloperStorageCleanupResultItem {
         DeveloperStorageCleanupResultItem(
             itemID: item.id,
@@ -398,7 +412,9 @@ public actor DeveloperStorageCleanupExecutor {
             status: status,
             message: message,
             movedToTrash: movedToTrash,
-            allocatedBytes: item.bytes
+            allocatedBytes: item.bytes,
+            originalPath: originalPath,
+            trashPath: trashPath
         )
     }
 }
