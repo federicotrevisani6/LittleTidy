@@ -478,3 +478,27 @@ struct PermissionGuideTests {
         }
     }
 }
+
+@Suite("Smart Care cards without bytes")
+struct SmartCareHeadlineTextTests {
+    @Test func aCardWithOnlyAHeadlineIsReadyNotEmpty() {
+        let inputs = SmartCareInputs(infoText: [.startupItems: "launchd items start with your Mac."], headlineText: [.startupItems: "13 items"])
+        let card = SmartCareBuilder.cards(from: inputs).first { $0.cardID == .startupItems }!
+        #expect(card.state == .ready)
+        #expect(card.headlineText == "13 items")
+        #expect(card.canClean == false)
+    }
+
+    @Test func everyCategoryAlwaysProducesACard() {
+        let cards = SmartCareBuilder.cards(from: SmartCareInputs())
+        #expect(cards.map(\.cardID) == SmartCareCardID.allCases)
+        #expect(cards.allSatisfy { $0.isEmpty })
+    }
+
+    @Test func theTrashNeverCountsInTheSafeHeadline() {
+        var inputs = SmartCareInputs()
+        inputs.entries[.trash] = [SmartCareEntry(path: "/t/a", bytes: 5_000, tier: .review)]
+        let cards = SmartCareBuilder.cards(from: inputs)
+        #expect(SmartCareBuilder.headline(for: cards).safeBytes == 0)
+    }
+}

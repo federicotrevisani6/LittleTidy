@@ -6,6 +6,7 @@ public enum EverydaySpaceKind: String, CaseIterable, Identifiable, Sendable {
     case installers
     case iosBackups
     case mailDownloads
+    case appLeftovers
 
     public var id: String { rawValue }
 
@@ -14,6 +15,7 @@ public enum EverydaySpaceKind: String, CaseIterable, Identifiable, Sendable {
         case .installers: .installers
         case .iosBackups: .iosBackups
         case .mailDownloads: .mailAttachments
+        case .appLeftovers: .leftovers
         }
     }
 }
@@ -34,6 +36,8 @@ public struct EverydaySpaceItem: Identifiable, Equatable, Sendable {
     public let consequence: String
     /// A stronger warning applies, for example the newest backup of a device.
     public let warning: String?
+    /// The app identifier a leftover belongs to, so a running app can be noticed.
+    public let bundleID: String?
 
     public init(
         kind: EverydaySpaceKind,
@@ -44,7 +48,8 @@ public struct EverydaySpaceItem: Identifiable, Equatable, Sendable {
         tier: StorageRecommendation,
         reason: String,
         consequence: String,
-        warning: String? = nil
+        warning: String? = nil,
+        bundleID: String? = nil
     ) {
         self.kind = kind
         self.name = name
@@ -55,6 +60,7 @@ public struct EverydaySpaceItem: Identifiable, Equatable, Sendable {
         self.reason = reason
         self.consequence = consequence
         self.warning = warning
+        self.bundleID = bundleID
     }
 
     /// Only review items can be picked: protected and unclassified ones are
@@ -69,6 +75,8 @@ public struct EverydayScanResult: Equatable, Sendable {
         case needsAccess
         /// Downloads is not one of the folders the person approved.
         case folderNotApproved
+        /// The check that proves an app is gone could not run, so nothing is listed.
+        case cannotVerify
     }
 
     public let kind: EverydaySpaceKind
